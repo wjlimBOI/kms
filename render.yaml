@@ -1,0 +1,87 @@
+# render.yaml - Infrastructure as Code for Render
+
+services:
+  # Staging/UAT Service
+  - type: web
+    name: kms-staging
+    runtime: node
+    repo: https://github.com/wjlimBOI/kms
+    branch: staging
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: staging
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kms-staging-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: BCRYPT_ROUNDS
+        value: 12
+      - key: ALLOWED_ORIGINS
+        value: https://kms-staging.onrender.com
+      - key: ENABLE_EMAIL_NOTIFICATIONS
+        value: false
+      - key: ENABLE_AUDIT_LOG
+        value: true
+      - key: MAX_LOGIN_ATTEMPTS
+        value: 5
+      - key: LOCK_DURATION_MINUTES
+        value: 30
+      - key: LOG_LEVEL
+        value: info
+    buildCommand: npm install && npm run build:all
+    startCommand: npm start
+
+  # Production Service (for later)
+  - type: web
+    name: kms-production
+    runtime: node
+    repo: https://github.com/wjlimBOI/kms
+    branch: main
+    plan: starter
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: kms-prod-db
+          property: connectionString
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: BCRYPT_ROUNDS
+        value: 12
+      - key: ALLOWED_ORIGINS
+        value: https://kms-production.onrender.com
+      - key: ENABLE_EMAIL_NOTIFICATIONS
+        value: true
+      - key: ENABLE_AUDIT_LOG
+        value: true
+      - key: MAX_LOGIN_ATTEMPTS
+        value: 5
+      - key: LOCK_DURATION_MINUTES
+        value: 30
+      - key: LOG_LEVEL
+        value: info
+    buildCommand: npm install --production && npm run build:all
+    startCommand: npm start
+
+databases:
+  - name: kms-staging-db
+    plan: free
+    databaseName: kms_staging
+    user: kms_staging_user
+
+  - name: kms-prod-db
+    plan: starter
+    databaseName: kms_production
+    user: kms_prod_user

@@ -285,12 +285,14 @@ app.get('/privacy-policy', (req, res) => {
   sendHtml(res, 'privacy-policy.html');
 });
 
-app.get('/assets/v:hash/:path(*)', (req, res) => {
-  const filePath = req.params.path;
-  const requestedHash = req.params.hash;
+app.get(/^\/assets\/v([^\/]+)\/(.*)$/, (req, res) => {
+  const requestedHash = req.params[0];
+  const filePath = req.params[1];
+
   if (requestedHash !== BUILD_HASH) {
     return res.redirect(301, `/assets/v${BUILD_HASH}/${filePath}`);
   }
+
   const fullPath = path.join(__dirname, 'public', filePath);
   res.sendFile(fullPath, {
     maxAge: IS_PRODUCTION ? 31536000000 : 3600000,

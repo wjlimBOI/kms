@@ -9,6 +9,7 @@ const cors = require('cors');
 const compression = require('compression');
 const helmet = require('helmet');
 const crypto = require('crypto');
+const cookieParser = require('cookie-parser');
 const logger = require('./lib/logger');
 
 const authRoutes = require('./routes/auth').router;
@@ -23,7 +24,7 @@ const permissionsRoutes = require('./routes/permissions');
 const emailSettingsRoutes = require('./routes/emailSettings');
 const healthRoutes = require('./routes/health');
 
-const { requireAuth } = require('./middleware/auth');
+const { requireAuth, refreshTokenIfNeeded } = require('./middleware/auth');
 const { csrfProtection, generateCsrfTokenForSession, getCsrfToken } = require('./middleware/csrf');
 const startReminderCron = require('./cron');
 
@@ -85,9 +86,26 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", ...(IS_PRODUCTION ? [] : ["'unsafe-eval'"])],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
+      scriptSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https://cdnjs.cloudflare.com",
+        "https://kit.fontawesome.com",
+        ...(IS_PRODUCTION ? [] : ["'unsafe-eval'"])
+      ],
+      styleSrc: [
+        "'self'",
+        "'unsafe-inline'",
+        "https://fonts.googleapis.com",
+        "https://cdnjs.cloudflare.com",
+        "https://kit.fontawesome.com"
+      ],
+      fontSrc: [
+        "'self'",
+        "https://fonts.gstatic.com",
+        "https://cdnjs.cloudflare.com",
+        "data:"
+      ],
       imgSrc: ["'self'", "data:", "blob:"],
       connectSrc: ["'self'", ...(IS_PRODUCTION ? [] : ["http://localhost:3000"])],
       baseUri: ["'self'"],
@@ -115,6 +133,8 @@ app.use(compression({
     return compression.filter(req, res);
   }
 }));
+
+app.use(cookieParser());
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -191,10 +211,10 @@ app.use(session({
   saveUninitialized: false,
   name: 'kms.sid',
   cookie: {
-    maxAge: 30 * 60 * 1000,
+    maxAge: 7 * 24 * 60 * 60 * 1000,
     httpOnly: true,
     secure: IS_PRODUCTION,
-    sameSite: 'strict',
+    sameSite: 'lax',
     path: '/',
   },
   rolling: true,
@@ -213,6 +233,8 @@ app.use('/api', (req, res, next) => {
   }
   csrfProtection(req, res, next);
 });
+
+app.use('/api', refreshTokenIfNeeded);
 
 app.get('/api/csrf-token', (req, res) => {
   const token = getCsrfToken(req);
@@ -271,7 +293,7 @@ app.get('/dashboard', requireAuth, (req, res) => {
 });
 
 app.get('/admin', requireAuth, (req, res) => {
-  if (req.session.role !== 'admin') {
+  if (req.user?.role !== 'admin' && req.session.role !== 'admin') {
     return res.status(403).send('Access denied. Admin privileges required.');
   }
   sendHtml(res, 'admin.html', { 'X-Build-Hash': BUILD_HASH });
@@ -312,7 +334,6 @@ app.get('/health', (req, res) => {
   });
 });
 
-// FIXED: Use middleware instead of route for catch-all
 app.use((req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'API endpoint not found' });
@@ -323,8 +344,6 @@ app.use((req, res) => {
   sendHtml(res, 'index.html');
 });
 
-// Remove the duplicate 404 handler that comes after the catch-all
-// Keep only this one for unmatched routes
 app.use((req, res) => {
   if (req.path.startsWith('/api/')) {
     res.status(404).json({ error: 'API endpoint not found' });

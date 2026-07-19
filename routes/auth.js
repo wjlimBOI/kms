@@ -19,6 +19,8 @@ if (!JWT_SECRET) {
 const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS) || 12;
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_DURATION_MINUTES = 30;
+const JWT_EXPIRY = '7d';
+const SESSION_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -34,6 +36,29 @@ const otpLimiter = rateLimit({
 });
 
 const verifiedSessions = new Map();
+
+// Helper: Set secure cookie with JWT
+function setAuthCookie(res, token) {
+  const isProduction = process.env.NODE_ENV === 'production';
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax',
+    maxAge: SESSION_EXPIRY,
+    path: '/',
+    domain: process.env.COOKIE_DOMAIN || undefined
+  });
+}
+
+// Helper: Clear auth cookie
+function clearAuthCookie(res) {
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/'
+  });
+}
 
 router.post('/request-otp', otpLimiter, async (req, res) => {
   const { email } = req.body;
@@ -388,62 +413,61 @@ router.post('/login', loginLimiter, validate(loginSchema), async (req, res) => {
       }
     }
 
+    // Reset failed attempts on successful login
     await db.query(
-      'UPDATE users SET failed_login_attempts = 0, locked_until = NULL WHERE id = $1',
+      'UPDATE users SET failed_login_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = $1',
       [user.id]
     );
 
-    req.session.regenerate(async (err) => {
-      if (err) {
-        logger.error('Session regeneration failed', { error: err.message, username });
-        return res.status(500).json({ error: 'Internal server error' });
-      }
-
-      req.session.userId = user.id;
-      req.session.username = user.username;
-      req.session.role = user.role || 'user';
-      req.session.mustChangePassword = user.must_change_password || false;
-
-      const jwtToken = jwt.sign(
-        {
-          id: user.id,
-          username: user.username,
-          role: user.role || 'user',
-          email: user.email,
-          name: user.name
-        },
-        JWT_SECRET,
-        { expiresIn: '1d' }
-      );
-
-      await logAuthEvent({
-        eventType: 'LOGIN',
-        userId: user.id,
-        userEmail: user.username,
-        req,
-        extraDetails: { role: user.role, ip: clientIp }
-      });
-
-      logger.info('Login successful', { username, userId: user.id });
-
-      let redirectPath = '/';
-      if (user.role === 'admin') {
-        redirectPath = '/admin';
-      }
-
-      res.json({
-        token: jwtToken,
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          name: user.name || user.username,
-          role: user.role || 'user'
-        },
+    // Generate JWT
+    const jwtToken = jwt.sign(
+      {
+        id: user.id,
+        username: user.username,
         role: user.role || 'user',
-        mustChangePassword: user.must_change_password || false,
-        redirect: redirectPath
-      });
+        email: user.email,
+        name: user.name
+      },
+      JWT_SECRET,
+      { expiresIn: JWT_EXPIRY }
+    );
+
+    // Set HTTP-only cookie (IMDA compliant)
+    setAuthCookie(res, jwtToken);
+
+    // Also set session for backward compatibility
+    req.session.userId = user.id;
+    req.session.username = user.username;
+    req.session.role = user.role || 'user';
+    req.session.mustChangePassword = user.must_change_password || false;
+
+    await logAuthEvent({
+      eventType: 'LOGIN',
+      userId: user.id,
+      userEmail: user.username,
+      req,
+      extraDetails: { role: user.role, ip: clientIp }
+    });
+
+    logger.info('Login successful', { username, userId: user.id });
+
+    let redirectPath = '/';
+    if (user.role === 'admin') {
+      redirectPath = '/admin';
+    }
+
+    res.json({
+      token: jwtToken,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        name: user.name || user.username,
+        role: user.role || 'user'
+      },
+      role: user.role || 'user',
+      mustChangePassword: user.must_change_password || false,
+      redirect: redirectPath
     });
   } catch (err) {
     logger.error('Login error', { error: err.message, username });
@@ -453,8 +477,8 @@ router.post('/login', loginLimiter, validate(loginSchema), async (req, res) => {
 
 router.post('/change-password', requireAuth, async (req, res) => {
   const { current_password, new_password } = req.body;
-  const userId = req.session.userId;
-  const username = req.session.username;
+  const userId = req.user?.id || req.session.userId;
+  const username = req.user?.username || req.session.username;
 
   if (!current_password || !new_password) {
     return res.status(400).json({ error: 'Current and new password are required.' });
@@ -502,7 +526,9 @@ router.post('/change-password', requireAuth, async (req, res) => {
       extraDetails: { action: 'password_changed' }
     });
 
-    req.session.mustChangePassword = false;
+    if (req.session) {
+      req.session.mustChangePassword = false;
+    }
 
     res.json({ message: 'Password updated successfully.' });
   } catch (err) {
@@ -513,7 +539,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
 
 router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) => {
   const { username, email, role = 'user', status = 'active' } = req.body;
-  const adminId = req.session.userId;
+  const adminId = req.user?.id || req.session.userId;
 
   if (!username || !email) {
     return res.status(400).json({ error: 'Username and email are required.' });
@@ -565,7 +591,7 @@ router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) =>
     await logAuthEvent({
       eventType: 'USER_CREATED',
       userId: adminId,
-      userEmail: req.session.username,
+      userEmail: req.user?.username || req.session.username,
       req,
       extraDetails: { newUserId, username, email, role }
     });
@@ -579,9 +605,13 @@ router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) =>
 });
 
 router.post('/logout', async (req, res) => {
-  const userId = req.session.userId;
-  const username = req.session.username;
+  const userId = req.user?.id || req.session.userId;
+  const username = req.user?.username || req.session.username;
+  
   logger.info('Logout', { userId, username });
+
+  // Clear auth cookie
+  clearAuthCookie(res);
 
   req.session.destroy(async (err) => {
     if (err) {
@@ -599,17 +629,13 @@ router.post('/logout', async (req, res) => {
   });
 });
 
-router.get('/session', (req, res) => {
-  if (req.session.userId) {
-    res.json({
-      loggedIn: true,
-      username: req.session.username,
-      role: req.session.role,
-      mustChangePassword: req.session.mustChangePassword || false
-    });
-  } else {
-    res.json({ loggedIn: false });
-  }
+router.get('/session', requireAuth, (req, res) => {
+  res.json({
+    loggedIn: true,
+    username: req.user?.username || req.session.username,
+    role: req.user?.role || req.session.role,
+    mustChangePassword: req.session?.mustChangePassword || false
+  });
 });
 
 router.post('/validate-password-token', async (req, res) => {

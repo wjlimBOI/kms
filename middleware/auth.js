@@ -6,12 +6,49 @@ if (!JWT_SECRET) {
   throw new Error('JWT_SECRET environment variable is required');
 }
 
-function getTokenFromHeader(req) {
+const JWT_EXPIRY = '7d';
+
+// Helper: Extract token from request
+function getTokenFromRequest(req) {
+  // Check Authorization header first
   const authHeader = req.headers.authorization;
-  return authHeader?.startsWith('Bearer ') ? authHeader.split(' ')[1] : null;
+  if (authHeader?.startsWith('Bearer ')) {
+    return authHeader.split(' ')[1];
+  }
+  
+  // Check cookie
+  if (req.cookies?.token) {
+    return req.cookies.token;
+  }
+  
+  return null;
 }
 
+// Helper: Set user from token
+function setUserFromToken(req, decoded) {
+  req.user = {
+    id: decoded.id,
+    userId: decoded.id,
+    role: decoded.role || 'user',
+    username: decoded.username,
+    email: decoded.email || decoded.username,
+    name: decoded.name || decoded.username
+  };
+  return req.user;
+}
+
+// Helper: Verify JWT token
+function verifyToken(token) {
+  try {
+    return jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    return null;
+  }
+}
+
+// Main authentication middleware
 async function requireAuth(req, res, next) {
+  // Check session first (backward compatibility)
   if (req.session?.userId) {
     req.user = {
       id: req.session.userId,
@@ -23,39 +60,63 @@ async function requireAuth(req, res, next) {
     return next();
   }
 
-  const token = getTokenFromHeader(req);
+  // Check token from header or cookie
+  const token = getTokenFromRequest(req);
   if (token) {
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET);
-      req.user = {
-        id: decoded.id,
-        userId: decoded.id,
-        role: decoded.role || 'user',
-        username: decoded.username,
-        email: decoded.username
-      };
+    const decoded = verifyToken(token);
+    if (decoded) {
+      setUserFromToken(req, decoded);
+      
+      // Sync session with token if session exists
+      if (req.session) {
+        req.session.userId = decoded.id;
+        req.session.username = decoded.username;
+        req.session.role = decoded.role || 'user';
+      }
+      
       return next();
-    } catch (err) {
-      await logAuthEvent({
-        eventType: 'PERMISSION_DENIED',
-        userId: null,
-        userEmail: null,
-        req,
-        extraDetails: { reason: 'Invalid JWT', error: err.message }
+    }
+    
+    // Invalid token - clear it
+    if (req.cookies?.token) {
+      res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/'
       });
     }
+    
+    await logAuthEvent({
+      eventType: 'PERMISSION_DENIED',
+      userId: null,
+      userEmail: null,
+      req,
+      extraDetails: { reason: 'Invalid JWT token' }
+    });
   }
 
+  // No valid authentication found
   if (req.xhr || req.headers.accept?.includes('application/json')) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ 
+      error: 'Unauthorized',
+      code: 'UNAUTHORIZED'
+    });
   }
+  
+  // Redirect to login for browser requests
   res.redirect('/login');
 }
 
+// Role-based authorization middleware
 function authorize(...allowedRoles) {
   return async (req, res, next) => {
-    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-    if (!allowedRoles.includes(req.user.role)) {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    
+    const userRole = req.user.role;
+    if (!allowedRoles.includes(userRole)) {
       await logAuthEvent({
         eventType: 'PERMISSION_DENIED',
         userId: req.user.id,
@@ -64,19 +125,26 @@ function authorize(...allowedRoles) {
         extraDetails: {
           reason: 'Insufficient role',
           required: allowedRoles,
-          actual: req.user.role,
+          actual: userRole,
           route: req.originalUrl
         }
       });
-      return res.status(403).json({ error: 'Forbidden: insufficient role' });
+      return res.status(403).json({ 
+        error: 'Forbidden: insufficient role',
+        required: allowedRoles,
+        actual: userRole
+      });
     }
     next();
   };
 }
 
+// Permission-based authorization middleware
 function requirePermission(permissionCode) {
   return async (req, res, next) => {
-    if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+    if (!req.user) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
 
     try {
       const db = req.db;
@@ -92,6 +160,7 @@ function requirePermission(permissionCode) {
          WHERE rp.role_name = $1 AND p.permission_code = $2`,
         [req.user.role, permissionCode]
       );
+      
       if (result.rowCount === 0) {
         await logAuthEvent({
           eventType: 'PERMISSION_DENIED',
@@ -105,7 +174,11 @@ function requirePermission(permissionCode) {
             route: req.originalUrl
           }
         });
-        return res.status(403).json({ error: 'Forbidden: missing permission' });
+        return res.status(403).json({ 
+          error: 'Forbidden: missing permission',
+          required: permissionCode,
+          actual: req.user.role
+        });
       }
       next();
     } catch (err) {
@@ -115,4 +188,59 @@ function requirePermission(permissionCode) {
   };
 }
 
-module.exports = { requireAuth, authorize, requirePermission };
+// Middleware to refresh token if it's about to expire
+function refreshTokenIfNeeded(req, res, next) {
+  if (!req.user || !req.cookies?.token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.decode(req.cookies.token);
+    if (!decoded || !decoded.exp) {
+      return next();
+    }
+
+    const now = Math.floor(Date.now() / 1000);
+    const timeLeft = decoded.exp - now;
+    const refreshThreshold = 24 * 60 * 60; // 24 hours
+
+    if (timeLeft < refreshThreshold && timeLeft > 0) {
+      // Token is about to expire, issue a new one
+      const newToken = jwt.sign(
+        {
+          id: req.user.id,
+          username: req.user.username,
+          role: req.user.role,
+          email: req.user.email,
+          name: req.user.name
+        },
+        JWT_SECRET,
+        { expiresIn: JWT_EXPIRY }
+      );
+      
+      res.cookie('token', newToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        path: '/'
+      });
+      
+      // Also set in response header for clients that use Authorization header
+      res.setHeader('X-New-Token', newToken);
+    }
+  } catch (err) {
+    // Silent fail - token refresh is a bonus feature
+  }
+  
+  next();
+}
+
+module.exports = { 
+  requireAuth, 
+  authorize, 
+  requirePermission,
+  getTokenFromRequest,
+  verifyToken,
+  refreshTokenIfNeeded
+};

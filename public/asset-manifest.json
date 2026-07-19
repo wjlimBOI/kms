@@ -1,12 +1,12 @@
 {
   "version": "1.0.0",
-  "buildHash": "d48646c8860ce954",
+  "buildHash": "03cc98a40de1a238",
   "assets": {
-    "css": "/assets/vd48646c8860ce954/css/style.css",
-    "js": "/assets/vd48646c8860ce954/js/main.js"
+    "css": "/assets/v03cc98a40de1a238/css/style.css",
+    "js": "/assets/v03cc98a40de1a238/js/main.js"
   },
   "urls": [
-    "/assets/vd48646c8860ce954/index.html",
-    "/assets/vd48646c8860ce954/admin.html"
+    "/assets/v03cc98a40de1a238/index.html",
+    "/assets/v03cc98a40de1a238/admin.html"
   ]
 }

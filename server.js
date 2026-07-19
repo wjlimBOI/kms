@@ -312,6 +312,7 @@ app.get('/health', (req, res) => {
   });
 });
 
+// FIXED: Changed from regex to string pattern for catch-all route
 app.get('*', (req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'API endpoint not found' });

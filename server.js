@@ -285,8 +285,8 @@ app.get('/privacy-policy', (req, res) => {
   sendHtml(res, 'privacy-policy.html');
 });
 
-app.get('/assets/v:hash/*', (req, res) => {
-  const filePath = req.params[0];
+app.get('/assets/v:hash/:path(*)', (req, res) => {
+  const filePath = req.params.path;
   const requestedHash = req.params.hash;
   if (requestedHash !== BUILD_HASH) {
     return res.redirect(301, `/assets/v${BUILD_HASH}/${filePath}`);

@@ -1,0 +1,70 @@
+{
+  "name": "kds",
+  "version": "1.0.0",
+  "description": "BOI Key Management System",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "NODE_ENV=development nodemon server.js",
+    "staging": "NODE_ENV=staging node server.js",
+    "uat": "NODE_ENV=staging node server.js",
+    "production": "NODE_ENV=production node server.js",
+    "build": "node scripts/build.js",
+    "build:css": "tailwindcss -i ./src/input.css -o ./public/css/style.css --minify",
+    "build:all": "npm run build:css && npm run build",
+    "prestart": "npm run build:all",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "clean": "rm -rf node_modules package-lock.json && npm install",
+    "cache:clear": "node scripts/clear-cache.js",
+    "migrate": "node scripts/migrate.js",
+    "migrate:staging": "NODE_ENV=staging node scripts/migrate.js",
+    "migrate:production": "NODE_ENV=production node scripts/migrate.js",
+    "seed": "node scripts/seed.js",
+    "postinstall": "npm run build:all"
+  },
+  "keywords": [
+    "key-management",
+    "boi",
+    "kms"
+  ],
+  "author": "Beauty One International Pte Ltd",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "compression": "^1.8.1",
+    "connect-pg-simple": "^10.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.5.2",
+    "express-session": "^1.19.0",
+    "helmet": "^8.2.0",
+    "jsonwebtoken": "^9.0.3",
+    "node-cron": "^4.2.1",
+    "nodemailer": "^9.0.3",
+    "pg": "^8.20.0",
+    "winston": "^3.19.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+    "tailwindcss": "^3.4.16",
+    "cross-env": "^7.0.3"
+  },
+  "allowScripts": {
+    "bcrypt@6.0.0": true
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/kms.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/kms/issues"
+  },
+  "homepage": "https://github.com/your-org/kms#readme"
+}

@@ -1,0 +1,625 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Privacy Policy &amp; Terms of Service | Key Master System</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    /* ============================================================
+       ENTERPRISE EXECUTIVE UTILITARIAN STYLING
+       ============================================================ */
+    * { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', -apple-system, system-ui, sans-serif;
+      background: #f2f4f8;
+      color: #0f172a;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ---- Content Card ---- */
+    .content-card {
+      background: #ffffff;
+      border: 1px solid #e9edf2;
+      border-radius: 1.25rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.03);
+      padding: 2.5rem 3rem;
+      transition: box-shadow 0.2s ease;
+      word-wrap: break-word;
+    }
+    .content-card:hover {
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
+    }
+    @media (max-width: 640px) {
+      .content-card { padding: 1.5rem; }
+    }
+
+    /* ---- Policy Content ---- */
+    .policy-content h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #0f172a;
+      margin-bottom: 1.25rem;
+    }
+    .policy-content h2 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      color: #0f172a;
+      margin-top: 2.25rem;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #f1f4f9;
+    }
+    .policy-content h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: #1e293b;
+      margin-top: 1.25rem;
+      margin-bottom: 0.5rem;
+    }
+    .policy-content p {
+      color: #334155;
+      line-height: 1.75;
+      font-size: 0.95rem;
+      margin-bottom: 0.75rem;
+    }
+    .policy-content ul,
+    .policy-content ol {
+      padding-left: 1.25rem;
+      margin-bottom: 0.75rem;
+      color: #334155;
+      font-size: 0.95rem;
+    }
+    .policy-content li {
+      margin-bottom: 0.25rem;
+      list-style-type: disc;
+    }
+    .policy-content li::marker { color: #94a3b8; }
+
+    /* ---- Callout / Notice ---- */
+    .callout-enterprise {
+      background: #fef9f0;
+      border: 1px solid #fde68a;
+      border-radius: 0.75rem;
+      padding: 1.25rem 1.5rem;
+      margin: 1.5rem 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+    .callout-enterprise .icon {
+      flex-shrink: 0;
+      width: 2rem;
+      height: 2rem;
+      background: #fef3c7;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #b45309;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+    .callout-enterprise .icon svg {
+      width: 1.1rem;
+      height: 1.1rem;
+    }
+    .callout-enterprise h4 {
+      font-weight: 600;
+      color: #0f172a;
+      font-size: 0.95rem;
+      margin-bottom: 0.25rem;
+    }
+    .callout-enterprise p {
+      font-size: 0.9rem;
+      color: #475569;
+      margin-bottom: 0;
+    }
+    .callout-enterprise strong {
+      color: #b45309;
+    }
+
+    /* ---- DOCUMENT HEADER – with padding & proper spacing ---- */
+    .doc-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1.25rem;
+      padding: 1.25rem 0 1rem 0;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid #e9edf2;
+    }
+    .doc-header .title-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.375rem;
+      flex: 1 1 auto;
+    }
+    .doc-header h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+      margin: 0;
+      line-height: 1.2;
+    }
+    .doc-header .meta {
+      font-size: 0.8rem;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .doc-header .meta .badge {
+      background: #f1f4f9;
+      padding: 0.15rem 0.7rem;
+      border-radius: 9999px;
+      font-size: 0.7rem;
+      font-weight: 500;
+      color: #475569;
+    }
+    .doc-header .actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+
+    /* ---- Buttons – unified, clean, utilitarian ---- */
+    .btn-outline {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1.125rem;
+      border: 1px solid #d1d9e6;
+      border-radius: 0.5rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #334155;
+      background: #ffffff;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      white-space: nowrap;
+      text-decoration: none;
+      font-family: inherit;
+      line-height: 1.4;
+    }
+    .btn-outline:hover {
+      background: #f8fafc;
+      border-color: #b0c0d4;
+      color: #0f172a;
+    }
+    .btn-outline svg {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+    }
+    .btn-outline:focus-visible {
+      outline: 2px solid #4f46e5;
+      outline-offset: 2px;
+    }
+
+    /* ---- Back link – same as btn-outline ---- */
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1.125rem;
+      border: 1px solid #d1d9e6;
+      border-radius: 0.5rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #334155;
+      background: #ffffff;
+      transition: all 0.15s ease;
+      cursor: pointer;
+      white-space: nowrap;
+      text-decoration: none;
+      font-family: inherit;
+      line-height: 1.4;
+    }
+    .back-link:hover {
+      background: #f8fafc;
+      border-color: #b0c0d4;
+      color: #0f172a;
+      text-decoration: none;
+    }
+    .back-link svg {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+    }
+    .back-link:focus-visible {
+      outline: 2px solid #4f46e5;
+      outline-offset: 2px;
+    }
+
+    /* ===== TABS ===== */
+    .tab-bar {
+      display: flex;
+      border-bottom: 2px solid #e9edf2;
+      margin-bottom: 2rem;
+      gap: 0.25rem;
+      flex-wrap: wrap;
+    }
+    .tab-btn {
+      padding: 0.75rem 1.5rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: #64748b;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+    }
+    .tab-btn:hover {
+      color: #0f172a;
+    }
+    .tab-btn.active {
+      color: #1e293b;
+      border-bottom-color: #4f46e5;
+    }
+    .tab-panel {
+      display: none;
+    }
+    .tab-panel.active {
+      display: block;
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 768px) {
+      .doc-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: 0.75rem 0 0.75rem 0;
+      }
+      .doc-header .actions {
+        justify-content: flex-start;
+      }
+      .tab-btn {
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+      }
+      .content-card { padding: 1.5rem; }
+    }
+
+    @media (max-width: 480px) {
+      .doc-header h1 {
+        font-size: 1.25rem;
+      }
+      .doc-header .meta {
+        font-size: 0.7rem;
+        gap: 0.5rem;
+      }
+      .tab-bar {
+        gap: 0.125rem;
+      }
+      .tab-btn {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.8rem;
+      }
+      .btn-outline,
+      .back-link {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.75rem;
+      }
+    }
+
+    /* ===== PRINT STYLES ===== */
+    @media print {
+      @page {
+        margin: 0.6in 0.7in;
+        size: A4;
+      }
+      .tab-bar { display: none !important; }
+      .doc-header .actions { display: none !important; }
+      .doc-header {
+        border-bottom: 1px solid #ccc !important;
+        margin-bottom: 1rem !important;
+        padding: 0 0 0.5rem 0 !important;
+      }
+      .doc-header h1 {
+        font-size: 1.8rem !important;
+        color: #000 !important;
+      }
+      .doc-header .meta {
+        font-size: 0.8rem !important;
+        color: #333 !important;
+      }
+      .content-card {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+        background: white !important;
+      }
+      body {
+        background: white !important;
+        color: #000 !important;
+      }
+      .max-w-7xl {
+        max-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 auto !important;
+      }
+      .policy-content h1,
+      .policy-content h2,
+      .policy-content h3,
+      .policy-content p,
+      .policy-content ul,
+      .policy-content ol,
+      .policy-content li {
+        color: #000 !important;
+      }
+      .policy-content h1 {
+        font-size: 1.6rem !important;
+        margin-bottom: 0.75rem !important;
+      }
+      .policy-content h2 {
+        font-size: 1.2rem !important;
+        margin-top: 1.5rem !important;
+        border-bottom: 1px solid #ccc !important;
+      }
+      .policy-content h3 {
+        font-size: 1rem !important;
+        margin-top: 1rem !important;
+      }
+      .policy-content p,
+      .policy-content ul,
+      .policy-content ol {
+        font-size: 0.9rem !important;
+        line-height: 1.6 !important;
+        margin-bottom: 0.5rem !important;
+      }
+      .callout-enterprise {
+        background: #f9f9f9 !important;
+        border: 1px solid #999 !important;
+        page-break-inside: avoid !important;
+        padding: 1rem 1.25rem !important;
+      }
+      .callout-enterprise .icon {
+        background: #e5e5e5 !important;
+        color: #000 !important;
+      }
+      .callout-enterprise h4 {
+        color: #000 !important;
+      }
+      .callout-enterprise p {
+        color: #000 !important;
+      }
+      .callout-enterprise strong {
+        color: #b45309 !important;
+      }
+      .footer-copyright {
+        display: none !important;
+      }
+      .tab-panel {
+        display: block !important;
+      }
+      #terms-panel {
+        page-break-before: always !important;
+        break-before: page !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+
+  <!-- ===== DOCUMENT HEADER – with padding ===== -->
+  <header class="doc-header">
+    <div class="title-group">
+      <h1>Privacy Policy &amp; Terms of Service</h1>
+      <div class="meta">
+        <span><span class="font-medium">Effective:</span> 18 June 2026</span>
+        <span class="text-slate-300">|</span>
+        <span><span class="font-medium">Updated:</span> 16 July 2026</span>
+        <span class="badge">v2.0</span>
+      </div>
+    </div>
+    <div class="actions">
+      <button id="pdfDownloadBtn" class="btn-outline">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+        Download PDF
+      </button>
+      <a href="/" class="back-link">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        Back
+      </a>
+    </div>
+  </header>
+
+  <!-- ===== TABS ===== -->
+  <div class="tab-bar">
+    <button class="tab-btn active" data-tab="privacy">Privacy Policy</button>
+    <button class="tab-btn" data-tab="terms">Terms of Service</button>
+  </div>
+
+  <!-- ===== CONTENT ===== -->
+  <div class="content-card policy-content">
+
+    <!-- Privacy Panel -->
+    <div id="privacy-panel" class="tab-panel active">
+      <h1>Privacy Policy Overview</h1>
+      <p>
+        This Privacy Policy describes how the <strong>Key Master System</strong> (“System”, “we”, “our”, or “us”) collects, uses, stores, and protects the personal information of external users (“you”) who access our facilities and use the System to borrow physical keys. This policy is designed to comply with the <strong>Personal Data Protection Act 2012 (PDPA)</strong> of Singapore and aligns with the guidelines set out by the Infocomm Media Development Authority (IMDA). It applies solely to data collected through the System.
+      </p>
+
+      <h2>1. Data Collection</h2>
+      <p>We practise <strong>data minimisation</strong> – we collect only the information strictly necessary to manage the borrowing and return of physical keys:</p>
+      <ul>
+        <li><strong>Full Name</strong> – to identify you and contact you regarding your key loan.</li>
+        <li><strong>Email Address</strong> – to send you confirmation, reminders, and important notifications.</li>
+        <li><strong>Expected Return Date</strong> – to track when the key should be returned.</li>
+      </ul>
+      <p>We do <strong>not</strong> collect phone numbers, physical addresses, payment card details, or government‑issued IDs.</p>
+
+      <h2>2. How We Use Your Data</h2>
+      <p>Your data is used exclusively for:</p>
+      <ul>
+        <li>Logging the issuance and return of physical keys.</li>
+        <li>Sending operational emails (return reminders, fee notifications).</li>
+        <li>Managing lost key reports and replacement fees.</li>
+        <li>Ensuring accountability and security of our key inventory.</li>
+      </ul>
+      <p>We do <strong>not</strong> use your data for marketing, profiling, or any secondary purpose. We never sell or rent your personal information.</p>
+
+      <h2>3. Data Sharing &amp; Disclosure</h2>
+      <p>Access is strictly limited to authorised internal administrators. We do not share your data with external parties, except:</p>
+      <ul>
+        <li>If required by law, court order, or governmental regulation.</li>
+        <li>To protect the rights, property, or safety of our organisation or users.</li>
+      </ul>
+      <p>We do not transfer personal data outside of Singapore without your explicit consent and only when adequate protections are in place.</p>
+
+      <h2>4. Data Retention</h2>
+      <ul>
+        <li><strong>Active loans:</strong> Retained for the duration of the loan, plus a reasonable period for audit.</li>
+        <li><strong>Lost key records:</strong> Retained for up to 3 years.</li>
+        <li>Upon request, we will securely delete or anonymise your data, subject to legal obligations.</li>
+      </ul>
+
+      <h2>5. Your Rights</h2>
+      <p>Under the PDPA, you have the right to:</p>
+      <ul>
+        <li><strong>Access</strong> – request a copy of your data.</li>
+        <li><strong>Rectification</strong> – correct inaccurate data.</li>
+        <li><strong>Erasure</strong> – request deletion of your data (subject to legal retention).</li>
+        <li><strong>Withdraw consent</strong> – withdraw consent for processing (subject to operational necessity).</li>
+      </ul>
+      <p>To exercise these rights, contact us at <a href="mailto:wjlim@beautyone.com.sg" class="text-indigo-600 hover:underline">wjlim@beautyone.com.sg</a>.</p>
+
+      <h2>6. Data Security</h2>
+      <ul>
+        <li>Encrypted transmission (HTTPS).</li>
+        <li>Role‑based access controls.</li>
+        <li>Regular security reviews and monitoring.</li>
+        <li>Data breach response procedures in accordance with PDPA requirements.</li>
+      </ul>
+
+      <h2>7. Children’s Privacy</h2>
+      <p>Our System is not intended for individuals under 16. We do not knowingly collect data from children.</p>
+
+      <h2>8. Policy Updates</h2>
+      <p>We may update this policy. We will notify you of material changes via the System or email. Continued use constitutes acceptance.</p>
+
+      <!-- Copyright (screen only) -->
+      <div class="mt-8 pt-6 border-t border-slate-200 text-sm text-slate-500 footer-copyright">
+        <p>&copy; 2026 BOI Facilities Management. All rights reserved.</p>
+      </div>
+    </div>
+
+    <!-- Terms Panel -->
+    <div id="terms-panel" class="tab-panel">
+      <h1>Terms of Service</h1>
+      <p>By using the System to request and borrow physical keys, you agree to these Terms.</p>
+
+      <h2>1. User Obligations</h2>
+      <ul>
+        <li>Provide accurate information (name, email, return date).</li>
+        <li>Return the key by the expected return date.</li>
+        <li>Keep the key secure and in good condition.</li>
+        <li>Report a lost key immediately via the System.</li>
+        <li>Notify us if your contact information changes.</li>
+      </ul>
+
+      <h2>2. Lost Key Protocol</h2>
+      <p>If you lose a key, you <strong>must</strong>:</p>
+      <ol class="list-decimal pl-5 space-y-1">
+        <li>Log in to the System using your email address.</li>
+        <li>Navigate to the <strong>“Report Lost Key”</strong> section.</li>
+        <li>Select the lost key from your active loans.</li>
+        <li>Confirm the report.</li>
+      </ol>
+      <p>Upon confirmation, the key is marked lost and a <strong>Key Replacement Fee</strong> is applied.</p>
+
+      <!-- Fee Notice -->
+      <div class="callout-enterprise">
+        <div class="icon">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        </div>
+        <div>
+          <h4>Key Replacement &amp; Administrative Restitution Fee – SGD 50</h4>
+          <p>
+            A <strong>non‑negotiable fee of SGD 50</strong> (GST inclusive) applies per lost key. This fee is automatically applied upon reporting and must be paid within <strong>14 days</strong>. Failure to pay may result in suspension of borrowing privileges and referral to collections.
+          </p>
+        </div>
+      </div>
+
+      <p><strong>Payment:</strong> Instructions are sent via email. The fee is non‑refundable except in cases of administrative error.</p>
+
+      <h2>3. Limitation of Liability</h2>
+      <p>
+        We do not guarantee uninterrupted System access. We are not liable for indirect, incidental, or consequential damages arising from your use of the System or key loans. Our total liability shall not exceed the replacement fee you have paid.
+      </p>
+
+      <h2>4. Governing Law</h2>
+      <p>These Terms are governed by the laws of Singapore. Disputes shall be resolved in Singapore courts.</p>
+
+      <h2>5. Amendments</h2>
+      <p>We may update these Terms. Continued use after notification constitutes acceptance.</p>
+
+      <!-- Contact & Copyright (screen only) -->
+      <div class="mt-8 pt-2">
+        <p class="text-sm text-slate-600">
+          <strong>For questions regarding these Terms or the Privacy Policy, contact us at:</strong>
+          <a href="mailto:wjlim@beautyone.com.sg" class="text-indigo-600 hover:underline">wjlim@beautyone.com.sg</a>
+        </p>
+      </div>
+      <div class="mt-6 pt-6 border-t border-slate-200 text-sm text-slate-500 footer-copyright">
+        <p>&copy; 2026 BOI Facilities Management. All rights reserved.</p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  // ---- Tab Switching ----
+  document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.tab-btn').forEach(function(b) {
+        b.classList.remove('active');
+      });
+      this.classList.add('active');
+
+      var target = this.dataset.tab;
+      document.querySelectorAll('.tab-panel').forEach(function(p) {
+        p.classList.remove('active');
+      });
+      document.getElementById(target + '-panel').classList.add('active');
+    });
+  });
+
+  // ---- Fixed: Download PDF button using addEventListener ----
+  (function() {
+    var printBtn = document.getElementById('pdfDownloadBtn');
+    if (printBtn) {
+      printBtn.addEventListener('click', function() {
+        window.print();
+      });
+    }
+  })();
+</script>
+
+</body>
+</html>

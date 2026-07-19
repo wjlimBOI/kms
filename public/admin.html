@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="build-hash" content="d48646c8860ce954" />
+    <meta name="build-version" content="1.0.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="build-hash" content="d48646c8860ce954" />
+    <meta name="build-version" content="1.0.0" />
+    <meta name="csrf-token" content="" />
+    <title>BOI KMS | Admin Portal</title>
+    
+    <link rel="stylesheet" href="/css/style.css?v=d48646c8860ce954" />
+    <link rel="stylesheet" href="/css/admin.css?v=d48646c8860ce954" />
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+</head>
+<body>
+<div class="dashboard-container">
+
+    <!-- HEADER -->
+    <nav class="top-nav">
+        <div class="top-nav-inner">
+            <div class="brand">
+                <div class="brand-text">
+                    <a href="#" id="brandHomeLink" style="color:#ffffff;text-decoration:none;">
+                        <span class="brand-name">Key Management System</span>
+                        <span class="brand-badge">ADMIN</span>
+                    </a>
+                </div>
+            </div>
+            <div class="nav-actions">
+                <div class="admin-nav-link" id="returnPortalLink">
+                    <a href="/" id="portalReturnBtn" class="admin-portal-btn">
+                        <i class="fas fa-arrow-left"></i>
+                        <span>Return to Portal</span>
+                    </a>
+                </div>
+                <div class="user-profile">
+                    <button class="user-profile-btn" id="userProfileBtn">
+                        <div class="user-avatar" id="userAvatar">U</div>
+                        <div class="user-info">
+                            <span class="user-name" id="userDisplay">User</span>
+                            <span class="user-role">Administrator</span>
+                        </div>
+                        <i class="fas fa-chevron-down user-chevron"></i>
+                    </button>
+                    <div class="user-dropdown" id="userDropdown">
+                        <div class="dropdown-header">
+                            <div class="dropdown-avatar" id="dropdownAvatar">U</div>
+                            <div class="dropdown-user-info">
+                                <span class="dropdown-name" id="dropdownUserName">User</span>
+                                <span class="dropdown-role">Administrator</span>
+                            </div>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <button class="dropdown-item" id="myProfileBtn"><i class="fas fa-user"></i> My Profile</button>
+                        <div class="dropdown-divider"></div>
+                        <button class="dropdown-item logout-item" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+                    </div>
+                </div>
+            </div>
+            <button class="mobile-menu-btn" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
+        </div>
+        <div class="mobile-menu" id="mobileMenu">
+            <div class="mobile-menu-items">
+                <button class="mobile-menu-item" id="mobileProfileBtn"><i class="fas fa-user"></i> Profile</button>
+                <button class="mobile-menu-item logout-item" id="mobileLogoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- TABS -->
+    <div class="tab-bar">
+        <button class="tab-button active" data-tab="dashboard">Dashboard</button>
+        <button class="tab-button" data-tab="requests">Requests</button>
+        <button class="tab-button" data-tab="inventory">Key Inventory</button>
+        <button class="tab-button" data-tab="lost">Lost Keys</button>
+        <button class="tab-button" data-tab="security">Security</button>
+        <button class="tab-button" data-tab="email">Email Settings</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div id="tab-dashboard" class="tab-panel active">
+        <div class="bento-grid">
+            <div class="bento-card" id="pendingRequestsCard">
+                <div class="card-header"><h3><i class="fas fa-clock"></i> Pending Requests</h3></div>
+                <div class="card-body"><div id="pendingCount" class="big-number amber">0</div><div class="label">Awaiting approval</div></div>
+            </div>
+            <div class="bento-card" id="activeBorrowsCard">
+                <div class="card-header"><h3><i class="fas fa-exchange-alt"></i> Active Borrows</h3></div>
+                <div class="card-body"><div id="borrowedCount" class="big-number blue">0</div><div class="label">Currently on loan</div></div>
+            </div>
+            <div class="bento-card" id="returnRemindersCard">
+                <div class="card-header"><h3><i class="fas fa-bell"></i> Return Reminders</h3></div>
+                <div class="card-body">
+                    <div id="overdueCount" class="big-number rose">0</div>
+                    <div class="label">Overdue returns</div>
+                    <div id="reminderNextDue" class="text-sm text-slate-500 mt-1">Next due: --</div>
+                </div>
+            </div>
+            <div class="bento-card" id="pendingReturnsCard">
+                <div class="card-header">
+                    <h3><i class="fas fa-undo"></i> Pending Returns</h3>
+                    <span class="badge-count">Awaiting verification</span>
+                </div>
+                <div class="card-body"><div id="pendingReturnsCount" class="big-number emerald">0</div><div class="label">Awaiting verification</div></div>
+            </div>
+            <div class="bento-card" id="pendingKeyRequestsCard">
+                <div class="card-header"><h3><i class="fas fa-key"></i> Pending Key Requests</h3></div>
+                <div class="card-body"><div id="pendingKeyRequestsCount" class="big-number amber">0</div><div class="label">Awaiting approval</div></div>
+            </div>
+            <div class="bento-card" id="lostKeysCard">
+                <div class="card-header">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Lost Keys</h3>
+                    <span class="badge-count" style="background:#fee2e2;color:#dc2626;">Fee applies</span>
+                </div>
+                <div class="card-body"><div id="lostKeysCount" class="big-number rose">0</div><div class="label">Key replacement fees apply</div></div>
+            </div>
+        </div>
+
+        <!-- Transaction History -->
+        <div class="transaction-card" id="transactionsCard">
+            <div class="card-header">
+                <h3><i class="fas fa-list-ul"></i> Transaction History</h3>
+                <button class="btn btn-print btn-sm" data-section="transactions"><i class="fas fa-print"></i> Print</button>
+            </div>
+            <div class="card-body">
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+                    <input type="text" id="filterGiver" placeholder="Giver" />
+                    <input type="text" id="filterReceiver" placeholder="Receiver" />
+                    <input type="text" id="filterBranch" placeholder="Branch" />
+                    <input type="text" id="filterAction" placeholder="Action (borrow/return)" />
+                    <select id="filterStatus">
+                        <option value="">All status</option>
+                        <option value="borrowed">Borrowed</option>
+                        <option value="returned">Returned</option>
+                        <option value="overdue">Overdue</option>
+                        <option value="lost">Lost</option>
+                    </select>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 mb-4">
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm text-slate-600">From:</label>
+                        <input type="date" id="filterFrom" class="w-auto" />
+                        <label class="text-sm text-slate-600 ml-2">To:</label>
+                        <input type="date" id="filterTo" class="w-auto" />
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 ml-auto">
+                        <button id="searchBtn" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
+                        <button id="resetBtn" class="btn btn-refresh"><i class="fas fa-times"></i> Reset</button>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="table-clean">
+                        <thead><tr><th>ID</th><th>Giver</th><th>Receiver</th><th>Key</th><th>Qty</th><th>Action</th><th>Borrowed At</th><th>Returned At</th><th>Status</th><th>Reason</th></tr></thead>
+                        <tbody id="transactionsTableBody"><tr><td colspan="10" class="text-center py-8 text-slate-400"><div class="skeleton h-8 w-full"></div></td></tr></tbody>
+                    </table>
+                </div>
+                <div class="pagination-bar">
+                    <div class="pagination-left">
+                        <span class="pagination-info" id="transactionsPaginationInfo">Showing 0 of 0 transactions</span>
+                        <select id="transactionsRowsPerPage" class="rows-per-page-select">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <div class="pagination-buttons">
+                        <button id="transactionsPrevPageBtn" class="btn btn-refresh btn-sm">Previous</button>
+                        <button id="transactionsNextPageBtn" class="btn btn-refresh btn-sm">Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- REQUESTS -->
+    <div id="tab-requests" class="tab-panel">
+        <div class="bento-card" id="requestsCard">
+            <div class="card-header">
+                <h3><i class="fas fa-user-plus"></i> Pending Account Requests</h3>
+                <div class="header-actions">
+                    <input type="text" id="requestsSearch" placeholder="Search by name or email..." class="search-input-sm" />
+                    <button class="btn btn-print btn-sm" data-section="requests"><i class="fas fa-print"></i> Print</button>
+                    <button id="refreshRequestsBtn" class="btn btn-refresh btn-sm"><i class="fas fa-sync-alt"></i> Refresh</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="pendingRequestsContainer"><div class="text-center py-8 text-slate-400">Loading requests...</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KEY INVENTORY -->
+    <div id="tab-inventory" class="tab-panel">
+        <div class="bento-card" id="inventoryCard">
+            <div class="card-header">
+                <h3><i class="fas fa-warehouse"></i> Key Inventory</h3>
+                <div class="header-actions">
+                    <button id="manageKeysBtn" class="btn btn-primary btn-sm"><i class="fas fa-keys"></i> Manage Keys</button>
+                    <button class="btn btn-print btn-sm" data-section="inventory"><i class="fas fa-print"></i> Print</button>
+                    <button id="refreshInventoryBtn" class="btn btn-refresh btn-sm"><i class="fas fa-sync-alt"></i> Refresh</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="search-bar mb-4">
+                    <div class="search-input relative">
+                        <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="inventorySearchInput" placeholder="Search by code, brand, owner, or remarks..." class="pl-9 pr-4" />
+                    </div>
+                    <button id="inventoryResetFiltersBtn" class="btn btn-refresh btn-sm"><i class="fas fa-times"></i> Reset</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="table-clean inventory-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Brand</th>
+                                <th>Owner(s)</th>
+                                <th>Total Qty</th>
+                                <th>Remarks</th>
+                            </tr>
+                        </thead>
+                        <tbody id="inventoryTableBody"><tr><td colspan="5" class="text-center py-8 text-slate-400">Loading keys...</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="pagination-bar">
+                    <div class="pagination-left">
+                        <span class="pagination-info" id="inventoryPaginationInfo">Showing 0 of 0 keys</span>
+                        <select id="inventoryRowsPerPage" class="rows-per-page-select">
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <div class="pagination-buttons">
+                        <button id="inventoryPrevPageBtn" class="btn btn-refresh btn-sm">Previous</button>
+                        <button id="inventoryNextPageBtn" class="btn btn-refresh btn-sm">Next</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LOST KEYS TAB -->
+    <div id="tab-lost" class="tab-panel">
+        <div class="bento-card" id="lostKeysManagementCard">
+            <div class="card-header">
+                <h3><i class="fas fa-exclamation-triangle"></i> Lost Keys Management</h3>
+                <div class="header-actions">
+                    <button id="refreshLostKeysBtn" class="btn btn-refresh btn-sm"><i class="fas fa-sync-alt"></i> Refresh</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="lostKeysManagementContainer"><div class="text-center py-8 text-slate-400">Loading lost keys...</div></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECURITY -->
+    <div id="tab-security" class="tab-panel">
+        <div class="sub-tab-bar">
+            <button class="sub-tab-button active" data-subtab="permissions">Permissions</button>
+            <button class="sub-tab-button" data-subtab="users">Users</button>
+            <button class="sub-tab-button" data-subtab="audit">Audit Logs</button>
+        </div>
+
+        <div id="sub-permissions" class="sub-tab-panel active">
+            <div class="bento-card">
+                <div class="card-header">
+                    <h3><i class="fas fa-lock"></i> Role Permissions</h3>
+                    <div class="header-actions">
+                        <button id="addRoleBtn" class="btn btn-secondary btn-sm"><i class="fas fa-cog"></i> Manage Roles</button>
+                        <button id="savePermissionsBtn" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> Save</button>
+                    </div>
+                </div>
+                <div class="card-body overflow-x-auto">
+                    <div id="permissionsContainer"><div class="text-center text-slate-400 py-8">Loading permissions...</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="sub-users" class="sub-tab-panel">
+            <div class="bento-card users-card" id="usersCard">
+                <div class="card-header">
+                    <h3><i class="fas fa-users"></i> Account Management</h3>
+                    <div class="header-actions">
+                        <button class="btn btn-print btn-sm" data-section="users"><i class="fas fa-print"></i> Print</button>
+                        <button id="openUserManagementBtn" class="btn btn-primary btn-sm"><i class="fas fa-users-cog"></i> Manage Users</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="search-bar mb-4">
+                        <div class="search-input relative">
+                            <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                            <input type="text" id="acmSearchInput" placeholder="Search by name or email..." class="pl-9 pr-4" />
+                        </div>
+                        <select id="acmRoleFilter" class="filter-select"><option value="all">All roles</option></select>
+                        <select id="acmStatusFilter" class="filter-select-sm">
+                            <option value="all">All status</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                            <option value="suspended">Suspended</option>
+                            <option value="locked">Locked</option>
+                        </select>
+                        <button id="acmResetFiltersBtn" class="btn btn-refresh btn-sm"><i class="fas fa-times"></i> Reset</button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="table-clean">
+                            <thead><tr><th class="text-left">User</th><th>Role</th><th>Status</th><th>Last Active</th></tr></thead>
+                            <tbody id="acmUserTableBody"><tr><td colspan="4" class="text-center py-8 text-slate-400">Loading users...</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="pagination-bar">
+                        <div class="pagination-left">
+                            <span class="pagination-info" id="acmPaginationInfo">Showing 0 of 0 users</span>
+                            <select id="acmRowsPerPage" class="rows-per-page-select">
+                                <option value="5">5</option>
+                                <option value="10">10</option>
+                                <option value="25">25</option>
+                                <option value="50">50</option>
+                            </select>
+                        </div>
+                        <div class="pagination-buttons">
+                            <button id="acmPrevPageBtn" class="btn btn-refresh btn-sm">Previous</button>
+                            <button id="acmNextPageBtn" class="btn btn-refresh btn-sm">Next</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="sub-audit" class="sub-tab-panel">
+            <div class="bento-card" id="auditIntegrityCard">
+                <div class="card-header">
+                    <h3><i class="fas fa-shield-alt"></i> Audit Log Integrity</h3>
+                    <button id="refreshAuditBtn" class="btn btn-refresh btn-sm"><i class="fas fa-sync-alt"></i> Refresh</button>
+                </div>
+                <div class="card-body" style="text-align:left;">
+                    <div id="auditStatusText" class="text-sm font-medium">Checking...</div>
+                    <div id="auditLastCheck" class="text-xs text-slate-500 mt-1">Last check: --</div>
+                </div>
+            </div>
+            <div class="bento-card" id="auditCard" style="margin-top:1.25rem;">
+                <div class="card-header">
+                    <h3><i class="fas fa-history"></i> Audit Logs</h3>
+                    <div class="header-actions">
+                        <button class="btn btn-print btn-sm" data-section="audit"><i class="fas fa-print"></i> Print</button>
+                        <button id="refreshAuditLogBtn" class="btn btn-refresh btn-sm"><i class="fas fa-sync-alt"></i> Refresh</button>
+                    </div>
+                </div>
+                <div class="card-body max-h-96 overflow-y-auto custom-scroll">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                        <input type="text" id="auditFilterAction" placeholder="Action" />
+                        <input type="text" id="auditFilterUser" placeholder="User" />
+                        <input type="date" id="auditFilterFrom" />
+                        <input type="date" id="auditFilterTo" />
+                    </div>
+                    <div class="flex gap-2 justify-end mb-4">
+                        <button id="auditSearchBtn" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
+                        <button id="auditResetBtn" class="btn btn-refresh"><i class="fas fa-times"></i> Reset</button>
+                    </div>
+                    <table class="table-clean audit-table">
+                        <thead><tr><th>Action</th><th>Target</th><th>User</th><th>Timestamp</th></tr></thead>
+                        <tbody id="auditLogContainer"><tr><td colspan="4" class="text-center py-8 text-slate-400">Loading audit logs...</td></tr></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- EMAIL SETTINGS -->
+    <div id="tab-email" class="tab-panel">
+        <div class="sub-tab-bar">
+            <button class="sub-tab-button active" data-subtab="templates">Message Templates</button>
+            <button class="sub-tab-button" data-subtab="settings">Notification Settings</button>
+            <button class="sub-tab-button" data-subtab="admin-notifications">Admin Notifications</button>
+        </div>
+
+        <div id="sub-templates" class="sub-tab-panel active">
+            <div class="bento-card" id="templatesCard">
+                <div class="card-header">
+                    <h3><i class="fas fa-envelope"></i> Email Templates</h3>
+                    <div class="header-actions">
+                        <input type="text" id="templatesSearch" placeholder="Search by key or subject..." class="search-input-sm" />
+                        <button class="btn btn-print btn-sm" data-section="templates"><i class="fas fa-print"></i> Print</button>
+                        <button id="manageTemplatesBtn" class="btn btn-secondary btn-sm"><i class="fas fa-cog"></i> Manage Templates</button>
+                    </div>
+                </div>
+                <div class="card-body" id="templatesContainer"><div class="text-center py-8 text-slate-400">Loading templates...</div></div>
+            </div>
+        </div>
+
+        <div id="sub-settings" class="sub-tab-panel">
+            <div class="bento-card" id="settingsCard">
+                <div class="card-header">
+                    <h3><i class="fas fa-cog"></i> Notification Settings</h3>
+                    <div class="header-actions">
+                        <button class="btn btn-print btn-sm" data-section="settings"><i class="fas fa-print"></i> Print</button>
+                        <button id="saveSettingsBtn" class="btn btn-primary btn-sm"><i class="fas fa-save"></i> Save All</button>
+                    </div>
+                </div>
+                <div class="card-body" id="settingsContainer"><div class="text-center py-8 text-slate-400">Loading settings...</div></div>
+            </div>
+        </div>
+
+        <div id="sub-admin-notifications" class="sub-tab-panel">
+            <div class="bento-card" id="adminNotificationsCard">
+                <div class="card-header">
+                    <h3><i class="fas fa-bell"></i> Admin Notification Recipients</h3>
+                    <div class="header-actions">
+                        <button id="addAdminRecipientBtn" class="btn btn-primary btn-sm"><i class="fas fa-plus"></i> Add Admin</button>
+                        <button id="refreshAdminRecipientsBtn" class="btn btn-refresh btn-sm"><i class="fas fa-sync-alt"></i> Refresh</button>
+                    </div>
+                </div>
+                <div class="card-body" id="adminRecipientsContainer">
+                    <div class="text-center py-8 text-slate-400">Loading recipients...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODALS -->
+
+<div id="detailModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header"><h3 id="detailModalTitle">Details</h3><button id="closeDetailModalBtn" class="close-btn">&times;</button></div>
+        <div class="modal-body" id="detailModalContent"><div class="text-center py-8 text-slate-400">Loading...</div></div>
+        <div class="modal-footer"><button id="closeDetailModalFooterBtn" class="btn btn-secondary">Close</button></div>
+    </div>
+</div>
+
+<div id="adminModal" class="modal-overlay">
+    <div class="modal-container">
+        <div class="modal-header"><h3 id="modalTitle">Approve request</h3><button id="closeAdminModalBtn" class="close-btn">&times;</button></div>
+        <div class="modal-body">
+            <label class="block text-sm font-medium text-slate-700 mb-1">Admin notes (optional)</label>
+            <textarea id="modalNotes" rows="3" placeholder="Add any remarks..."></textarea>
+            <div class="mt-5 flex gap-3 justify-end">
+                <button id="modalCancelBtn" class="btn btn-refresh">Cancel</button>
+                <button id="modalConfirmBtn" class="btn btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="successModal" class="modal-overlay success-modal">
+    <div class="modal-container">
+        <div class="modal-body" style="padding:2rem 1.5rem;">
+            <div class="icon-circle"><i class="fas fa-check"></i></div>
+            <h3 id="successTitle" style="font-size:1.1rem;font-weight:600;margin-bottom:4px;">Success</h3>
+            <p id="successMessage" style="color:var(--text-secondary);font-size:0.9rem;">Operation completed.</p>
+        </div>
+    </div>
+</div>
+
+<div id="addRoleModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:420px;">
+        <div class="modal-header"><h3>Add New Role</h3><button id="closeAddRoleModalBtn" class="close-btn">&times;</button></div>
+        <div class="modal-body">
+            <label class="block text-sm font-medium text-slate-700 mb-1">Role Name</label>
+            <input type="text" id="newRoleName" placeholder="e.g., manager" />
+            <p class="text-xs text-slate-500 mt-2">This role will appear in the permissions matrix.</p>
+        </div>
+        <div class="modal-footer" style="gap:8px;">
+            <button id="cancelAddRoleBtn" class="btn btn-refresh">Cancel</button>
+            <button id="confirmAddRoleBtn" class="btn btn-primary">Add Role</button>
+        </div>
+    </div>
+</div>
+
+<div id="acmUserModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:460px;">
+        <div class="modal-header"><h3 id="acmModalTitle">Add New User</h3><button id="acmCloseModalBtn" class="close-btn">&times;</button></div>
+        <div class="modal-body space-y-4">
+            <div><label class="block text-sm font-medium text-slate-700 mb-1">Full name</label><input type="text" id="acmFullName" placeholder="e.g., John Doe" /></div>
+            <div><label class="block text-sm font-medium text-slate-700 mb-1">Email address</label><input type="email" id="acmEmail" placeholder="john@example.com" /></div>
+            <div><label class="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                <select id="acmRole"><option value="">Select role...</option></select>
+            </div>
+            <div><label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                <select id="acmStatus">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="locked">Locked</option>
+                </select>
+            </div>
+        </div>
+        <div class="modal-footer" style="gap:8px;">
+            <button id="acmCancelModalBtn" class="btn btn-refresh">Cancel</button>
+            <button id="acmSaveUserBtn" class="btn btn-primary">Save User</button>
+        </div>
+    </div>
+</div>
+
+<div id="acmDeleteConfirmModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:400px;">
+        <div class="modal-body" style="text-align:center;padding:2rem 1.5rem;">
+            <div style="width:48px;height:48px;border-radius:50%;background:#fee2e2;color:#dc2626;display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin:0 auto 16px;"><i class="fas fa-trash"></i></div>
+            <h3 style="font-size:1rem;font-weight:600;margin-bottom:4px;">Delete user?</h3>
+            <p id="acmDeleteUserMessage" style="color:var(--text-secondary);font-size:0.9rem;">This action cannot be undone.</p>
+            <div class="flex gap-3 justify-center mt-5">
+                <button id="acmCancelDeleteBtn" class="btn btn-refresh">Cancel</button>
+                <button id="acmConfirmDeleteBtn" class="btn btn-critical">Delete</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="lostKeyEditModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:600px;">
+        <div class="modal-header">
+            <h3 id="lostKeyEditTitle">Edit Lost Key</h3>
+            <button id="closeLostKeyEditModalBtn" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body space-y-4">
+            <input type="hidden" id="editLostTransactionId" />
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Key Code</label>
+                    <input type="text" id="editLostKeyCode" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-100" disabled />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Brand</label>
+                    <input type="text" id="editLostBrand" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-100" disabled />
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Borrower</label>
+                <input type="text" id="editLostBorrower" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-100" disabled />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Reason for Loss *</label>
+                <textarea id="editLostReason" rows="3" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Describe why the key was lost..."></textarea>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Lost Date</label>
+                    <input type="datetime-local" id="editLostDate" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                    <select id="editLostStatus" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                        <option value="lost">Lost</option>
+                        <option value="resolved">Resolved</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer" style="gap:8px;">
+            <button id="cancelLostKeyEditBtn" class="btn btn-refresh">Cancel</button>
+            <button id="saveLostKeyEditBtn" class="btn btn-primary">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<div id="lostKeyDetailModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:780px;">
+        <div class="modal-header">
+            <h3 id="lostKeyDetailTitle">Lost Key Details</h3>
+            <button id="closeLostKeyDetailModalBtn" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body" id="lostKeyDetailContent">
+            <div class="text-center py-8 text-slate-400">Loading...</div>
+        </div>
+        <div class="modal-footer">
+            <button id="closeLostKeyDetailFooterBtn" class="btn btn-secondary">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="profileModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:480px;">
+        <div class="modal-header">
+            <h3>Edit Profile</h3>
+            <button id="closeProfileModalBtn" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body space-y-4">
+            <div><label class="block text-sm font-medium text-slate-700 mb-1">Full Name</label><input type="text" id="profileName" placeholder="Your name" /></div>
+            <div><label class="block text-sm font-medium text-slate-700 mb-1">Email Address</label><input type="email" id="profileEmail" placeholder="you@example.com" /></div>
+            <div><label class="block text-sm font-medium text-slate-700 mb-1">Current Password</label><input type="password" id="profileCurrentPassword" placeholder="Enter current password..." /><p class="text-xs text-slate-400 mt-1">Required only if changing password.</p></div>
+            <div><label class="block text-sm font-medium text-slate-700 mb-1">New Password</label><input type="password" id="profilePassword" placeholder="Enter new password..." /></div>
+        </div>
+        <div class="modal-footer" style="gap:8px;">
+            <button id="cancelProfileBtn" class="btn btn-refresh">Cancel</button>
+            <button id="saveProfileBtn" class="btn btn-primary"><i class="fas fa-save"></i> Update Profile</button>
+        </div>
+    </div>
+</div>
+
+<div id="userManagementModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:960px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-users-cog"></i> Manage Users</h3>
+            <div>
+                <span class="text-sm text-slate-500 mr-4" id="manageUserTotalLabel">Total: 0</span>
+                <button id="closeUserManagementModalBtn" class="close-btn">&times;</button>
+            </div>
+        </div>
+        <div class="modal-body">
+            <div class="flex justify-between items-center mb-4">
+                <div class="text-sm text-slate-500">All users in the system</div>
+                <button id="addUserFromManageBtn" class="btn btn-primary"><i class="fas fa-plus"></i> Add User</button>
+            </div>
+            <div class="search-bar mb-4">
+                <div class="search-input relative">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="manageUserSearch" placeholder="Search..." class="pl-9 pr-4" />
+                </div>
+                <select id="manageUserRoleFilter" class="filter-select"><option value="all">All roles</option></select>
+                <select id="manageUserStatusFilter" class="filter-select-sm">
+                    <option value="all">All status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="suspended">Suspended</option>
+                    <option value="locked">Locked</option>
+                </select>
+                <button id="resetManageUserFilters" class="btn btn-refresh"><i class="fas fa-times"></i> Reset</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table-clean user-table">
+                    <thead>
+                        <tr><th class="text-left">User</th><th>Role</th><th>Status</th><th>Last Active</th><th class="text-right">Actions</th></tr>
+                    </thead>
+                    <tbody id="manageUserTableBody"><tr><td colspan="5" class="text-center py-8 text-slate-400">Loading users...</td></tr></tbody>
+                </table>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
+                <div class="text-sm text-slate-500" id="manageUserPaginationInfo">Showing 0 of 0 users</div>
+                <div class="flex gap-2">
+                    <button id="manageUserPrevBtn" class="btn btn-refresh">Previous</button>
+                    <button id="manageUserNextBtn" class="btn btn-refresh">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="alertModal" class="modal-overlay alert-modal">
+    <div class="modal-container">
+        <div class="modal-body">
+            <div class="alert-icon" id="alertIcon"><i class="fas fa-check-circle"></i></div>
+            <div class="alert-title" id="alertTitle">Success</div>
+            <div class="alert-message" id="alertMessage">Operation completed.</div>
+            <button class="alert-btn" id="alertOkBtn">OK</button>
+        </div>
+    </div>
+</div>
+
+<div id="templateManageModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:960px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-envelope"></i> Manage Templates</h3>
+            <div>
+                <button id="addTemplateFromManageBtn" class="btn btn-primary"><i class="fas fa-plus"></i> Add New</button>
+                <button id="closeTemplateManageModalBtn" class="close-btn">&times;</button>
+            </div>
+        </div>
+        <div class="modal-body">
+            <div id="templateManageContainer"><div class="text-center py-8 text-slate-400">Loading templates...</div></div>
+        </div>
+        <div class="modal-footer">
+            <button id="closeTemplateManageFooterBtn" class="btn btn-secondary">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="templateEditModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:760px;">
+        <div class="modal-header">
+            <h3 id="templateEditModalTitle">Edit Template</h3>
+            <button id="closeTemplateEditModalBtn" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <input type="hidden" id="editTemplateKey" />
+            <div class="input-group">
+                <label for="editTemplateKeyDisplay" class="block text-sm font-medium text-slate-700 mb-1">Key</label>
+                <input type="text" id="editTemplateKeyDisplay" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-100" disabled />
+                <p class="text-xs text-slate-500 mt-1">Template key is used in code – it cannot be changed after creation.</p>
+            </div>
+            <div class="input-group">
+                <label for="editTemplateSubject" class="block text-sm font-medium text-slate-700 mb-1">Subject</label>
+                <input type="text" id="editTemplateSubject" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div class="input-group">
+                <label for="editTemplateBody" class="block text-sm font-medium text-slate-700 mb-1">Body (HTML)</label>
+                <textarea id="editTemplateBody" rows="8" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono"></textarea>
+                <p class="text-xs text-slate-500 mt-1">Use <code>{{variable}}</code> placeholders.</p>
+            </div>
+            <div class="input-group flex items-center gap-3">
+                <input type="checkbox" id="editTemplateActive" class="w-4 h-4 accent-gold-500" />
+                <label for="editTemplateActive" class="text-sm text-slate-700">Active</label>
+            </div>
+        </div>
+        <div class="modal-footer" style="gap:8px;">
+            <button id="cancelTemplateEditBtn" class="btn btn-refresh">Cancel</button>
+            <button id="saveTemplateEditBtn" class="btn btn-primary">Save Template</button>
+        </div>
+    </div>
+</div>
+
+<div id="keyEditModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:600px;">
+        <div class="modal-header">
+            <h3 id="keyEditModalTitle">Add New Key</h3>
+            <button id="closeKeyEditModalBtn" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body space-y-4">
+            <input type="hidden" id="editKeyId" />
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Code *</label>
+                    <input type="text" id="editKeyCode" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="e.g., K-001" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Brand *</label>
+                    <input type="text" id="editKeyBrand" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="e.g., Yale" />
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Owner(s)</label>
+                <input type="text" id="editKeyOwner" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="e.g., John Doe" />
+                <p class="text-xs text-slate-500 mt-1">For multiple owners, separate with commas</p>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Quantity</label>
+                    <input type="number" id="editKeySets" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="1" min="0" step="1" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Date Owned</label>
+                    <input type="date" id="editKeyDateOwned" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                </div>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
+                <textarea id="editKeyRemarks" rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Any additional notes"></textarea>
+            </div>
+            <div class="flex items-center gap-3">
+                <input type="checkbox" id="editKeyLost" class="w-4 h-4 accent-gold-500" />
+                <label for="editKeyLost" class="text-sm text-slate-700">Mark as lost (unavailable)</label>
+            </div>
+        </div>
+        <div class="modal-footer" style="gap:8px;">
+            <button id="cancelKeyEditBtn" class="btn btn-refresh">Cancel</button>
+            <button id="saveKeyEditBtn" class="btn btn-primary">Save Key</button>
+        </div>
+    </div>
+</div>
+
+<div id="keyDetailModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:780px;">
+        <div class="modal-header">
+            <h3 id="keyDetailModalTitle">Key Details</h3>
+            <button id="closeKeyDetailModalBtn" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body" id="keyDetailModalContent">
+            <div class="text-center py-8 text-slate-400">Loading...</div>
+        </div>
+        <div class="modal-footer">
+            <button id="closeKeyDetailFooterBtn" class="btn btn-secondary">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="keyManageModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:960px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-keys"></i> Manage Keys</h3>
+            <div>
+                <button id="addKeyFromManageBtn" class="btn btn-primary"><i class="fas fa-plus"></i> Add New Key</button>
+                <button id="closeKeyManageModalBtn" class="close-btn">&times;</button>
+            </div>
+        </div>
+        <div class="modal-body">
+            <div class="search-bar mb-4">
+                <div class="search-input relative">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                    <input type="text" id="manageKeySearch" placeholder="Search keys..." class="pl-9 pr-4" />
+                </div>
+                <button id="resetManageKeyFilters" class="btn btn-refresh"><i class="fas fa-times"></i> Reset</button>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="table-clean">
+                    <thead>
+                        <tr><th class="text-left">Code</th><th class="text-left">Brand</th><th class="text-left">Owner(s)</th><th class="text-right">Actions</th></tr>
+                    </thead>
+                    <tbody id="manageKeyTableBody"><tr><td colspan="4" class="text-center py-8 text-slate-400">Loading keys...</td></tr></tbody>
+                </table>
+            </div>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
+                <div class="text-sm text-slate-500" id="manageKeyPaginationInfo">Showing 0 of 0 keys</div>
+                <div class="flex gap-2">
+                    <button id="manageKeyPrevBtn" class="btn btn-refresh">Previous</button>
+                    <button id="manageKeyNextBtn" class="btn btn-refresh">Next</button>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="closeKeyManageFooterBtn" class="btn btn-secondary">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="addAdminRecipientModal" class="modal-overlay">
+    <div class="modal-container" style="max-width:460px;">
+        <div class="modal-header">
+            <h3><i class="fas fa-user-plus"></i> Add Admin Recipient</h3>
+            <button id="closeAddAdminRecipientModalBtn" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="input-group">
+                <label for="adminRecipientSelect" class="block text-sm font-medium text-slate-700 mb-1">Select Admin User</label>
+                <select id="adminRecipientSelect" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                    <option value="">Loading...</option>
+                </select>
+                <p class="text-xs text-slate-500 mt-1">Only active admin users are shown.</p>
+            </div>
+        </div>
+        <div class="modal-footer" style="gap:8px;">
+            <button id="cancelAddAdminRecipientBtn" class="btn btn-refresh">Cancel</button>
+            <button id="saveAdminRecipientBtn" class="btn btn-primary">Add Recipient</button>
+        </div>
+    </div>
+</div>
+
+<div id="toastRoot"></div>
+
+<footer class="app-footer">
+    <div class="app-footer-inner">
+        <span>&copy; 2026 Beauty One International Pte Ltd. All rights reserved.</span>
+        <span class="footer-divider">|</span>
+        <a href="/privacy-policy">Privacy Policy &amp; Terms of Service</a>
+    </div>
+</footer>
+
+<script src="/js/admin.js?v=d48646c8860ce954"></script>
+</body>
+</html>

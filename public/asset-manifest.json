@@ -1,0 +1,12 @@
+{
+  "version": "1.0.0",
+  "buildHash": "d48646c8860ce954",
+  "assets": {
+    "css": "/assets/vd48646c8860ce954/css/style.css",
+    "js": "/assets/vd48646c8860ce954/js/main.js"
+  },
+  "urls": [
+    "/assets/vd48646c8860ce954/index.html",
+    "/assets/vd48646c8860ce954/admin.html"
+  ]
+}

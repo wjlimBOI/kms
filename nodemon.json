@@ -1,0 +1,11 @@
+{
+  "watch": ["server.js", "routes/", "middleware/", "lib/", "services/"],
+  "ignore": ["public/assets/", "node_modules/", "logs/"],
+  "ext": "js,json",
+  "env": {
+    "NODE_ENV": "development"
+  },
+  "events": {
+    "restart": "npm run build"
+  }
+}

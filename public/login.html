@@ -1,0 +1,1059 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="build-hash" content="d48646c8860ce954" />
+    <meta name="build-version" content="1.0.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="build-hash" content="d48646c8860ce954" />
+    <meta name="build-version" content="1.0.0" />
+    <meta name="csrf-token" content="" />
+    <title>BOI KMS | Login</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        :root {
+            --bg-gradient: linear-gradient(145deg, #F0F4F8 0%, #E2E8F0 100%);
+            --card-bg: rgba(255, 255, 255, 0.96);
+            --primary: #1E2A3E;
+            --primary-dark: #0F1A2E;
+            --accent: #3B82F6;
+            --text-primary: #0F172A;
+            --text-secondary: #334155;
+            --text-muted: #64748B;
+            --border-light: #E2E8F0;
+            --border-medium: #CBD5E1;
+            --error-bg: #FEF2F2;
+            --error-text: #DC2626;
+            --warning-bg: #FFFBEB;
+            --warning-text: #B45309;
+            --radius-xl: 28px;
+            --radius-md: 16px;
+        }
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            position: relative;
+        }
+        .bg-shapes {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+            overflow: hidden;
+            pointer-events: none;
+        }
+        .shape {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.4;
+        }
+        .shape-1 {
+            width: 400px;
+            height: 400px;
+            top: -150px;
+            right: -100px;
+            background: rgba(59, 130, 246, 0.08);
+        }
+        .shape-2 {
+            width: 500px;
+            height: 500px;
+            bottom: -200px;
+            left: -150px;
+            background: rgba(30, 42, 62, 0.06);
+        }
+        .login-card {
+            position: relative;
+            z-index: 1;
+            max-width: 500px;
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: var(--radius-xl);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.06);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .login-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 25px 40px -12px rgba(0, 0, 0, 0.12);
+        }
+        .login-header {
+            padding: 1.5rem 2rem 0.75rem;
+            text-align: center;
+            border-bottom: 1px solid var(--border-light);
+        }
+        .logo img {
+            height: 48px;
+            width: auto;
+            display: inline-block;
+        }
+        .login-header h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-top: 0.5rem;
+        }
+        .login-sub {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            max-width: 280px;
+            margin: 0.25rem auto 0;
+            line-height: 1.4;
+        }
+        .login-body {
+            padding: 2rem 2rem 1rem;
+        }
+        .input-group {
+            margin-bottom: 1.25rem;
+        }
+        .input-group label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 0.3rem;
+        }
+        .required-star {
+            color: var(--error-text);
+            margin-left: 2px;
+        }
+        .input-group input {
+            width: 100%;
+            padding: 0.8rem 1.2rem;
+            font-size: 0.95rem;
+            border: 1.5px solid var(--border-light);
+            border-radius: var(--radius-md);
+            transition: border 0.2s, box-shadow 0.2s;
+            background: #fff;
+            outline: none;
+        }
+        .input-group input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+        }
+        .input-group input::placeholder {
+            color: #CBD5E1;
+        }
+        .input-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+        .input-wrapper input {
+            padding-right: 2.8rem;
+        }
+        .field-error {
+            color: var(--error-text);
+            font-size: 0.75rem;
+            margin-top: 0.3rem;
+            display: none;
+        }
+        .field-error.visible {
+            display: block;
+        }
+        .toggle-password {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            font-size: 1.1rem;
+            padding: 4px;
+            transition: color 0.15s;
+        }
+        .toggle-password:hover {
+            color: var(--text-primary);
+        }
+        .case-hint {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .case-hint i {
+            font-size: 0.65rem;
+        }
+        .required-hint {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 0.5rem;
+            text-align: right;
+        }
+        .lockout-warning {
+            background: var(--warning-bg);
+            border-left: 4px solid var(--warning-text);
+            color: var(--warning-text);
+            padding: 0.7rem 1rem;
+            border-radius: var(--radius-md);
+            font-size: 0.85rem;
+            margin-top: 1.5rem;
+            display: none;
+            align-items: center;
+            gap: 8px;
+        }
+        .lockout-warning.visible {
+            display: flex;
+        }
+        .lockout-warning i {
+            font-size: 1rem;
+        }
+        button[type="submit"] {
+            width: 100%;
+            padding: 0.85rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 0.25rem;
+        }
+        button[type="submit"]:hover:not(:disabled) {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        button[type="submit"]:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .spinner {
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.6s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .alert-box {
+            border-radius: 12px;
+            padding: 0.7rem 1rem;
+            margin-top: 1.5rem;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .alert-box.hidden {
+            display: none;
+        }
+        .alert-box svg {
+            width: 18px;
+            height: 18px;
+            flex-shrink: 0;
+            stroke: currentColor;
+        }
+        .alert-error {
+            background: var(--error-bg);
+            border-left: 4px solid var(--error-text);
+            color: var(--error-text);
+        }
+        .alert-warning {
+            background: var(--warning-bg);
+            border-left: 4px solid var(--warning-text);
+            color: var(--warning-text);
+        }
+        .register-link {
+            display: block;
+            text-align: center;
+            margin-top: 1.2rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .register-link a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        .register-link a:hover {
+            text-decoration: underline;
+        }
+        .card-footer {
+            padding: 0.9rem 2rem 1.2rem;
+            border-top: 1px solid var(--border-light);
+            text-align: center;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+        }
+        .card-footer .footer-divider {
+            display: none;
+        }
+        .card-footer a {
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.15s ease;
+        }
+        .card-footer a:hover {
+            color: var(--text-primary);
+            text-decoration: underline;
+        }
+        @media (min-width: 520px) {
+            .card-footer {
+                flex-direction: row;
+                justify-content: center;
+                gap: 0.6rem;
+                padding: 0.9rem 2rem 1.2rem;
+            }
+            .card-footer .footer-divider {
+                display: inline;
+                color: var(--border-medium);
+            }
+        }
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.5);
+            backdrop-filter: blur(2px);
+            z-index: 1000;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem;
+        }
+        .modal-overlay.active {
+            display: flex;
+        }
+        .modal-container {
+            background: #ffffff;
+            border-radius: var(--radius-xl);
+            width: 100%;
+            max-width: 460px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.15);
+            animation: fadeScaleUp 0.2s ease;
+            padding: 0;
+        }
+        @keyframes fadeScaleUp {
+            from { opacity: 0; transform: scale(0.96); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .modal-header {
+            padding: 1.2rem 1.5rem;
+            border-bottom: 1px solid var(--border-light);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #F9FAFB;
+            border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        }
+        .modal-header h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .modal-header h3 i {
+            color: var(--accent);
+            font-size: 1.1rem;
+        }
+        .modal-header .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.6rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            padding: 0 4px;
+            line-height: 1;
+            transition: color 0.15s;
+        }
+        .modal-header .close-btn:hover {
+            color: var(--text-primary);
+        }
+        .info-trigger {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            min-width: 28px;
+            border-radius: 50%;
+            background: var(--border-light);
+            border: 1px solid var(--border-medium);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            margin-left: 6px;
+            flex-shrink: 0;
+        }
+        .info-trigger:hover {
+            background: var(--border-medium);
+            color: var(--text-primary);
+            transform: scale(1.05);
+        }
+        .info-trigger i {
+            font-size: 0.75rem;
+        }
+        .tooltip-popup {
+            position: absolute;
+            bottom: calc(100% + 12px);
+            right: 0;
+            background: #ffffff;
+            border: 1px solid var(--border-light);
+            border-radius: var(--radius-md);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+            padding: 1rem 1.2rem;
+            width: 300px;
+            max-width: 85vw;
+            font-size: 0.8rem;
+            line-height: 1.6;
+            color: var(--text-secondary);
+            z-index: 20;
+            display: none;
+            text-align: left;
+        }
+        .tooltip-popup::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            right: 12px;
+            width: 14px;
+            height: 14px;
+            background: #ffffff;
+            border-right: 1px solid var(--border-light);
+            border-bottom: 1px solid var(--border-light);
+            transform: rotate(45deg);
+        }
+        .tooltip-popup.show {
+            display: block;
+        }
+        .tooltip-popup strong {
+            color: var(--text-primary);
+        }
+        .modal-body {
+            padding: 1.75rem 1.5rem;
+        }
+        .modal-body .input-group {
+            margin-bottom: 1.2rem;
+        }
+        .modal-body .input-group label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        .modal-body .input-group input {
+            padding: 0.7rem 1rem;
+            font-size: 0.95rem;
+        }
+        .modal-alert {
+            margin-top: 1.2rem;
+            padding: 0.7rem 1rem;
+            border-radius: var(--radius-md);
+            font-size: 0.85rem;
+            display: none;
+        }
+        .modal-alert.visible {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .modal-alert.error {
+            background: var(--error-bg);
+            color: var(--error-text);
+            border-left: 3px solid var(--error-text);
+        }
+        .modal-alert.success {
+            background: #ecfdf5;
+            color: #065f46;
+            border-left: 3px solid #10B981;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+        .modal-actions button {
+            flex: 1;
+            padding: 0.7rem 1rem;
+            font-size: 0.9rem;
+            border-radius: var(--radius-md);
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .modal-actions .btn-primary {
+            background: var(--primary);
+            color: white;
+        }
+        .modal-actions .btn-primary:hover:not(:disabled) {
+            background: var(--primary-dark);
+        }
+        .modal-actions .btn-primary:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .modal-actions .btn-secondary {
+            background: #F1F5F9;
+            color: var(--text-secondary);
+        }
+        .modal-actions .btn-secondary:hover {
+            background: #E2E8F0;
+        }
+        @media (max-width: 540px) {
+            .login-header {
+                padding: 1.2rem 1.5rem 0.5rem;
+            }
+            .login-body {
+                padding: 1.5rem 1.5rem 0.75rem;
+            }
+            .card-footer {
+                padding: 0.75rem 1.5rem 1rem;
+                font-size: 0.65rem;
+            }
+            .login-header h1 {
+                font-size: 1.4rem;
+            }
+            .login-sub {
+                font-size: 0.7rem;
+            }
+            .logo img {
+                height: 40px;
+            }
+            .modal-body {
+                padding: 1.25rem;
+            }
+            .modal-actions {
+                flex-direction: column;
+            }
+            .modal-actions button {
+                flex: none;
+                width: 100%;
+            }
+            .tooltip-popup {
+                right: -10px;
+                width: 260px;
+                max-width: 80vw;
+            }
+            .tooltip-popup::after {
+                right: 18px;
+            }
+        }
+        @media (max-width: 400px) {
+            .tooltip-popup {
+                right: -30px;
+                width: 220px;
+            }
+            .tooltip-popup::after {
+                right: 38px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+    </div>
+
+    <div class="login-card">
+        <div class="login-header">
+            <div class="logo"><img src="/boi.png" alt="BOI Facilities Management" /></div>
+            <h1>Key Master System</h1>
+            <div class="login-sub">Secure access for authorised personnel only</div>
+        </div>
+
+        <div class="login-body">
+            <form id="loginForm" novalidate>
+                <div class="input-group">
+                    <label for="username">Username <span class="required-star" aria-hidden="true">*</span></label>
+                    <div class="input-wrapper">
+                        <input type="text" id="username" placeholder="Enter your username" autocomplete="username" required />
+                    </div>
+                    <div class="field-error" id="usernameError">Username is required</div>
+                    <div class="case-hint">
+                        <i class="fas fa-info-circle" aria-hidden="true"></i> Username is case‑sensitive
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="password">Password <span class="required-star" aria-hidden="true">*</span></label>
+                    <div class="input-wrapper">
+                        <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password" required />
+                        <button type="button" class="toggle-password" aria-label="Toggle password visibility">
+                            <i class="fas fa-eye" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="field-error" id="passwordError">Password is required</div>
+                </div>
+
+                <button type="submit" id="loginBtn">Sign in →</button>
+
+                <div class="required-hint"><span class="required-star" aria-hidden="true">*</span> Required fields</div>
+
+                <div id="lockoutWarning" class="lockout-warning" role="alert" aria-live="polite">
+                    <i class="fas fa-exclamation-triangle" aria-hidden="true"></i>
+                    <span id="lockoutWarningText">Warning: You have 3 out of 5 attempts remaining.</span>
+                </div>
+
+                <div id="errorMsg" class="alert-box alert-error hidden" role="alert" aria-live="assertive">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span id="errorText">Invalid credentials</span>
+                </div>
+
+                <div id="lockoutMsg" class="alert-box alert-warning hidden" role="alert" aria-live="assertive">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                    <span id="lockoutText">Account locked</span>
+                </div>
+
+                <div class="register-link">
+                    Don't have an account? <a id="openRegisterModalBtn">Request one</a>
+                </div>
+            </form>
+        </div>
+
+        <div class="card-footer">
+            <span>&copy; 2026 Beauty One International Pte Ltd. All rights reserved.</span>
+            <span class="footer-divider">|</span>
+            <a href="/privacy-policy">Privacy Policy &amp; Terms of Service</a>
+        </div>
+    </div>
+
+    <!-- Registration Modal -->
+    <div id="registerModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-user-plus" aria-hidden="true"></i> Request Account
+                    <button class="info-trigger" id="infoTrigger" type="button" aria-label="More information about account registration">
+                        <i class="fas fa-question" aria-hidden="true"></i>
+                        <div class="tooltip-popup" id="tooltipPopup" role="tooltip">
+                            <strong>How it works:</strong><br />
+                            Submit your name and email. An administrator will review your request.
+                            Upon approval, you will receive an email with a secure, system‑generated password
+                            and a username for login. You will be prompted to set a new password on first sign‑in.
+                        </div>
+                    </button>
+                </h3>
+                <button class="close-btn" id="closeRegisterModalBtn" aria-label="Close registration modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <form id="registerForm" novalidate>
+                    <div class="input-group">
+                        <label for="regName">Full name <span class="required-star" aria-hidden="true">*</span></label>
+                        <input type="text" id="regName" placeholder="James Lee" required />
+                        <div class="field-error" id="regNameError">Name is required</div>
+                    </div>
+                    <div class="input-group">
+                        <label for="regEmail">Email address <span class="required-star" aria-hidden="true">*</span></label>
+                        <input type="email" id="regEmail" placeholder="jameslee@example.com" required />
+                        <div class="field-error" id="regEmailError">Valid email is required</div>
+                    </div>
+
+                    <div id="registerAlert" class="modal-alert"></div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" id="cancelRegisterBtn">Cancel</button>
+                        <button type="submit" class="btn-primary" id="registerBtn">Submit request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            'use strict';
+
+            let csrfToken = null;
+            let csrfFetchPromise = null;
+
+            async function fetchCsrfToken() {
+                if (csrfFetchPromise) {
+                    return csrfFetchPromise;
+                }
+
+                csrfFetchPromise = (async () => {
+                    try {
+                        const response = await fetch('/api/csrf-token', {
+                            credentials: 'include',
+                            headers: { 'Accept': 'application/json' }
+                        });
+                        if (response.ok) {
+                            const data = await response.json();
+                            csrfToken = data.csrfToken;
+                            const meta = document.querySelector('meta[name="csrf-token"]');
+                            if (meta) meta.setAttribute('content', csrfToken);
+                            return csrfToken;
+                        }
+                        console.error('Failed to fetch CSRF token:', response.status);
+                        return null;
+                    } catch (error) {
+                        console.error('Error fetching CSRF token:', error);
+                        return null;
+                    } finally {
+                        csrfFetchPromise = null;
+                    }
+                })();
+
+                return csrfFetchPromise;
+            }
+
+            async function getCsrfToken() {
+                if (csrfToken) return csrfToken;
+                return await fetchCsrfToken();
+            }
+
+            document.addEventListener('DOMContentLoaded', () => {
+                fetchCsrfToken();
+            });
+
+            (function redirectIfLoggedIn() {
+                const token = localStorage.getItem('kms_token');
+                if (token) {
+                    let user = null;
+                    try { user = JSON.parse(localStorage.getItem('kms_user')); } catch (e) {}
+                    if (user && user.role === 'admin') {
+                        window.location.href = '/admin';
+                        return;
+                    }
+                    window.location.href = '/';
+                }
+            })();
+
+            const loginForm = document.getElementById('loginForm');
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password');
+            const usernameError = document.getElementById('usernameError');
+            const passwordError = document.getElementById('passwordError');
+            const errorDiv = document.getElementById('errorMsg');
+            const errorText = document.getElementById('errorText');
+            const lockoutDiv = document.getElementById('lockoutMsg');
+            const lockoutText = document.getElementById('lockoutText');
+            const loginBtn = document.getElementById('loginBtn');
+            const lockoutWarningDiv = document.getElementById('lockoutWarning');
+            const lockoutWarningText = document.getElementById('lockoutWarningText');
+
+            const toggleBtn = document.querySelector('.toggle-password');
+            const toggleIcon = toggleBtn.querySelector('i');
+
+            const registerModal = document.getElementById('registerModal');
+            const openRegisterBtn = document.getElementById('openRegisterModalBtn');
+            const closeRegisterBtn = document.getElementById('closeRegisterModalBtn');
+            const cancelRegisterBtn = document.getElementById('cancelRegisterBtn');
+            const registerForm = document.getElementById('registerForm');
+            const regName = document.getElementById('regName');
+            const regEmail = document.getElementById('regEmail');
+            const regNameError = document.getElementById('regNameError');
+            const regEmailError = document.getElementById('regEmailError');
+            const registerAlert = document.getElementById('registerAlert');
+            const registerBtn = document.getElementById('registerBtn');
+
+            const infoTrigger = document.getElementById('infoTrigger');
+            const tooltipPopup = document.getElementById('tooltipPopup');
+
+            let failedAttempts = 0;
+
+            function hideAllAlerts() {
+                errorDiv.classList.add('hidden');
+                lockoutDiv.classList.add('hidden');
+            }
+
+            function showError(msg) {
+                errorText.textContent = msg;
+                errorDiv.classList.remove('hidden');
+                lockoutDiv.classList.add('hidden');
+            }
+
+            function showLockout(msg) {
+                lockoutText.textContent = msg;
+                lockoutDiv.classList.remove('hidden');
+                errorDiv.classList.add('hidden');
+                lockoutWarningDiv.classList.remove('visible');
+            }
+
+            function showRegisterAlert(msg, type) {
+                registerAlert.textContent = msg;
+                registerAlert.className = 'modal-alert visible ' + type;
+            }
+
+            function hideRegisterAlert() {
+                registerAlert.className = 'modal-alert';
+            }
+
+            toggleBtn.addEventListener('click', function() {
+                const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+                passwordInput.setAttribute('type', type);
+                toggleIcon.classList.toggle('fa-eye');
+                toggleIcon.classList.toggle('fa-eye-slash');
+            });
+
+            usernameInput.addEventListener('input', () => {
+                usernameError.classList.remove('visible');
+                hideAllAlerts();
+            });
+            passwordInput.addEventListener('input', () => {
+                passwordError.classList.remove('visible');
+                hideAllAlerts();
+            });
+
+            loginForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                usernameError.classList.remove('visible');
+                passwordError.classList.remove('visible');
+                hideAllAlerts();
+
+                const username = usernameInput.value.trim();
+                const password = passwordInput.value;
+
+                let valid = true;
+                if (!username) {
+                    usernameError.textContent = 'Username is required';
+                    usernameError.classList.add('visible');
+                    valid = false;
+                }
+                if (!password) {
+                    passwordError.textContent = 'Password is required';
+                    passwordError.classList.add('visible');
+                    valid = false;
+                }
+                if (!valid) return;
+
+                const originalText = loginBtn.innerHTML;
+                loginBtn.disabled = true;
+                loginBtn.innerHTML = '<div class="spinner"></div> Authenticating...';
+
+                try {
+                    const csrf = await getCsrfToken();
+                    if (!csrf) {
+                        showError('Failed to get CSRF token. Please refresh and try again.');
+                        loginBtn.disabled = false;
+                        loginBtn.innerHTML = originalText;
+                        return;
+                    }
+
+                    const response = await fetch('/api/auth/login', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrf,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ username, password }),
+                        credentials: 'include'
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok && data.token) {
+                        failedAttempts = 0;
+                        lockoutWarningDiv.classList.remove('visible');
+
+                        localStorage.setItem('kms_token', data.token);
+                        const user = data.user || {
+                            username: username,
+                            role: data.role || 'user',
+                            name: data.name || username
+                        };
+                        localStorage.setItem('kms_user', JSON.stringify(user));
+
+                        if (data.mustChangePassword) {
+                            window.location.href = '/change-password';
+                            return;
+                        }
+
+                        window.location.href = data.role === 'admin' ? '/admin' : '/';
+                        return;
+                    }
+
+                    if (response.status === 403) {
+                        lockoutWarningDiv.classList.remove('visible');
+                        showLockout(data.error || 'Account is temporarily locked.');
+                    } else if (response.status === 401) {
+                        failedAttempts++;
+                        const remaining = 5 - failedAttempts;
+
+                        if (remaining > 0 && remaining <= 3) {
+                            lockoutWarningText.textContent =
+                                `⚠️ Warning: You have ${remaining} out of 5 attempts remaining. Your account will be locked after 5 failed attempts.`;
+                            lockoutWarningDiv.classList.add('visible');
+                        } else {
+                            lockoutWarningDiv.classList.remove('visible');
+                        }
+
+                        if (remaining <= 0) {
+                            lockoutWarningDiv.classList.remove('visible');
+                            showLockout('Account is temporarily locked due to too many failed attempts.');
+                        } else {
+                            showError('Invalid username or password.');
+                        }
+                    } else {
+                        showError(data.error || 'An error occurred. Please try again.');
+                    }
+                } catch (err) {
+                    console.error('Login error:', err);
+                    showError('Network error. Please check your connection.');
+                } finally {
+                    loginBtn.disabled = false;
+                    loginBtn.innerHTML = originalText;
+                }
+            });
+
+            function openModal() {
+                registerModal.classList.add('active');
+                regName.value = '';
+                regEmail.value = '';
+                hideRegisterAlert();
+                regNameError.classList.remove('visible');
+                regEmailError.classList.remove('visible');
+                registerBtn.disabled = false;
+                registerBtn.innerHTML = 'Submit request';
+            }
+
+            function closeModal() {
+                registerModal.classList.remove('active');
+                tooltipPopup.classList.remove('show');
+            }
+
+            openRegisterBtn.addEventListener('click', openModal);
+            closeRegisterBtn.addEventListener('click', closeModal);
+            cancelRegisterBtn.addEventListener('click', closeModal);
+            registerModal.addEventListener('click', function(e) {
+                if (e.target === this) closeModal();
+            });
+
+            infoTrigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                tooltipPopup.classList.toggle('show');
+            });
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.info-trigger')) {
+                    tooltipPopup.classList.remove('show');
+                }
+            });
+
+            regName.addEventListener('input', () => {
+                regNameError.classList.remove('visible');
+                hideRegisterAlert();
+            });
+            regEmail.addEventListener('input', () => {
+                regEmailError.classList.remove('visible');
+                hideRegisterAlert();
+            });
+
+            registerForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                regNameError.classList.remove('visible');
+                regEmailError.classList.remove('visible');
+                hideRegisterAlert();
+
+                const name = regName.value.trim();
+                const email = regEmail.value.trim();
+
+                let valid = true;
+                if (!name) {
+                    regNameError.textContent = 'Name is required';
+                    regNameError.classList.add('visible');
+                    valid = false;
+                }
+                if (!email || !email.includes('@')) {
+                    regEmailError.textContent = 'Valid email is required';
+                    regEmailError.classList.add('visible');
+                    valid = false;
+                }
+                if (!valid) return;
+
+                const originalText = registerBtn.innerHTML;
+                registerBtn.disabled = true;
+                registerBtn.innerHTML = '<div class="spinner"></div> Submitting...';
+
+                try {
+                    const csrf = await getCsrfToken();
+                    if (!csrf) {
+                        showRegisterAlert('Failed to get CSRF token. Please refresh and try again.', 'error');
+                        registerBtn.disabled = false;
+                        registerBtn.innerHTML = originalText;
+                        return;
+                    }
+
+                    const response = await fetch('/api/auth/register-request', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrf,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ name, email }),
+                        credentials: 'include'
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        showRegisterAlert('✅ Request submitted! You will receive an email once approved.', 'success');
+                        registerBtn.innerHTML = '✓ Done';
+                        setTimeout(() => {
+                            closeModal();
+                            registerBtn.disabled = false;
+                            registerBtn.innerHTML = originalText;
+                        }, 2500);
+                    } else {
+                        showRegisterAlert(data.error || 'Submission failed. Please try again.', 'error');
+                        registerBtn.disabled = false;
+                        registerBtn.innerHTML = originalText;
+                    }
+                } catch (err) {
+                    console.error('Registration error:', err);
+                    showRegisterAlert('Network error. Please check your connection.', 'error');
+                    registerBtn.disabled = false;
+                    registerBtn.innerHTML = originalText;
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

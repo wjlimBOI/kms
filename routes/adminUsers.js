@@ -7,7 +7,6 @@ const { userSchema } = require('../lib/validationSchemas');
 
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
-// Helper to generate a temporary password
 function generateTempPassword() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()';
   let password = '';
@@ -17,7 +16,6 @@ function generateTempPassword() {
   return password;
 }
 
-// Helper to build dynamic WHERE clauses for filtering
 function buildFilterClause(search, role, status) {
   const conditions = [];
   const params = [];
@@ -43,39 +41,29 @@ function buildFilterClause(search, role, status) {
   return { whereClause, params };
 }
 
-// GET /api/admin/users – list users (with pagination & filters)
 router.get('/', requireAuth, authorize('admin'), async (req, res) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
 
   try {
-    // 1. Parse and validate query parameters
     const search = (req.query.search || '').trim();
     const role = req.query.role || 'all';
     const status = req.query.status || 'all';
     let page = parseInt(req.query.page) || 1;
     let limit = parseInt(req.query.limit) || 10;
 
-    // Sanity checks
     if (page < 1) page = 1;
-    if (limit < 1 || limit > 100) limit = 10;  // Prevent excessive limit
+    if (limit < 1 || limit > 100) limit = 10;
 
     const offset = (page - 1) * limit;
 
-    console.log(`[AdminUsers] GET request: page=${page}, limit=${limit}, search="${search}", role="${role}", status="${status}"`);
-
     const { whereClause, params } = buildFilterClause(search, role, status);
 
-    // 2. Count total matching records
     const countQuery = `SELECT COUNT(*) AS total FROM users ${whereClause}`;
-    console.log('[AdminUsers] Count query:', countQuery, 'params:', params);
     const countResult = await req.db.query(countQuery, params);
     const total = parseInt(countResult.rows[0].total);
 
-    // 3. Fetch paginated users
-    // Ensure the ORDER BY column exists – if 'last_active' is missing, fallback to 'id'
-    // We'll try last_active first; if it fails, we'll catch and retry with id.
     let dataResult;
     try {
       const dataQuery = `
@@ -87,12 +75,8 @@ router.get('/', requireAuth, authorize('admin'), async (req, res) => {
         ORDER BY last_active DESC NULLS LAST
         LIMIT $${params.length + 1} OFFSET $${params.length + 2}
       `;
-      const dataParams = [...params, limit, offset];
-      console.log('[AdminUsers] Data query:', dataQuery, 'params:', dataParams);
-      dataResult = await req.db.query(dataQuery, dataParams);
+      dataResult = await req.db.query(dataQuery, [...params, limit, offset]);
     } catch (orderErr) {
-      // If ordering by last_active fails (column missing), fallback to id
-      console.warn('[AdminUsers] Order by last_active failed, falling back to id:', orderErr.message);
       const fallbackQuery = `
         SELECT id, name, username AS email, role, status, 
                COALESCE(last_active, NOW()) AS "lastActive",
@@ -105,7 +89,6 @@ router.get('/', requireAuth, authorize('admin'), async (req, res) => {
       dataResult = await req.db.query(fallbackQuery, [...params, limit, offset]);
     }
 
-    // 4. Send response
     res.json({
       users: dataResult.rows,
       total,
@@ -114,26 +97,21 @@ router.get('/', requireAuth, authorize('admin'), async (req, res) => {
     });
   } catch (err) {
     console.error('[AdminUsers] GET error:', err);
-    // Log full error details for debugging
-    console.error('[AdminUsers] Error stack:', err.stack);
     res.status(500).json({
       error: IS_PRODUCTION ? 'Internal server error' : `Failed to fetch users: ${err.message}`
     });
   }
 });
 
-// POST /api/admin/users – create a new user (with validation)
 router.post('/', requireAuth, authorize('admin'), validate(userSchema), async (req, res) => {
   try {
     const { name, email, role, status } = req.body;
 
-    // Check duplicate email
     const existing = await req.db.query('SELECT id FROM users WHERE username = $1', [email]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ error: 'Email already exists' });
     }
 
-    // Generate temporary password
     const tempPassword = generateTempPassword();
     const hashedPassword = await bcrypt.hash(tempPassword, 12);
 
@@ -158,7 +136,7 @@ router.post('/', requireAuth, authorize('admin'), validate(userSchema), async (r
 
     res.status(201).json({
       ...newUser,
-      temporary_password: tempPassword // only returned once
+      temporary_password: tempPassword
     });
   } catch (err) {
     console.error('POST /admin/users error:', err);
@@ -166,14 +144,12 @@ router.post('/', requireAuth, authorize('admin'), validate(userSchema), async (r
   }
 });
 
-// PUT /api/admin/users/:id – update a user (with partial validation)
 const updateUserSchema = userSchema.partial();
 router.put('/:id', requireAuth, authorize('admin'), validate(updateUserSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, email, role, status } = req.body;
 
-    // Check email uniqueness (exclude current user)
     if (email) {
       const emailCheck = await req.db.query(
         'SELECT id FROM users WHERE username = $1 AND id != $2',
@@ -184,7 +160,6 @@ router.put('/:id', requireAuth, authorize('admin'), validate(updateUserSchema), 
       }
     }
 
-    // Fetch old data for audit
     const oldResult = await req.db.query(
       'SELECT id, name, username, role, status, must_change_password FROM users WHERE id = $1',
       [id]
@@ -194,7 +169,6 @@ router.put('/:id', requireAuth, authorize('admin'), validate(updateUserSchema), 
     }
     const oldUser = oldResult.rows[0];
 
-    // Build dynamic update query
     const fields = [];
     const values = [];
     let idx = 1;
@@ -236,12 +210,10 @@ router.put('/:id', requireAuth, authorize('admin'), validate(updateUserSchema), 
   }
 });
 
-// DELETE /api/admin/users/:id – soft delete
 router.delete('/:id', requireAuth, authorize('admin'), async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Prevent self-deletion
     if (parseInt(id) === req.user.id) {
       return res.status(400).json({ error: 'You cannot delete your own account' });
     }
@@ -277,7 +249,6 @@ router.delete('/:id', requireAuth, authorize('admin'), async (req, res) => {
   }
 });
 
-// PATCH /api/admin/users/:id/suspend – toggle suspend
 router.patch('/:id/suspend', requireAuth, authorize('admin'), async (req, res) => {
   try {
     const { id } = req.params;

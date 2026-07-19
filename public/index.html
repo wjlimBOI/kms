@@ -2,34 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <meta name="build-hash" content="03cc98a40de1a238" />
-    <meta name="build-version" content="1.0.0" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <meta name="build-hash" content="d48646c8860ce954" />
-    <meta name="build-version" content="1.0.0" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <meta name="build-hash" content="d48646c8860ce954" />
+  <meta name="build-hash" content="03cc98a40de1a238" />
   <meta name="build-version" content="1.0.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="csrf-token" content="" />
   <title>BOI KMS | Key Request Portal</title>
   
   <link rel="stylesheet" href="/css/style.css?v=d48646c8860ce954" />
-  <link rel="stylesheet" href="/index.css?v=d48646c8860ce954" />
+  <link rel="stylesheet" href="/css/index.css?v=d48646c8860ce954" />
   
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
 </head>
 <body>
 
-  <!-- HEADER -->
   <div class="dashboard-container">
     <nav class="top-nav">
       <div class="top-nav-inner">
@@ -71,11 +60,9 @@
     </nav>
   </div>
 
-  <!-- MAIN -->
   <main class="main-content">
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-      <!-- LEFT COLUMN -->
       <div class="lg:col-span-2">
         <div class="flex flex-col md:flex-row gap-4 mb-6">
           <div class="flex flex-col sm:flex-row gap-3 flex-1">
@@ -83,10 +70,6 @@
               <button data-filter="all" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all active">All Keys</button>
               <button data-filter="available" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Available Now</button>
               <button data-filter="loaned" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Currently Loaned Out</button>
-              <span class="ml-2 flex items-center text-xs text-slate-500">
-                <span class="online-indicator" id="onlineIndicator"></span>
-                <span id="onlineStatus">Loading…</span>
-              </span>
             </div>
             <div class="relative flex-1 min-w-[200px]">
               <input type="text" id="globalSearch" placeholder="Search by key code or borrower email..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-full text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white" />
@@ -114,8 +97,7 @@
         <div id="emptySearchState" class="hidden text-center py-8 text-slate-400">No keys match your search.</div>
       </div>
 
-      <!-- RIGHT COLUMN: Basket Sidebar -->
-      <aside id="basketSidebar" class="basket-sidebar bg-white rounded-2xl border border-slate-200/80 shadow-md sticky top-24 h-fit max-h-[calc(100vh-6rem)] overflow-y-auto custom-scroll transition-all duration-200">
+      <aside id="basketSidebar" class="basket-sidebar bg-white rounded-2xl border border-slate-200/80 shadow-md sticky top-24 h-fit overflow-visible custom-scroll transition-all duration-200">
         <div class="p-4 border-b border-slate-100 flex justify-between items-center">
           <div class="flex items-center gap-2">
             <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
@@ -124,7 +106,7 @@
           </div>
           <button id="clearBasketBtn" class="text-xs text-rose-600 hover:text-rose-700 transition font-medium">Clear all</button>
         </div>
-        <div id="basketItemsContainer" class="divide-y divide-slate-100">
+        <div id="basketItemsContainer" class="divide-y divide-slate-100 max-h-48 overflow-y-auto custom-scroll">
           <div class="p-6 text-center text-slate-400 text-sm">No keys selected. Click on available keys to add.</div>
         </div>
         <div class="p-4 border-t border-slate-100 bg-slate-50/50">
@@ -133,33 +115,32 @@
             <span id="totalQuantity" class="font-semibold text-slate-800">0</span>
           </div>
           <button id="submitRequestBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2.5 rounded-xl transition shadow-sm disabled:opacity-50">Submit request →</button>
-          <p class="text-[11px] text-slate-400 text-center mt-3">Approval required · email confirmation</p>
+          <p class="text-[10px] text-slate-400 text-center mt-2">Approval required · email confirmation</p>
         </div>
 
-        <!-- Return Key Dropdown -->
-        <div class="px-4 pb-2">
+        <div class="px-4 pb-3 return-dropdown-wrapper">
           <div class="relative" id="returnDropdownContainer">
-            <button id="returnDropdownBtn" class="w-full bg-[#1E2A3E] hover:bg-[#0F1A2E] text-white font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2">
+            <button id="returnDropdownBtn" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2">
               <i class="fas fa-key"></i>
               <span>Return Key</span>
               <i class="fas fa-chevron-down text-xs ml-1 transition-transform duration-200" id="returnDropdownChevron"></i>
             </button>
-            <div id="returnDropdownMenu" class="absolute bottom-full mb-2 left-0 right-0 bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden hidden z-50">
-              <button id="returnNowBtn" class="w-full text-left px-4 py-3 hover:bg-slate-50 transition flex items-center gap-3 border-b border-slate-100">
+            <div id="returnDropdownMenu" class="return-dropdown-menu hidden">
+              <button id="returnNowBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3 border-b border-slate-100">
                 <i class="fas fa-undo-alt text-emerald-600 w-5"></i>
                 <div>
                   <div class="font-medium text-slate-800 text-sm">Return Key Now</div>
                   <div class="text-xs text-slate-500">Return your borrowed keys immediately</div>
                 </div>
               </button>
-              <button id="extensionRequestBtn" class="w-full text-left px-4 py-3 hover:bg-slate-50 transition flex items-center gap-3 border-b border-slate-100">
+              <button id="extensionRequestBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3 border-b border-slate-100">
                 <i class="fas fa-calendar-plus text-purple-600 w-5"></i>
                 <div>
                   <div class="font-medium text-slate-800 text-sm">Extension Request</div>
                   <div class="text-xs text-slate-500">Extend your return date</div>
                 </div>
               </button>
-              <button id="reportLostKeyBtn" class="w-full text-left px-4 py-3 hover:bg-slate-50 transition flex items-center gap-3">
+              <button id="reportLostKeyBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3">
                 <i class="fas fa-exclamation-triangle text-rose-600 w-5"></i>
                 <div>
                   <div class="font-medium text-slate-800 text-sm">Report Lost Key</div>
@@ -168,6 +149,11 @@
               </button>
             </div>
           </div>
+          <p class="text-[10px] text-slate-400 text-center mt-2">
+            <i class="fas fa-chevron-down text-[8px] mr-1"></i>
+            Click for more return options
+            <i class="fas fa-chevron-down text-[8px] ml-1"></i>
+          </p>
         </div>
 
         <div id="adminActions" class="admin-only mt-1 p-4 bg-white rounded-xl border border-slate-200/80 shadow-sm">
@@ -180,9 +166,6 @@
     </div>
   </main>
 
-  <!-- MODALS -->
-
-  <!-- Request Modal -->
   <div id="requestModal" class="modal-overlay">
     <div class="modal-container">
       <div class="p-5 border-b border-slate-100 flex justify-between items-center">
@@ -240,7 +223,6 @@
     </div>
   </div>
 
-  <!-- Return Modal -->
   <div id="returnModal" class="modal-overlay">
     <div class="modal-container">
       <div class="p-5 border-b border-slate-100 flex justify-between items-center">
@@ -273,7 +255,6 @@
     </div>
   </div>
 
-  <!-- Report Lost Key Modal -->
   <div id="reportLostModal" class="modal-overlay">
     <div class="modal-container max-w-2xl">
       <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -292,7 +273,6 @@
     </div>
   </div>
 
-  <!-- Lost Key Confirmation Modal -->
   <div id="confirmLostModal" class="modal-overlay">
     <div class="modal-container max-w-sm">
       <div class="p-5 text-center">
@@ -309,7 +289,6 @@
     </div>
   </div>
 
-  <!-- Extension Request Modal -->
   <div id="extensionModal" class="modal-overlay">
     <div class="modal-container max-w-2xl">
       <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50">
@@ -343,7 +322,6 @@
     </div>
   </div>
 
-  <!-- Notification Modal -->
   <div id="notificationModal" class="modal-overlay">
     <div class="modal-container max-w-sm">
       <div class="p-6 text-center">
@@ -357,7 +335,6 @@
     </div>
   </div>
 
-  <!-- Profile Edit Modal -->
   <div id="profileModal" class="modal-overlay">
     <div class="modal-container">
       <div class="p-5 border-b border-slate-100 flex justify-between items-center">
@@ -395,10 +372,8 @@
     </div>
   </div>
 
-  <!-- Toast root -->
   <div id="toastRoot"></div>
 
-  <!-- FOOTER -->
   <footer class="bg-white border-t border-slate-200 py-4 mt-8">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
       <div class="text-center text-xs text-slate-500 flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4">

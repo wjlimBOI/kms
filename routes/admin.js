@@ -153,7 +153,7 @@ router.get('/requests/pending', requireAuth, authorize('admin'), requireReadOnly
             let items = [];
             try {
                 items = typeof row.items === 'string' ? JSON.parse(row.items) : (row.items || []);
-            } catch (e) { /* ignore */ }
+            } catch (e) { }
             const keyDetails = [];
             for (const item of items) {
                 const keyRes = await db.query('SELECT code, brand FROM keys WHERE id = $1', [item.key_id]);
@@ -196,7 +196,7 @@ router.post('/requests/approve', requireAuth, authorize('admin'), async (req, re
         let items = [];
         try {
             items = typeof request.items === 'string' ? JSON.parse(request.items) : (request.items || []);
-        } catch (e) { /* ignore */ }
+        } catch (e) { }
 
         for (const item of items) {
             await client.query(
@@ -206,7 +206,7 @@ router.post('/requests/approve', requireAuth, authorize('admin'), async (req, re
                   receiver_verification_method, receiver_signature_name, reason)
                  VALUES ($1, $2, 'borrow', $3, $4, $5, NOW(), 'borrowed', 'admin_approval', $6, 'admin_approval', $7, $8)`,
                 [adminEmail, request.requester_email, item.key_id, item.quantity, request.planned_return,
-                 'Admin', request.requester_name, request.reason]
+                    'Admin', request.requester_name, request.reason]
             );
         }
         await client.query(

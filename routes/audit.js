@@ -1,7 +1,6 @@
 const router = require('express').Router();
 const { requireAuth, authorize } = require('../middleware/auth');
 
-// GET /api/audit/logs
 router.get('/logs', requireAuth, authorize('admin'), async (req, res) => {
     const db = req.db;
     try {
@@ -14,7 +13,6 @@ router.get('/logs', requireAuth, authorize('admin'), async (req, res) => {
             ORDER BY created_at DESC
             LIMIT 100
         `);
-        // Format for frontend (expected fields: action, user_name, created_at, details)
         const logs = result.rows.map(row => ({
             action: row.event_type,
             user_name: row.user_email || 'System',

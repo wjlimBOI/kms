@@ -520,8 +520,8 @@
                 <td>${escapeHtml(keyList)}</td>
                 <td>${formatDate(req.planned_return)}</td>
                 <td>
-                    <button class="approveBtnModal bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2 py-1 rounded-full" data-id="${req.id}">Approve</button>
-                    <button class="denyBtnModal bg-rose-600 hover:bg-rose-700 text-white text-xs px-2 py-1 rounded-full" data-id="${req.id}">Deny</button>
+                    <button class="btn btn-sm btn-primary approveBtnModal" data-id="${req.id}">Approve</button>
+                    <button class="btn btn-sm btn-critical denyBtnModal" data-id="${req.id}">Deny</button>
                 </td>
             </tr>`;
         }
@@ -564,7 +564,7 @@
                 <td>${escapeHtml(ret.requester_name || ret.requester_email)}</td>
                 <td>${escapeHtml(ret.key_list)}</td>
                 <td>${formatDate(ret.created_at)}</td>
-                <td><button class="approveReturnModalBtn bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-2 py-1 rounded-full" data-id="${ret.id}">Approve</button></td>
+                <td><button class="btn btn-sm btn-primary approveReturnModalBtn" data-id="${ret.id}">Approve</button></td>
             </tr>`;
         }
         const html = `<table class="table-clean"><thead><tr><th>Requester</th><th>Keys</th><th>Requested</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -613,43 +613,166 @@
         }
         let rows = '';
         for (const item of data) {
+            const statusLabel = item.resolved_at ? 'Resolved' : 'Lost';
+            const statusClass = item.resolved_at ? 'returned' : 'lost';
             rows += `<tr class="lost-key-row" data-tx-id="${item.id}">
-                <td>${escapeHtml(item.key_code)}</td>
+                <td><code>${escapeHtml(item.key_code)}</code></td>
                 <td>${escapeHtml(item.brand)}</td>
                 <td>${escapeHtml(item.borrower_name || item.borrower_email)}</td>
                 <td>${formatDate(item.lost_at)}</td>
+                <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
                 <td>
-                    <div class="actions-dropdown inline-block relative">
-                        <button class="dropdown-toggle bg-white border border-gray-300 rounded-full px-3 py-1 text-xs font-medium text-slate-700 hover:bg-gray-50 transition flex items-center gap-1">
-                            Actions <i class="fas fa-chevron-down text-[10px]"></i>
-                        </button>
-                        <div class="dropdown-menu absolute right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[140px]">
-                            ${!item.fine_id ? `<div class="dropdown-item action-create-fine" data-tx-id="${item.id}" data-key-code="${escapeHtml(item.key_code)}"><i class="fas fa-plus-circle"></i> Create Fee</div><div class="dropdown-divider"></div>` : ''}
-                            <div class="dropdown-item action-mark-unavailable" data-key-id="${item.key_id}" data-key-code="${escapeHtml(item.key_code)}"><i class="fas fa-ban"></i> Mark Unavailable</div>
-                            <div class="dropdown-item action-mark-available" data-key-id="${item.key_id}" data-key-code="${escapeHtml(item.key_code)}"><i class="fas fa-check-circle"></i> Mark Available</div>
-                            ${item.fine_id && item.fine_status === 'pending' ? `<div class="dropdown-divider"></div><div class="dropdown-item action-mark-paid" data-fine-id="${item.fine_id}" data-tx-id="${item.id}" data-key-code="${escapeHtml(item.key_code)}"><i class="fas fa-dollar-sign"></i> Mark Paid</div><div class="dropdown-item action-waive" data-fine-id="${item.fine_id}" data-tx-id="${item.id}" data-key-code="${escapeHtml(item.key_code)}"><i class="fas fa-handshake"></i> Waive</div>` : ''}
-                            <div class="dropdown-divider"></div>
-                            <div class="dropdown-item action-close-ticket" data-tx-id="${item.id}" data-key-code="${escapeHtml(item.key_code)}"><i class="fas fa-check-circle"></i> Close Ticket</div>
-                        </div>
+                    <div class="lost-keys-actions">
+                        ${!item.resolved_at ? `
+                            <button class="btn-action btn-view btn-action-sm" data-tx-id="${item.id}" title="View Details">
+                                <i class="fas fa-eye"></i> View
+                            </button>
+                            <button class="btn-action btn-edit btn-action-sm" data-tx-id="${item.id}" title="Edit">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            ${!item.fine_id ? `
+                                <button class="btn-action btn-primary btn-action-sm" data-tx-id="${item.id}" data-action="create-fine" title="Create Fee">
+                                    <i class="fas fa-plus-circle"></i> Fee
+                                </button>
+                            ` : ''}
+                            <button class="btn-action btn-success btn-action-sm" data-tx-id="${item.id}" data-action="close-ticket" title="Close Ticket">
+                                <i class="fas fa-check-circle"></i> Close
+                            </button>
+                        ` : `
+                            <button class="btn-action btn-view btn-action-sm" data-tx-id="${item.id}" title="View Details">
+                                <i class="fas fa-eye"></i> View
+                            </button>
+                        `}
+                        ${item.fine_id && item.fine_status === 'pending' ? `
+                            <button class="btn-action btn-success btn-action-sm" data-tx-id="${item.id}" data-action="mark-paid" data-fine-id="${item.fine_id}" title="Mark Paid">
+                                <i class="fas fa-dollar-sign"></i> Paid
+                            </button>
+                            <button class="btn-action btn-warning btn-action-sm" data-tx-id="${item.id}" data-action="waive" data-fine-id="${item.fine_id}" title="Waive">
+                                <i class="fas fa-handshake"></i> Waive
+                            </button>
+                        ` : ''}
                     </div>
                 </td>
             </tr>`;
         }
-        const html = `<table class="table-clean"><thead><tr><th>Key</th><th>Brand</th><th>Borrower</th><th>Lost Date</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+        const html = `<table class="table-clean"><thead><tr><th>Key</th><th>Brand</th><th>Borrower</th><th>Lost Date</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
         showDetailModal('Lost Keys', html);
         const modalContent = document.getElementById('detailModalContent');
         if (!_lostKeysListenerAttached) {
             modalContent.addEventListener('click', function(e) {
                 const row = e.target.closest('.lost-key-row');
-                if (row && !e.target.closest('.actions-dropdown')) {
+                if (row && !e.target.closest('.lost-keys-actions')) {
                     const txId = parseInt(row.dataset.txId);
                     const item = window._lostKeysData.find(d => d.id === txId);
                     if (item) showLostKeyDetailFromItem(item);
                     else showAlert('Key details not found. Please refresh and try again.', 'warning');
                 }
             });
-            modalContent.addEventListener('click', lostKeysDropdownHandler);
+            modalContent.addEventListener('click', lostKeysActionHandler);
             _lostKeysListenerAttached = true;
+        }
+    }
+
+    function lostKeysActionHandler(e) {
+        const btn = e.target.closest('.lost-keys-actions .btn-action');
+        if (!btn) return;
+        e.stopPropagation();
+        const action = btn.dataset.action || 'view';
+        const txId = parseInt(btn.dataset.txId);
+        const item = window._lostKeysData?.find(d => d.id === txId);
+        if (!item) {
+            showAlert('Key details not found. Please refresh.', 'warning');
+            return;
+        }
+        executeLostKeyAction(action, item);
+    }
+
+    async function executeLostKeyAction(action, item) {
+        const keyCode = item.key_code || 'unknown';
+        switch (action) {
+            case 'view':
+                showLostKeyDetailFromItem(item);
+                break;
+            case 'edit':
+                openLostKeyEditModal(item.id);
+                break;
+            case 'create-fine':
+                if (!confirm(`Create a $50 fee for lost key ${keyCode}?`)) return;
+                try {
+                    const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/create-fine`, { method: 'POST' });
+                    if (res.ok) {
+                        showAlert('Fee created.', 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                        await loadLostKeysManagement();
+                    } else {
+                        const data = await res.json();
+                        showAlert(data.error || 'Failed to create fee. Please try again.', 'error');
+                    }
+                } catch (err) {
+                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                }
+                break;
+            case 'mark-paid':
+                if (!confirm(`Mark fee for ${keyCode} as paid?`)) return;
+                try {
+                    const res = await authenticatedFetch(`/api/admin/fines/${item.fine_id}/paid`, { method: 'POST' });
+                    if (res.ok) {
+                        showAlert('Fee marked paid.', 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                        await loadLostKeysManagement();
+                    } else {
+                        const data = await res.json();
+                        showAlert(data.error || 'Action failed. Please try again.', 'error');
+                    }
+                } catch (err) {
+                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                }
+                break;
+            case 'waive':
+                if (!confirm(`Waive fee for ${keyCode}?`)) return;
+                try {
+                    const res = await authenticatedFetch(`/api/admin/fines/${item.fine_id}/waived`, { method: 'POST' });
+                    if (res.ok) {
+                        showAlert('Fee waived.', 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                        await loadLostKeysManagement();
+                    } else {
+                        const data = await res.json();
+                        showAlert(data.error || 'Action failed. Please try again.', 'error');
+                    }
+                } catch (err) {
+                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                }
+                break;
+            case 'close-ticket':
+                if (!confirm(`Close lost ticket for key ${keyCode}? This will mark the issue as resolved.`)) return;
+                const notes = prompt('Resolution notes (optional):');
+                try {
+                    const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/close`, {
+                        method: 'POST',
+                        body: JSON.stringify({ resolution_notes: notes || null })
+                    });
+                    if (res.ok) {
+                        showAlert('Ticket closed.', 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                        await loadInventory();
+                        await loadLostKeysManagement();
+                    } else {
+                        const data = await res.json();
+                        showAlert(data.error || 'Failed to close ticket. Please try again.', 'error');
+                    }
+                } catch (err) {
+                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                }
+                break;
         }
     }
 
@@ -666,12 +789,14 @@
                 const num = typeof amount === 'string' ? parseFloat(amount) : amount;
                 return isNaN(num) ? '0.00' : num.toFixed(2);
             };
+            const statusClass = data.resolved_at ? 'returned' : 'lost';
+            const statusLabel = data.resolved_at ? 'Resolved' : 'Lost';
             const html = `
                 <div class="detail-section"><div class="detail-label">Key Information</div>
                     <div class="detail-grid">
                         <div><span class="detail-label">Code</span><div class="detail-value">${escapeHtml(data.key_code)}</div></div>
                         <div><span class="detail-label">Brand</span><div class="detail-value">${escapeHtml(data.brand || '—')}</div></div>
-                        <div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge lost">Lost</span></div></div>
+                        <div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ${statusClass}">${statusLabel}</span></div></div>
                     </div>
                 </div>
                 <div class="detail-section"><div class="detail-label">Borrower</div>
@@ -685,7 +810,7 @@
                         <div><span class="detail-label">Lost At</span><div class="detail-value">${formatDate(data.lost_at)}</div></div>
                         <div><span class="detail-label">Planned Return</span><div class="detail-value">${formatDate(data.planned_return)}</div></div>
                         ${data.returned_at ? `<div><span class="detail-label">Returned At</span><div class="detail-value">${formatDate(data.returned_at)}</div></div>` : ''}
-                        <div><span class="detail-label">Reason</span><div class="detail-value">${escapeHtml(data.reason || '—')}</div></div>
+                        <div class="full-width"><span class="detail-label">Reason</span><div class="detail-value">${escapeHtml(data.reason || '—')}</div></div>
                         ${data.resolved_at ? `<div><span class="detail-label">Resolved At</span><div class="detail-value">${formatDate(data.resolved_at)}</div></div>` : ''}
                     </div>
                 </div>
@@ -704,151 +829,6 @@
         } catch (err) {
             content.innerHTML = `<div class="text-center py-8 text-rose-600">Unable to load details: ${escapeHtml(err.message || 'Please refresh and try again.')}</div>`;
             showAlert(err.message || 'Failed to load lost key details. Please check your connection.', 'error');
-        }
-    }
-
-    function lostKeysDropdownHandler(e) {
-        const target = e.target.closest('.dropdown-toggle');
-        if (target) {
-            e.stopPropagation();
-            const dropdown = target.closest('.actions-dropdown');
-            if (!dropdown) return;
-            const menu = dropdown.querySelector('.dropdown-menu');
-            document.querySelectorAll('#detailModalContent .dropdown-menu').forEach(m => {
-                if (m !== menu) m.classList.remove('show');
-            });
-            menu.classList.toggle('show');
-            return;
-        }
-        const item = e.target.closest('.dropdown-item');
-        if (!item) return;
-        e.stopPropagation();
-        let action = '';
-        const classes = item.className.split(' ');
-        for (const cls of classes) {
-            if (cls.startsWith('action-')) {
-                action = cls.replace('action-', '');
-                break;
-            }
-        }
-        if (!action) return;
-        const dropdown = item.closest('.actions-dropdown');
-        if (dropdown) dropdown.querySelector('.dropdown-menu').classList.remove('show');
-        executeLostKeyAction(action, item.dataset);
-    }
-
-    async function executeLostKeyAction(action, dataset) {
-        const keyCode = dataset.keyCode || 'unknown';
-        switch (action) {
-            case 'create-fine':
-                if (!confirm(`Create a $50 fee for lost key ${keyCode}?`)) return;
-                try {
-                    const res = await authenticatedFetch(`/api/admin/lost-keys/${dataset.txId}/create-fine`, { method: 'POST' });
-                    if (res.ok) {
-                        showAlert('Fee created.', 'success');
-                        closeDetailModal();
-                        await loadLostKeys();
-                        await loadTransactions();
-                    } else {
-                        const data = await res.json();
-                        showAlert(data.error || 'Failed to create fee. Please try again.', 'error');
-                    }
-                } catch (err) {
-                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
-                }
-                break;
-            case 'mark-unavailable':
-                if (!confirm(`Mark key ${keyCode} as permanently unavailable?`)) return;
-                try {
-                    const res = await authenticatedFetch(`/api/admin/keys/${dataset.keyId}/unavailable`, { method: 'POST' });
-                    if (res.ok) {
-                        showAlert('Key marked unavailable.', 'success');
-                        closeDetailModal();
-                        await loadLostKeys();
-                        await loadTransactions();
-                        await loadInventory();
-                    } else {
-                        const data = await res.json();
-                        showAlert(data.error || 'Failed to update key. Please try again.', 'error');
-                    }
-                } catch (err) {
-                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
-                }
-                break;
-            case 'mark-available':
-                if (!confirm(`Mark key ${keyCode} as available again?`)) return;
-                try {
-                    const res = await authenticatedFetch(`/api/admin/keys/${dataset.keyId}/available`, { method: 'POST' });
-                    if (res.ok) {
-                        showAlert('Key marked available.', 'success');
-                        closeDetailModal();
-                        await loadLostKeys();
-                        await loadTransactions();
-                        await loadInventory();
-                    } else {
-                        const data = await res.json();
-                        showAlert(data.error || 'Failed to update key. Please try again.', 'error');
-                    }
-                } catch (err) {
-                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
-                }
-                break;
-            case 'mark-paid':
-                if (!confirm(`Mark fee for ${keyCode} as paid?`)) return;
-                try {
-                    const res = await authenticatedFetch(`/api/admin/fines/${dataset.fineId}/paid`, { method: 'POST' });
-                    if (res.ok) {
-                        showAlert('Fee marked paid.', 'success');
-                        closeDetailModal();
-                        await loadLostKeys();
-                        await loadTransactions();
-                    } else {
-                        const data = await res.json();
-                        showAlert(data.error || 'Action failed. Please try again.', 'error');
-                    }
-                } catch (err) {
-                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
-                }
-                break;
-            case 'waive':
-                if (!confirm(`Waive fee for ${keyCode}?`)) return;
-                try {
-                    const res = await authenticatedFetch(`/api/admin/fines/${dataset.fineId}/waived`, { method: 'POST' });
-                    if (res.ok) {
-                        showAlert('Fee waived.', 'success');
-                        closeDetailModal();
-                        await loadLostKeys();
-                        await loadTransactions();
-                    } else {
-                        const data = await res.json();
-                        showAlert(data.error || 'Action failed. Please try again.', 'error');
-                    }
-                } catch (err) {
-                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
-                }
-                break;
-            case 'close-ticket':
-                if (!confirm(`Close lost ticket for key ${keyCode}? This will mark the issue as resolved.`)) return;
-                const notes = prompt('Resolution notes (optional):');
-                try {
-                    const res = await authenticatedFetch(`/api/admin/lost-keys/${dataset.txId}/close`, {
-                        method: 'POST',
-                        body: JSON.stringify({ resolution_notes: notes || null })
-                    });
-                    if (res.ok) {
-                        showAlert('Ticket closed.', 'success');
-                        closeDetailModal();
-                        await loadLostKeys();
-                        await loadTransactions();
-                        await loadInventory();
-                    } else {
-                        const data = await res.json();
-                        showAlert(data.error || 'Failed to close ticket. Please try again.', 'error');
-                    }
-                } catch (err) {
-                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
-                }
-                break;
         }
     }
 
@@ -1138,10 +1118,10 @@
                     <td class="text-left">${escapeHtml(key.brand)}</td>
                     <td class="text-left">${escapeHtml(setsDisplay)}</td>
                     <td class="text-right">
-                        <button class="btn-manage edit-manage-key-btn" data-id="${key.id}" style="margin-right:4px;">
+                        <button class="btn btn-sm btn-secondary edit-manage-key-btn" data-id="${key.id}" style="margin-right:4px;">
                             <i class="fas fa-edit"></i> Edit
                         </button>
-                        <button class="btn-refresh delete-manage-key-btn" data-id="${key.id}" data-code="${escapeHtml(key.code)}">
+                        <button class="btn btn-sm btn-critical delete-manage-key-btn" data-id="${key.id}" data-code="${escapeHtml(key.code)}">
                             <i class="fas fa-trash"></i> Delete
                         </button>
                     </td>
@@ -1311,8 +1291,8 @@
                     <td class="text-left">${escapeHtml(t.subject)}</td>
                     <td>${t.is_active ? '✅' : '❌'}</td>
                     <td class="text-right">
-                        <button class="action-icon edit" data-key="${escapeHtml(t.template_key)}" title="Edit"><i class="fas fa-edit"></i></button>
-                        <button class="action-icon delete" data-key="${escapeHtml(t.template_key)}" title="Delete"><i class="fas fa-trash"></i></button>
+                        <button class="btn btn-sm btn-secondary edit" data-key="${escapeHtml(t.template_key)}" title="Edit"><i class="fas fa-edit"></i> Edit</button>
+                        <button class="btn btn-sm btn-critical delete" data-key="${escapeHtml(t.template_key)}" title="Delete"><i class="fas fa-trash"></i> Delete</button>
                     </td>
                 </tr>`;
             }
@@ -1456,17 +1436,19 @@
                     <td>${formatDate(item.lost_at)}</td>
                     <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
                     <td class="text-right">
-                        <button class="btn-manage view-lost-key-btn" data-id="${item.id}" style="margin-right:4px;">
-                            <i class="fas fa-eye"></i> View
-                        </button>
-                        ${!item.resolved_at ? `
-                            <button class="btn-primary edit-lost-key-btn" data-id="${item.id}" style="margin-right:4px;">
-                                <i class="fas fa-edit"></i> Edit
+                        <div class="lost-keys-actions" style="justify-content:flex-end;">
+                            <button class="btn-action btn-view btn-action-sm view-lost-key-btn" data-id="${item.id}">
+                                <i class="fas fa-eye"></i> View
                             </button>
-                            <button class="btn-critical close-lost-ticket-btn" data-id="${item.id}" data-key="${escapeHtml(item.key_code)}">
-                                <i class="fas fa-check"></i> Close
-                            </button>
-                        ` : ''}
+                            ${!item.resolved_at ? `
+                                <button class="btn-action btn-edit btn-action-sm edit-lost-key-btn" data-id="${item.id}">
+                                    <i class="fas fa-edit"></i> Edit
+                                </button>
+                                <button class="btn-action btn-success btn-action-sm close-lost-ticket-btn" data-id="${item.id}" data-key="${escapeHtml(item.key_code)}">
+                                    <i class="fas fa-check-circle"></i> Close
+                                </button>
+                            ` : ''}
+                        </div>
                     </td>
                 </tr>`;
             }
@@ -1621,10 +1603,10 @@
                     <td class="text-left">${escapeHtml(r.email)}</td>
                     <td><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
                     <td class="text-right">
-                        <button class="btn-manage toggle-admin-recipient" data-user-id="${r.id}" data-enabled="${r.enabled}">
+                        <button class="btn btn-sm btn-secondary toggle-admin-recipient" data-user-id="${r.id}" data-enabled="${r.enabled}">
                             <i class="fas ${r.enabled ? 'fa-pause' : 'fa-play'}"></i> ${r.enabled ? 'Disable' : 'Enable'}
                         </button>
-                        <button class="btn-refresh delete-admin-recipient" data-user-id="${r.id}" data-name="${escapeHtml(r.name)}">
+                        <button class="btn btn-sm btn-critical delete-admin-recipient" data-user-id="${r.id}" data-name="${escapeHtml(r.name)}">
                             <i class="fas fa-trash"></i> Remove
                         </button>
                     </td>
@@ -1828,9 +1810,9 @@
                 html += `<td><input type="checkbox" class="permission-checkbox" data-role="${escapeHtml(role)}" data-perm-id="${p.permission_id}" ${checked}></td>`;
             }
             if (role.toLowerCase() === 'admin') {
-                html += `<td><button class="viewRoleBtn text-blue-500 hover:text-blue-700 text-xs font-medium" data-role="${escapeHtml(role)}"><i class="fas fa-eye"></i> View</button></td>`;
+                html += `<td><button class="btn btn-sm btn-secondary viewRoleBtn" data-role="${escapeHtml(role)}"><i class="fas fa-eye"></i> View</button></td>`;
             } else {
-                html += `<td><button class="deleteRoleBtn text-rose-500 hover:text-rose-700 text-xs font-medium" data-role="${escapeHtml(role)}"><i class="fas fa-trash"></i> Delete</button></td>`;
+                html += `<td><button class="btn btn-sm btn-critical deleteRoleBtn" data-role="${escapeHtml(role)}"><i class="fas fa-trash"></i> Delete</button></td>`;
             }
             html += `</tr>`;
         }
@@ -1944,8 +1926,8 @@
                     <td>${escapeHtml(req.username || '—')}</td>
                     <td>${formatDate(req.created_at)}</td>
                     <td>
-                        <button class="approveRequestBtn bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1 rounded-full transition" data-id="${req.id}">Approve</button>
-                        <button class="rejectRequestBtn bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1 rounded-full transition" data-id="${req.id}">Reject</button>
+                        <button class="btn btn-sm btn-primary approveRequestBtn" data-id="${req.id}">Approve</button>
+                        <button class="btn btn-sm btn-critical rejectRequestBtn" data-id="${req.id}">Reject</button>
                     </td>
                 </tr>`;
             }
@@ -2177,8 +2159,8 @@
                         <td><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
                         <td>${formatLastActive(user.lastActive)}</td>
                         <td class="actions-cell">
-                            <button class="manageActionDots text-slate-400 hover:text-slate-600" data-user-id="${user.id}">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path d="M10 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4zm0 6a2 2 0 110-4 2 2 0 010 4z"/></svg>
+                            <button class="btn btn-sm btn-secondary manageActionDots" data-user-id="${user.id}">
+                                <i class="fas fa-ellipsis-v"></i> Actions
                             </button>
                             <div class="manage-action-menu" data-user-id="${user.id}">
                                 <div class="py-1">

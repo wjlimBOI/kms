@@ -12,6 +12,12 @@
     let notificationTimeout = null;
     let pendingLostTransaction = null;
 
+    function redirectToLogin() {
+        localStorage.removeItem('kms_token');
+        localStorage.removeItem('kms_user');
+        window.location.href = '/login';
+    }
+
     async function fetchCsrfToken() {
         if (csrfFetchPromise) {
             return csrfFetchPromise;
@@ -221,7 +227,7 @@
     async function authenticatedFetch(url, options = {}) {
         const token = getToken();
         if (!token) {
-            window.location.href = '/login';
+            redirectToLogin();
             throw new Error('No token');
         }
 
@@ -271,9 +277,7 @@
             }
 
             if (response.status === 401) {
-                localStorage.removeItem('kms_token');
-                localStorage.removeItem('kms_user');
-                window.location.href = '/login';
+                redirectToLogin();
                 throw new Error('Session expired');
             }
 
@@ -294,14 +298,14 @@
             });
 
             if (!response.ok) {
-                window.location.href = '/login';
+                redirectToLogin();
                 return false;
             }
 
             const data = await response.json();
-            
+
             if (!data.authenticated) {
-                window.location.href = '/login';
+                redirectToLogin();
                 return false;
             }
 
@@ -309,7 +313,7 @@
             return true;
         } catch (error) {
             console.error('Auth check failed:', error);
-            window.location.href = '/login';
+            redirectToLogin();
             return false;
         }
     }
@@ -344,10 +348,16 @@
     }
 
     function initEventListeners() {
-        document.getElementById('logoutBtn')?.addEventListener('click', () => {
-            localStorage.removeItem('kms_token');
-            localStorage.removeItem('kms_user');
-            window.location.href = '/login';
+        document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+            try {
+                await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+            } catch (err) {
+                console.error('Logout error:', err);
+            }
+            redirectToLogin();
         });
 
         const profileBtn = document.getElementById('userProfileBtn');
@@ -1266,14 +1276,14 @@
         if (isAuthenticated) {
             const loadingContainer = document.getElementById('loadingContainer');
             const mainContentWrapper = document.getElementById('mainContentWrapper');
-            
+
             if (loadingContainer) {
                 loadingContainer.style.display = 'none';
             }
             if (mainContentWrapper) {
                 mainContentWrapper.style.display = 'block';
             }
-            
+
             fetchCsrfToken();
             initUserProfile();
             initEventListeners();

@@ -90,10 +90,8 @@ app.use(helmet({
       defaultSrc: ["'self'"],
       scriptSrc: [
         "'self'",
-        "'unsafe-inline'",
         "https://cdnjs.cloudflare.com",
-        "https://kit.fontawesome.com",
-        ...(IS_PRODUCTION ? [] : ["'unsafe-eval'"])
+        "https://kit.fontawesome.com"
       ],
       styleSrc: [
         "'self'",
@@ -109,7 +107,7 @@ app.use(helmet({
         "data:"
       ],
       imgSrc: ["'self'", "data:", "blob:"],
-      connectSrc: ["'self'", ...(IS_PRODUCTION ? [] : ["http://localhost:3000"])],
+      connectSrc: ["'self'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
       frameAncestors: ["'none'"],
@@ -126,6 +124,11 @@ app.use(helmet({
     policy: 'strict-origin-when-cross-origin',
   },
 }));
+
+app.use((req, res, next) => {
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=(), payment=(), usb=()');
+  next();
+});
 
 app.use(compression({
   level: 6,

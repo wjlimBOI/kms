@@ -4,6 +4,12 @@
     let csrfToken = null;
     let csrfFetchPromise = null;
 
+    function redirectToLogin() {
+        localStorage.removeItem('kms_token');
+        localStorage.removeItem('kms_user');
+        window.location.href = '/login';
+    }
+
     async function fetchCsrfToken() {
         if (csrfFetchPromise) {
             return csrfFetchPromise;
@@ -131,9 +137,7 @@
     async function authenticatedFetch(url, options = {}) {
         const token = getToken();
         if (!token) {
-            if (!window.location.pathname.includes('/login')) {
-                window.location.href = '/login';
-            }
+            redirectToLogin();
             throw new Error('No authentication token found. Please log in again.');
         }
 
@@ -182,11 +186,7 @@
             }
 
             if (response.status === 401) {
-                localStorage.removeItem('kms_token');
-                localStorage.removeItem('kms_user');
-                if (!window.location.pathname.includes('/login')) {
-                    window.location.href = '/login';
-                }
+                redirectToLogin();
                 throw new Error('Your session has expired. Please log in again.');
             }
 
@@ -341,14 +341,14 @@
             });
 
             if (!response.ok) {
-                window.location.href = '/login';
+                redirectToLogin();
                 return false;
             }
 
             const data = await response.json();
 
             if (!data.authenticated) {
-                window.location.href = '/login';
+                redirectToLogin();
                 return false;
             }
 
@@ -365,7 +365,7 @@
             return true;
         } catch (error) {
             console.error('Auth check failed:', error);
-            window.location.href = '/login';
+            redirectToLogin();
             return false;
         }
     }
@@ -387,700 +387,9 @@
     let emailTabLoaded = false;
     let securityLoaded = false;
     let _lostKeysListenerAttached = false;
-
-    function initEventListeners() {
-        document.getElementById('alertOkBtn')?.addEventListener('click', () => {
-            document.getElementById('alertModal').classList.remove('active');
-        });
-
-        document.getElementById('alertModal')?.addEventListener('click', function(e) {
-            if (e.target === this) this.classList.remove('active');
-        });
-
-        document.getElementById('closeDetailModalBtn')?.addEventListener('click', closeDetailModal);
-        document.getElementById('closeDetailModalFooterBtn')?.addEventListener('click', closeDetailModal);
-        document.getElementById('detailModal')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) closeDetailModal();
-        });
-
-        document.getElementById('brandHomeLink')?.addEventListener('click', function(e) {
-            e.preventDefault();
-            document.querySelector('.tab-button[data-tab="dashboard"]')?.click();
-        });
-
-        const profileBtn = document.getElementById('userProfileBtn');
-        const userDropdown = document.getElementById('userDropdown');
-        if (profileBtn && userDropdown) {
-            profileBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                this.classList.toggle('open');
-                userDropdown.classList.toggle('show');
-            });
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('.user-profile')) {
-                    profileBtn.classList.remove('open');
-                    userDropdown.classList.remove('show');
-                }
-            });
-        }
-
-        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-        const mobileMenu = document.getElementById('mobileMenu');
-        if (mobileMenuBtn && mobileMenu) {
-            mobileMenuBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                mobileMenu.classList.toggle('open');
-            });
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('.top-nav')) {
-                    mobileMenu.classList.remove('open');
-                }
-            });
-        }
-
-        document.getElementById('mobileLogoutBtn')?.addEventListener('click', async () => {
-            await fetch('/api/auth/logout', { method: 'POST' });
-            localStorage.removeItem('kms_token');
-            localStorage.removeItem('kms_user');
-            window.location.href = '/login';
-        });
-
-        document.getElementById('myProfileBtn')?.addEventListener('click', openProfileModal);
-        document.getElementById('mobileProfileBtn')?.addEventListener('click', openProfileModal);
-
-        document.getElementById('closeProfileModalBtn')?.addEventListener('click', () => {
-            document.getElementById('profileModal').style.display = 'none';
-        });
-        document.getElementById('cancelProfileBtn')?.addEventListener('click', () => {
-            document.getElementById('profileModal').style.display = 'none';
-        });
-        document.getElementById('profileModal')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                document.getElementById('profileModal').style.display = 'none';
-            }
-        });
-
-        document.getElementById('saveProfileBtn')?.addEventListener('click', async function() {
-            const name = document.getElementById('profileName').value.trim();
-            const email = document.getElementById('profileEmail').value.trim();
-            const currentPassword = document.getElementById('profileCurrentPassword').value.trim();
-            const newPassword = document.getElementById('profilePassword').value.trim();
-
-            if (!name || !email) {
-                showAlert('Name and email are required.', 'error');
-                return;
-            }
-
-            const payload = { name, email };
-            if (newPassword) {
-                if (!currentPassword) {
-                    showAlert('Current password is required to change password.', 'error');
-                    return;
-                }
-                payload.current_password = currentPassword;
-                payload.new_password = newPassword;
-            }
-
-            try {
-                const res = await authenticatedFetch('/api/user/profile', {
-                    method: 'PUT',
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    showAlert('Profile updated successfully.', 'success');
-                    const user = getUser();
-                    if (user) {
-                        user.name = name;
-                        user.email = email;
-                        localStorage.setItem('kms_user', JSON.stringify(user));
-                        updateUserDisplay();
-                    }
-                    document.getElementById('profileModal').style.display = 'none';
-                } else {
-                    showAlert(data.error || 'Failed to update profile. Please try again.', 'error');
-                }
-            } catch (err) {
-                showAlert(err.message || 'Network error. Please check your connection.', 'error');
-            }
-        });
-
-        document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-            await fetch('/api/auth/logout', { method: 'POST' });
-            localStorage.removeItem('kms_token');
-            localStorage.removeItem('kms_user');
-            window.location.href = '/login';
-        });
-
-        document.querySelectorAll('.tab-button').forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                const tabId = this.dataset.tab;
-                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-                const panel = document.getElementById('tab-' + tabId);
-                if (panel) panel.classList.add('active');
-                if (tabId === 'security') {
-                    const first = document.querySelector('#tab-security .sub-tab-button');
-                    if (first) first.click();
-                    loadSecurityTab();
-                } else if (tabId === 'email') {
-                    const first = document.querySelector('#tab-email .sub-tab-button');
-                    if (first) first.click();
-                    loadEmailTab();
-                } else if (tabId === 'requests') {
-                    loadPendingRegistrations();
-                } else if (tabId === 'inventory') {
-                    loadInventory();
-                } else if (tabId === 'lost') {
-                    loadLostKeysManagement();
-                }
-            });
-        });
-
-        document.querySelectorAll('.sub-tab-button').forEach(btn => {
-            btn.addEventListener('click', function() {
-                document.querySelectorAll('.sub-tab-button').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
-                document.querySelectorAll('.sub-tab-panel').forEach(p => p.classList.remove('active'));
-                const panel = document.getElementById('sub-' + this.dataset.subtab);
-                if (panel) panel.classList.add('active');
-                if (this.dataset.subtab === 'templates') loadTemplates();
-                if (this.dataset.subtab === 'settings') loadSettings();
-                if (this.dataset.subtab === 'admin-notifications') loadAdminRecipients();
-            });
-        });
-
-        document.getElementById('refreshRequestsBtn')?.addEventListener('click', loadPendingRegistrations);
-
-        document.getElementById('transactionsRowsPerPage')?.addEventListener('change', function() {
-            txRows = parseInt(this.value);
-            txPage = 1;
-            applyTransactionFilters();
-        });
-
-        document.getElementById('transactionsPrevPageBtn')?.addEventListener('click', () => {
-            if (txPage > 1) {
-                txPage--;
-                renderTransactionsTable();
-                updateTransactionPagination();
-            }
-        });
-
-        document.getElementById('transactionsNextPageBtn')?.addEventListener('click', () => {
-            const totalPages = Math.ceil(txTotal / txRows);
-            if (txPage < totalPages) {
-                txPage++;
-                renderTransactionsTable();
-                updateTransactionPagination();
-            }
-        });
-
-        document.getElementById('pendingRequestsCard')?.addEventListener('click', showPendingRequestsModal);
-        document.getElementById('pendingKeyRequestsCard')?.addEventListener('click', showPendingRequestsModal);
-        document.getElementById('pendingReturnsCard')?.addEventListener('click', showPendingReturnsModal);
-        document.getElementById('activeBorrowsCard')?.addEventListener('click', showActiveBorrowsModal);
-        document.getElementById('returnRemindersCard')?.addEventListener('click', showReturnRemindersModal);
-        document.getElementById('lostKeysCard')?.addEventListener('click', showLostKeysModal);
-
-        document.getElementById('refreshAuditBtn')?.addEventListener('click', loadAuditHealth);
-
-        document.getElementById('modalConfirmBtn')?.addEventListener('click', async function() {
-            const notes = document.getElementById('modalNotes').value.trim();
-            const action = window._currentAction;
-            const id = window._currentRequestId;
-            const endpoint = action === 'approve' ? '/api/admin/requests/approve' : '/api/admin/requests/deny';
-            try {
-                const res = await authenticatedFetch(endpoint, {
-                    method: 'POST',
-                    body: JSON.stringify({ request_id: id, admin_notes: notes || null })
-                });
-                const data = await res.json();
-                if (res.ok) {
-                    showAlert(action === 'approve' ? 'Request approved.' : 'Request denied.', 'success');
-                    document.getElementById('adminModal').style.display = 'none';
-                    loadPendingRequests();
-                    loadTransactions();
-                    loadPendingReturns();
-                } else {
-                    showAlert(data.error || 'Action failed. Please try again.', 'error');
-                }
-            } catch (err) {
-                showAlert(err.message || 'Network error. Please check your connection.', 'error');
-            }
-        });
-
-        document.getElementById('modalCancelBtn')?.addEventListener('click', () => {
-            document.getElementById('adminModal').style.display = 'none';
-        });
-        document.getElementById('closeAdminModalBtn')?.addEventListener('click', () => {
-            document.getElementById('adminModal').style.display = 'none';
-        });
-        document.getElementById('adminModal')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                document.getElementById('adminModal').style.display = 'none';
-            }
-        });
-
-        document.getElementById('searchBtn')?.addEventListener('click', function(e) {
-            e.preventDefault();
-            loadTransactions();
-        });
-
-        document.getElementById('resetBtn')?.addEventListener('click', function(e) {
-            e.preventDefault();
-            document.getElementById('filterGiver').value = '';
-            document.getElementById('filterReceiver').value = '';
-            document.getElementById('filterBranch').value = '';
-            document.getElementById('filterAction').value = '';
-            document.getElementById('filterStatus').value = '';
-            document.getElementById('filterFrom').value = '';
-            document.getElementById('filterTo').value = '';
-            txPage = 1;
-            loadTransactions();
-        });
-
-        document.getElementById('inventorySearchInput')?.addEventListener('input', () => {
-            invPage = 1;
-            applyInventoryFilters();
-        });
-        document.getElementById('inventoryResetFiltersBtn')?.addEventListener('click', () => {
-            document.getElementById('inventorySearchInput').value = '';
-            invPage = 1;
-            applyInventoryFilters();
-        });
-        document.getElementById('inventoryPrevPageBtn')?.addEventListener('click', () => {
-            if (invPage > 1) {
-                invPage--;
-                renderInventoryTable();
-                updateInventoryPagination();
-            }
-        });
-        document.getElementById('inventoryNextPageBtn')?.addEventListener('click', () => {
-            const totalPages = Math.ceil(invTotal / invRows);
-            if (invPage < totalPages) {
-                invPage++;
-                renderInventoryTable();
-                updateInventoryPagination();
-            }
-        });
-        document.getElementById('refreshInventoryBtn')?.addEventListener('click', loadInventory);
-        document.getElementById('inventoryRowsPerPage')?.addEventListener('change', function() {
-            invRows = parseInt(this.value);
-            invPage = 1;
-            applyInventoryFilters();
-        });
-
-        document.getElementById('manageKeysBtn')?.addEventListener('click', openKeyManageModal);
-        document.getElementById('closeKeyManageModalBtn')?.addEventListener('click', () => {
-            document.getElementById('keyManageModal').style.display = 'none';
-        });
-        document.getElementById('closeKeyManageFooterBtn')?.addEventListener('click', () => {
-            document.getElementById('keyManageModal').style.display = 'none';
-        });
-        document.getElementById('keyManageModal')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                document.getElementById('keyManageModal').style.display = 'none';
-            }
-        });
-
-        document.getElementById('manageKeySearch')?.addEventListener('input', () => {
-            manageKeyPage = 1;
-            fetchManageKeys();
-        });
-        document.getElementById('resetManageKeyFilters')?.addEventListener('click', () => {
-            document.getElementById('manageKeySearch').value = '';
-            manageKeyPage = 1;
-            fetchManageKeys();
-        });
-        document.getElementById('manageKeyPrevBtn')?.addEventListener('click', () => {
-            if (manageKeyPage > 1) {
-                manageKeyPage--;
-                renderManageKeyTable();
-                updateManageKeyPagination();
-            }
-        });
-        document.getElementById('manageKeyNextBtn')?.addEventListener('click', () => {
-            const totalPages = Math.ceil(manageKeyTotal / manageKeyRows);
-            if (manageKeyPage < totalPages) {
-                manageKeyPage++;
-                renderManageKeyTable();
-                updateManageKeyPagination();
-            }
-        });
-        document.getElementById('addKeyFromManageBtn')?.addEventListener('click', () => {
-            openKeyEditModal(null);
-            document.getElementById('keyManageModal').style.display = 'none';
-        });
-
-        document.getElementById('closeKeyEditModalBtn')?.addEventListener('click', () => {
-            document.getElementById('keyEditModal').style.display = 'none';
-        });
-        document.getElementById('cancelKeyEditBtn')?.addEventListener('click', () => {
-            document.getElementById('keyEditModal').style.display = 'none';
-        });
-        document.getElementById('keyEditModal')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                document.getElementById('keyEditModal').style.display = 'none';
-            }
-        });
-
-        document.getElementById('saveKeyEditBtn')?.addEventListener('click', async function() {
-            const id = document.getElementById('editKeyId').value;
-            const code = document.getElementById('editKeyCode').value.trim();
-            const brand = document.getElementById('editKeyBrand').value.trim();
-            const ownerField = document.getElementById('editKeyOwner').value.trim();
-            const totalQuantity = parseInt(document.getElementById('editKeySets').value) || 1;
-            const dateOwned = document.getElementById('editKeyDateOwned').value;
-            const remarks = document.getElementById('editKeyRemarks').value.trim();
-            const is_lost = document.getElementById('editKeyLost').checked;
-
-            if (!code || !brand) {
-                showAlert('Code and brand are required.', 'error');
-                return;
-            }
-
-            let sets = [];
-            if (ownerField) {
-                const owners = ownerField.split(',').map(s => s.trim()).filter(Boolean);
-                const quantityPerOwner = Math.max(1, Math.floor(totalQuantity / owners.length));
-                sets = owners.map((owner, index) => ({
-                    owner_name: owner,
-                    quantity: index === owners.length - 1 ? totalQuantity - (quantityPerOwner * (owners.length - 1)) : quantityPerOwner,
-                    remarks: remarks || null
-                }));
-            }
-
-            const payload = {
-                code,
-                brand,
-                sets: sets,
-                date_owned: dateOwned || null,
-                remarks: remarks || null,
-                is_lost
-            };
-
-            const method = id ? 'PUT' : 'POST';
-            const url = id ? `/api/admin/keys/${id}` : '/api/admin/keys';
-
-            try {
-                const res = await authenticatedFetch(url, { method, body: JSON.stringify(payload) });
-                const data = await res.json();
-                if (res.ok) {
-                    showAlert(id ? 'Key updated.' : 'Key created.', 'success');
-                    document.getElementById('keyEditModal').style.display = 'none';
-                    loadInventory();
-                    if (document.getElementById('keyManageModal').style.display === 'flex') fetchManageKeys();
-                } else {
-                    showAlert(data.error || 'Save failed. Please try again.', 'error');
-                }
-            } catch (err) {
-                showAlert(err.message || 'Network error. Please check your connection.', 'error');
-            }
-        });
-
-        document.addEventListener('click', function(e) {
-            const btn = e.target.closest('.btn-print');
-            if (!btn) return;
-            const section = btn.dataset.section;
-            let containerId = '';
-            switch (section) {
-                case 'transactions': containerId = 'transactionsCard'; break;
-                case 'requests': containerId = 'requestsCard'; break;
-                case 'inventory': containerId = 'inventoryCard'; break;
-                case 'audit': containerId = 'auditCard'; break;
-                case 'users': containerId = 'usersCard'; break;
-                case 'templates': containerId = 'templatesCard'; break;
-                case 'settings': containerId = 'settingsCard'; break;
-                default: return;
-            }
-            printSection(containerId);
-        });
-
-        document.getElementById('manageTemplatesBtn')?.addEventListener('click', openTemplateManageModal);
-        document.getElementById('closeTemplateManageModalBtn')?.addEventListener('click', () => {
-            document.getElementById('templateManageModal').style.display = 'none';
-        });
-        document.getElementById('closeTemplateManageFooterBtn')?.addEventListener('click', () => {
-            document.getElementById('templateManageModal').style.display = 'none';
-        });
-        document.getElementById('templateManageModal')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                document.getElementById('templateManageModal').style.display = 'none';
-            }
-        });
-
-        document.getElementById('addTemplateFromManageBtn')?.addEventListener('click', function() {
-            document.getElementById('editTemplateKey').value = '';
-            document.getElementById('editTemplateKeyDisplay').value = '';
-            document.getElementById('editTemplateKeyDisplay').disabled = false;
-            document.getElementById('editTemplateKeyDisplay').placeholder = 'Enter a unique key (e.g., welcome)';
-            document.getElementById('editTemplateSubject').value = '';
-            document.getElementById('editTemplateBody').value = '';
-            document.getElementById('editTemplateActive').checked = true;
-            document.getElementById('templateEditModalTitle').textContent = 'Add New Template';
-            document.getElementById('templateEditModal').style.display = 'flex';
-        });
-
-        document.getElementById('closeTemplateEditModalBtn')?.addEventListener('click', () => {
-            document.getElementById('templateEditModal').style.display = 'none';
-        });
-        document.getElementById('cancelTemplateEditBtn')?.addEventListener('click', () => {
-            document.getElementById('templateEditModal').style.display = 'none';
-        });
-        document.getElementById('templateEditModal')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                document.getElementById('templateEditModal').style.display = 'none';
-            }
-        });
-
-        document.getElementById('saveTemplateEditBtn')?.addEventListener('click', async function() {
-            const key = document.getElementById('editTemplateKey').value.trim();
-            const keyDisplay = document.getElementById('editTemplateKeyDisplay').value.trim();
-            const subject = document.getElementById('editTemplateSubject').value.trim();
-            const body_html = document.getElementById('editTemplateBody').value.trim();
-            const is_active = document.getElementById('editTemplateActive').checked;
-            const finalKey = key || keyDisplay;
-            if (!finalKey || !subject || !body_html) {
-                showAlert('Key, subject, and body are required.', 'error');
-                return;
-            }
-            const isNew = !key;
-            const url = isNew ? '/api/admin/email/templates' : `/api/admin/email/templates/${finalKey}`;
-            const method = isNew ? 'POST' : 'PUT';
-            try {
-                const res = await authenticatedFetch(url, { method, body: JSON.stringify({ subject, body_html, is_active }) });
-                if (res.ok) {
-                    showAlert(isNew ? 'Template created.' : 'Template updated.', 'success');
-                    document.getElementById('templateEditModal').style.display = 'none';
-                    loadTemplates();
-                    if (document.getElementById('templateManageModal').style.display === 'flex') openTemplateManageModal();
-                } else {
-                    const data = await res.json();
-                    showAlert(data.error || 'Save failed. Please try again.', 'error');
-                }
-            } catch (err) {
-                showAlert(err.message || 'Network error. Please check your connection.', 'error');
-            }
-        });
-
-        document.getElementById('saveSettingsBtn')?.addEventListener('click', async function() {
-            const toggles = document.querySelectorAll('.setting-toggle');
-            const updates = [];
-            for (const toggle of toggles) {
-                const key = toggle.dataset.key;
-                const enabled = toggle.checked;
-                const config = {};
-                const configInputs = toggle.closest('.setting-control').querySelectorAll('[data-config]');
-                for (const input of configInputs) {
-                    const configKey = input.dataset.config;
-                    if (input.type === 'checkbox') {
-                        config[configKey] = input.checked;
-                    } else {
-                        if (configKey === 'reminder_days_before') {
-                            const val = input.value.trim();
-                            config[configKey] = val ? val.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
-                        } else {
-                            config[configKey] = input.value;
-                        }
-                    }
-                }
-                updates.push({ key, enabled, config });
-            }
-            try {
-                for (const update of updates) {
-                    await authenticatedFetch(`/api/admin/email/settings/${update.key}`, {
-                        method: 'PUT',
-                        body: JSON.stringify({ enabled: update.enabled, config: update.config })
-                    });
-                }
-                showAlert('All settings saved.', 'success');
-                loadSettings();
-            } catch (err) {
-                showAlert(err.message || 'Failed to save settings. Please check your network.', 'error');
-            }
-        });
-
-        document.getElementById('addAdminRecipientBtn')?.addEventListener('click', openAddAdminRecipientModal);
-        document.getElementById('closeAddAdminRecipientModalBtn')?.addEventListener('click', () => {
-            document.getElementById('addAdminRecipientModal').style.display = 'none';
-        });
-        document.getElementById('cancelAddAdminRecipientBtn')?.addEventListener('click', () => {
-            document.getElementById('addAdminRecipientModal').style.display = 'none';
-        });
-        document.getElementById('addAdminRecipientModal')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                document.getElementById('addAdminRecipientModal').style.display = 'none';
-            }
-        });
-
-        document.getElementById('saveAdminRecipientBtn')?.addEventListener('click', async function() {
-            const select = document.getElementById('adminRecipientSelect');
-            const userId = parseInt(select.value);
-            if (!userId) {
-                showAlert('Please select an admin user.', 'error');
-                return;
-            }
-            try {
-                const res = await authenticatedFetch('/api/admin/admin-notification-recipients', {
-                    method: 'POST',
-                    body: JSON.stringify({ user_id: userId, enabled: true })
-                });
-                if (res.ok) {
-                    showAlert('Admin added to notification recipients.', 'success');
-                    document.getElementById('addAdminRecipientModal').style.display = 'none';
-                    loadAdminRecipients();
-                } else {
-                    const data = await res.json();
-                    showAlert(data.error || 'Failed to add recipient.', 'error');
-                }
-            } catch (err) {
-                showAlert(err.message || 'Network error.', 'error');
-            }
-        });
-
-        document.getElementById('refreshLostKeysBtn')?.addEventListener('click', loadLostKeysManagement);
-
-        document.getElementById('closeLostKeyDetailModalBtn')?.addEventListener('click', () => {
-            document.getElementById('lostKeyDetailModal').style.display = 'none';
-        });
-        document.getElementById('closeLostKeyDetailFooterBtn')?.addEventListener('click', () => {
-            document.getElementById('lostKeyDetailModal').style.display = 'none';
-        });
-        document.getElementById('lostKeyDetailModal')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                document.getElementById('lostKeyDetailModal').style.display = 'none';
-            }
-        });
-
-        document.getElementById('closeLostKeyEditModalBtn')?.addEventListener('click', () => {
-            document.getElementById('lostKeyEditModal').style.display = 'none';
-        });
-        document.getElementById('cancelLostKeyEditBtn')?.addEventListener('click', () => {
-            document.getElementById('lostKeyEditModal').style.display = 'none';
-        });
-        document.getElementById('lostKeyEditModal')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                document.getElementById('lostKeyEditModal').style.display = 'none';
-            }
-        });
-
-        document.getElementById('saveLostKeyEditBtn')?.addEventListener('click', async function() {
-            const id = document.getElementById('editLostTransactionId').value;
-            const reason = document.getElementById('editLostReason').value.trim();
-            const lostAt = document.getElementById('editLostDate').value;
-            const status = document.getElementById('editLostStatus').value;
-
-            if (!reason) {
-                showAlert('Reason for loss is required.', 'error');
-                return;
-            }
-
-            try {
-                const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/update`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                        reason: reason,
-                        lost_at: lostAt || null,
-                        status: status
-                    })
-                });
-                if (res.ok) {
-                    showAlert('Lost key updated successfully.', 'success');
-                    document.getElementById('lostKeyEditModal').style.display = 'none';
-                    loadLostKeysManagement();
-                    loadLostKeys();
-                } else {
-                    const data = await res.json();
-                    showAlert(data.error || 'Update failed.', 'error');
-                }
-            } catch (err) {
-                showAlert(err.message || 'Network error.', 'error');
-            }
-        });
-
-        document.getElementById('refreshAdminRecipientsBtn')?.addEventListener('click', loadAdminRecipients);
-        document.getElementById('refreshAuditLogBtn')?.addEventListener('click', loadAuditLogs);
-
-        document.getElementById('addRoleBtn')?.addEventListener('click', () => {
-            document.getElementById('newRoleName').value = '';
-            document.getElementById('addRoleModal').style.display = 'flex';
-        });
-        document.getElementById('closeAddRoleModalBtn')?.addEventListener('click', () => {
-            document.getElementById('addRoleModal').style.display = 'none';
-        });
-        document.getElementById('cancelAddRoleBtn')?.addEventListener('click', () => {
-            document.getElementById('addRoleModal').style.display = 'none';
-        });
-        document.getElementById('addRoleModal')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                document.getElementById('addRoleModal').style.display = 'none';
-            }
-        });
-        document.getElementById('confirmAddRoleBtn')?.addEventListener('click', () => {
-            const name = document.getElementById('newRoleName').value.trim();
-            if (!name) {
-                showAlert('Please enter a role name.', 'error');
-                return;
-            }
-            if (permissionsData.roleMappings[name]) {
-                showAlert('Role already exists.', 'error');
-                return;
-            }
-            permissionsData.roleMappings[name] = [];
-            permissionsData.roles = Object.keys(permissionsData.roleMappings);
-            renderPermissions();
-            document.getElementById('addRoleModal').style.display = 'none';
-            showAlert(`Role "${name}" added.`, 'success');
-        });
-
-        document.getElementById('savePermissionsBtn')?.addEventListener('click', async function() {
-            const updates = {};
-            document.querySelectorAll('.permission-checkbox').forEach(cb => {
-                const role = cb.dataset.role;
-                const permId = parseInt(cb.dataset.permId);
-                if (!updates[role]) updates[role] = [];
-                if (cb.checked) updates[role].push(permId);
-            });
-            try {
-                for (const [roleName, permIds] of Object.entries(updates)) {
-                    await authenticatedFetch('/api/permissions/roles', {
-                        method: 'POST',
-                        body: JSON.stringify({ role_name: roleName, permission_ids: permIds })
-                    });
-                }
-                showAlert('Permissions saved.', 'success');
-                await loadPermissions();
-            } catch (err) {
-                showAlert(err.message || 'Failed to save permissions. Please check your network.', 'error');
-            }
-        });
-
-        document.getElementById('closeKeyDetailModalBtn')?.addEventListener('click', () => {
-            document.getElementById('keyDetailModal').style.display = 'none';
-        });
-        document.getElementById('closeKeyDetailFooterBtn')?.addEventListener('click', () => {
-            document.getElementById('keyDetailModal').style.display = 'none';
-        });
-        document.getElementById('keyDetailModal')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                document.getElementById('keyDetailModal').style.display = 'none';
-            }
-        });
-
-        document.getElementById('openUserManagementBtn')?.addEventListener('click', () => {
-            document.getElementById('userManagementModal').style.display = 'flex';
-            fetchManageUsers();
-        });
-        document.getElementById('closeUserManagementModalBtn')?.addEventListener('click', () => {
-            document.getElementById('userManagementModal').style.display = 'none';
-        });
-        document.getElementById('userManagementModal')?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                document.getElementById('userManagementModal').style.display = 'none';
-            }
-        });
-    }
+    let currentAction = null;
+    let currentRequestId = null;
+    let pendingLostTransaction = null;
 
     async function loadTransactions() {
         const giver = document.getElementById('filterGiver')?.value.trim() || '';
@@ -1221,8 +530,8 @@
         document.querySelectorAll('.approveBtnModal, .denyBtnModal').forEach(btn => {
             btn.addEventListener('click', function() {
                 const action = this.classList.contains('approveBtnModal') ? 'approve' : 'deny';
-                window._currentAction = action;
-                window._currentRequestId = parseInt(this.dataset.id);
+                currentAction = action;
+                currentRequestId = parseInt(this.dataset.id);
                 document.getElementById('modalTitle').textContent = action === 'approve' ? 'Approve request' : 'Deny request';
                 document.getElementById('modalNotes').value = '';
                 document.getElementById('adminModal').style.display = 'flex';
@@ -1573,8 +882,7 @@
         const data = window._activeBorrowsData || [];
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const overdue = [],
-            upcoming = [];
+        const overdue = [], upcoming = [];
         for (const tx of data) {
             if (!tx.planned_return) continue;
             const d = new Date(tx.planned_return);
@@ -1589,8 +897,7 @@
             showDetailModal('Return Reminders', '<div class="text-center py-8 text-slate-400">No upcoming or overdue returns.</div>');
             return;
         }
-        let rows = '',
-            overdueCount = 0;
+        let rows = '', overdueCount = 0;
         for (const tx of combined) {
             const due = new Date(tx.planned_return);
             const days = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
@@ -2701,11 +2008,7 @@
         const prevBtn = document.getElementById('acmPrevPageBtn');
         const nextBtn = document.getElementById('acmNextPageBtn');
         const paginationInfo = document.getElementById('acmPaginationInfo');
-        let allUsers = [],
-            filteredUsers = [],
-            currentPage = 1,
-            rowsPerPage = 5,
-            totalUsers = 0;
+        let allUsers = [], filteredUsers = [], currentPage = 1, rowsPerPage = 5, totalUsers = 0;
 
         const manageModal = document.getElementById('userManagementModal');
         const manageTbody = document.getElementById('manageUserTableBody');
@@ -2718,11 +2021,7 @@
         const managePaginationInfo = document.getElementById('manageUserPaginationInfo');
         const addUserFromManageBtn = document.getElementById('addUserFromManageBtn');
         const manageTotalLabel = document.getElementById('manageUserTotalLabel');
-        let manageUsers = [],
-            manageFiltered = [],
-            managePage = 1,
-            manageRows = 5,
-            manageTotal = 0;
+        let manageUsers = [], manageFiltered = [], managePage = 1, manageRows = 5, manageTotal = 0;
 
         document.getElementById('openUserManagementBtn')?.addEventListener('click', () => {
             manageModal.style.display = 'flex';
@@ -2738,9 +2037,7 @@
         });
 
         async function fetchUsersInline() {
-            const search = searchInput.value.trim(),
-                role = roleFilter.value,
-                status = statusFilter.value;
+            const search = searchInput.value.trim(), role = roleFilter.value, status = statusFilter.value;
             const params = new URLSearchParams();
             if (search) params.append('search', search);
             if (role !== 'all') params.append('role', role);
@@ -2804,38 +2101,12 @@
             nextBtn.disabled = currentPage === totalPages || totalPages === 0;
         }
 
-        searchInput?.addEventListener('input', () => {
-            currentPage = 1;
-            fetchUsersInline();
-        });
-        roleFilter?.addEventListener('change', () => {
-            currentPage = 1;
-            fetchUsersInline();
-        });
-        statusFilter?.addEventListener('change', () => {
-            currentPage = 1;
-            fetchUsersInline();
-        });
-        resetBtn?.addEventListener('click', () => {
-            searchInput.value = '';
-            roleFilter.value = 'all';
-            statusFilter.value = 'all';
-            currentPage = 1;
-            fetchUsersInline();
-        });
-        prevBtn?.addEventListener('click', () => {
-            if (currentPage > 1) {
-                currentPage--;
-                fetchUsersInline();
-            }
-        });
-        nextBtn?.addEventListener('click', () => {
-            const totalPages = Math.ceil(totalUsers / rowsPerPage);
-            if (currentPage < totalPages) {
-                currentPage++;
-                fetchUsersInline();
-            }
-        });
+        searchInput?.addEventListener('input', () => { currentPage = 1; fetchUsersInline(); });
+        roleFilter?.addEventListener('change', () => { currentPage = 1; fetchUsersInline(); });
+        statusFilter?.addEventListener('change', () => { currentPage = 1; fetchUsersInline(); });
+        resetBtn?.addEventListener('click', () => { searchInput.value = ''; roleFilter.value = 'all'; statusFilter.value = 'all'; currentPage = 1; fetchUsersInline(); });
+        prevBtn?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; fetchUsersInline(); } });
+        nextBtn?.addEventListener('click', () => { const totalPages = Math.ceil(totalUsers / rowsPerPage); if (currentPage < totalPages) { currentPage++; fetchUsersInline(); } });
         document.getElementById('acmRowsPerPage')?.addEventListener('change', function() {
             rowsPerPage = parseInt(this.value);
             currentPage = 1;
@@ -2852,13 +2123,10 @@
         const deleteConfirmModal = document.getElementById('acmDeleteConfirmModal');
         const cancelDeleteBtn = document.getElementById('acmCancelDeleteBtn');
         const confirmDeleteBtn = document.getElementById('acmConfirmDeleteBtn');
-        let editUserId = null,
-            deleteUserId = null;
+        let editUserId = null, deleteUserId = null;
 
         async function fetchManageUsers() {
-            const search = manageSearch.value.trim(),
-                role = manageRoleFilter.value,
-                status = manageStatusFilter.value;
+            const search = manageSearch.value.trim(), role = manageRoleFilter.value, status = manageStatusFilter.value;
             const params = new URLSearchParams();
             if (search) params.append('search', search);
             if (role !== 'all') params.append('role', role);
@@ -3017,75 +2285,26 @@
             manageNextBtn.disabled = managePage === totalPages || totalPages === 0;
         }
 
-        manageSearch?.addEventListener('input', () => {
-            managePage = 1;
-            fetchManageUsers();
-        });
-        manageRoleFilter?.addEventListener('change', () => {
-            managePage = 1;
-            fetchManageUsers();
-        });
-        manageStatusFilter?.addEventListener('change', () => {
-            managePage = 1;
-            fetchManageUsers();
-        });
-        manageResetBtn?.addEventListener('click', () => {
-            manageSearch.value = '';
-            manageRoleFilter.value = 'all';
-            manageStatusFilter.value = 'all';
-            managePage = 1;
-            fetchManageUsers();
-        });
-        managePrevBtn?.addEventListener('click', () => {
-            if (managePage > 1) {
-                managePage--;
-                fetchManageUsers();
-            }
-        });
-        manageNextBtn?.addEventListener('click', () => {
-            const totalPages = Math.ceil(manageTotal / manageRows);
-            if (managePage < totalPages) {
-                managePage++;
-                fetchManageUsers();
-            }
-        });
+        manageSearch?.addEventListener('input', () => { managePage = 1; fetchManageUsers(); });
+        manageRoleFilter?.addEventListener('change', () => { managePage = 1; fetchManageUsers(); });
+        manageStatusFilter?.addEventListener('change', () => { managePage = 1; fetchManageUsers(); });
+        manageResetBtn?.addEventListener('click', () => { manageSearch.value = ''; manageRoleFilter.value = 'all'; manageStatusFilter.value = 'all'; managePage = 1; fetchManageUsers(); });
+        managePrevBtn?.addEventListener('click', () => { if (managePage > 1) { managePage--; fetchManageUsers(); } });
+        manageNextBtn?.addEventListener('click', () => { const totalPages = Math.ceil(manageTotal / manageRows); if (managePage < totalPages) { managePage++; fetchManageUsers(); } });
 
-        addUserFromManageBtn?.addEventListener('click', () => {
-            resetForm();
-            openUserModal();
-            manageModal.style.display = 'none';
-        });
+        addUserFromManageBtn?.addEventListener('click', () => { resetForm(); openUserModal(); manageModal.style.display = 'none'; });
 
-        function closeUserModal() {
-            userModal.classList.remove('active');
-        }
-
-        function openUserModal() {
-            userModal.classList.add('active');
-        }
-
-        function resetForm() {
-            editUserId = null;
-            document.getElementById('acmFullName').value = '';
-            document.getElementById('acmEmail').value = '';
-            document.getElementById('acmRole').value = '';
-            document.getElementById('acmStatus').value = 'active';
-            modalTitle.innerText = 'Add New User';
-        }
+        function closeUserModal() { userModal.classList.remove('active'); }
+        function openUserModal() { userModal.classList.add('active'); }
+        function resetForm() { editUserId = null; document.getElementById('acmFullName').value = ''; document.getElementById('acmEmail').value = ''; document.getElementById('acmRole').value = ''; document.getElementById('acmStatus').value = 'active'; modalTitle.innerText = 'Add New User'; }
 
         async function saveUser() {
             const name = document.getElementById('acmFullName').value.trim();
             const email = document.getElementById('acmEmail').value.trim();
             const role = document.getElementById('acmRole').value;
             const status = document.getElementById('acmStatus').value;
-            if (!name || !email) {
-                showAlert('Name and email are required', 'error');
-                return;
-            }
-            if (!role) {
-                showAlert('Please select a role.', 'error');
-                return;
-            }
+            if (!name || !email) { showAlert('Name and email are required', 'error'); return; }
+            if (!role) { showAlert('Please select a role.', 'error'); return; }
             saveUserBtn.disabled = true;
             saveUserBtn.innerText = 'Saving...';
             try {
@@ -3113,10 +2332,7 @@
             }
         }
 
-        function closeDeleteModal() {
-            deleteConfirmModal.classList.remove('active');
-        }
-
+        function closeDeleteModal() { deleteConfirmModal.classList.remove('active'); }
         async function confirmDelete() {
             if (!deleteUserId) return;
             confirmDeleteBtn.disabled = true;
@@ -3141,11 +2357,697 @@
         saveUserBtn?.addEventListener('click', saveUser);
         cancelDeleteBtn?.addEventListener('click', closeDeleteModal);
         confirmDeleteBtn?.addEventListener('click', confirmDelete);
-        userModal?.addEventListener('click', (e) => {
-            if (e.target === userModal) closeUserModal();
+        userModal?.addEventListener('click', (e) => { if (e.target === userModal) closeUserModal(); });
+        deleteConfirmModal?.addEventListener('click', (e) => { if (e.target === deleteConfirmModal) closeDeleteModal(); });
+    }
+
+    function initEventListeners() {
+        document.getElementById('alertOkBtn')?.addEventListener('click', () => {
+            document.getElementById('alertModal').classList.remove('active');
         });
-        deleteConfirmModal?.addEventListener('click', (e) => {
-            if (e.target === deleteConfirmModal) closeDeleteModal();
+
+        document.getElementById('alertModal')?.addEventListener('click', function(e) {
+            if (e.target === this) this.classList.remove('active');
+        });
+
+        document.getElementById('closeDetailModalBtn')?.addEventListener('click', closeDetailModal);
+        document.getElementById('closeDetailModalFooterBtn')?.addEventListener('click', closeDetailModal);
+        document.getElementById('detailModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeDetailModal();
+        });
+
+        document.getElementById('brandHomeLink')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.querySelector('.tab-button[data-tab="dashboard"]')?.click();
+        });
+
+        const profileBtn = document.getElementById('userProfileBtn');
+        const userDropdown = document.getElementById('userDropdown');
+        if (profileBtn && userDropdown) {
+            profileBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                this.classList.toggle('open');
+                userDropdown.classList.toggle('show');
+            });
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.user-profile')) {
+                    profileBtn.classList.remove('open');
+                    userDropdown.classList.remove('show');
+                }
+            });
+        }
+
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+        if (mobileMenuBtn && mobileMenu) {
+            mobileMenuBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                mobileMenu.classList.toggle('open');
+            });
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.top-nav')) {
+                    mobileMenu.classList.remove('open');
+                }
+            });
+        }
+
+        document.getElementById('mobileLogoutBtn')?.addEventListener('click', async () => {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            redirectToLogin();
+        });
+
+        document.getElementById('myProfileBtn')?.addEventListener('click', openProfileModal);
+        document.getElementById('mobileProfileBtn')?.addEventListener('click', openProfileModal);
+
+        document.getElementById('closeProfileModalBtn')?.addEventListener('click', () => {
+            document.getElementById('profileModal').style.display = 'none';
+        });
+        document.getElementById('cancelProfileBtn')?.addEventListener('click', () => {
+            document.getElementById('profileModal').style.display = 'none';
+        });
+        document.getElementById('profileModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('profileModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('saveProfileBtn')?.addEventListener('click', async function() {
+            const name = document.getElementById('profileName').value.trim();
+            const email = document.getElementById('profileEmail').value.trim();
+            const currentPassword = document.getElementById('profileCurrentPassword').value.trim();
+            const newPassword = document.getElementById('profilePassword').value.trim();
+
+            if (!name || !email) {
+                showAlert('Name and email are required.', 'error');
+                return;
+            }
+
+            const payload = { name, email };
+            if (newPassword) {
+                if (!currentPassword) {
+                    showAlert('Current password is required to change password.', 'error');
+                    return;
+                }
+                payload.current_password = currentPassword;
+                payload.new_password = newPassword;
+            }
+
+            try {
+                const res = await authenticatedFetch('/api/user/profile', {
+                    method: 'PUT',
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showAlert('Profile updated successfully.', 'success');
+                    const user = getUser();
+                    if (user) {
+                        user.name = name;
+                        user.email = email;
+                        localStorage.setItem('kms_user', JSON.stringify(user));
+                        updateUserDisplay();
+                    }
+                    document.getElementById('profileModal').style.display = 'none';
+                } else {
+                    showAlert(data.error || 'Failed to update profile. Please try again.', 'error');
+                }
+            } catch (err) {
+                showAlert(err.message || 'Network error. Please check your connection.', 'error');
+            }
+        });
+
+        document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            redirectToLogin();
+        });
+
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                const tabId = this.dataset.tab;
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                const panel = document.getElementById('tab-' + tabId);
+                if (panel) panel.classList.add('active');
+                if (tabId === 'security') {
+                    const first = document.querySelector('#tab-security .sub-tab-button');
+                    if (first) first.click();
+                    loadSecurityTab();
+                } else if (tabId === 'email') {
+                    const first = document.querySelector('#tab-email .sub-tab-button');
+                    if (first) first.click();
+                    loadEmailTab();
+                } else if (tabId === 'requests') {
+                    loadPendingRegistrations();
+                } else if (tabId === 'inventory') {
+                    loadInventory();
+                } else if (tabId === 'lost') {
+                    loadLostKeysManagement();
+                }
+            });
+        });
+
+        document.querySelectorAll('.sub-tab-button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.sub-tab-button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                document.querySelectorAll('.sub-tab-panel').forEach(p => p.classList.remove('active'));
+                const panel = document.getElementById('sub-' + this.dataset.subtab);
+                if (panel) panel.classList.add('active');
+                if (this.dataset.subtab === 'templates') loadTemplates();
+                if (this.dataset.subtab === 'settings') loadSettings();
+                if (this.dataset.subtab === 'admin-notifications') loadAdminRecipients();
+            });
+        });
+
+        document.getElementById('refreshRequestsBtn')?.addEventListener('click', loadPendingRegistrations);
+
+        document.getElementById('transactionsRowsPerPage')?.addEventListener('change', function() {
+            txRows = parseInt(this.value);
+            txPage = 1;
+            applyTransactionFilters();
+        });
+
+        document.getElementById('transactionsPrevPageBtn')?.addEventListener('click', () => {
+            if (txPage > 1) {
+                txPage--;
+                renderTransactionsTable();
+                updateTransactionPagination();
+            }
+        });
+
+        document.getElementById('transactionsNextPageBtn')?.addEventListener('click', () => {
+            const totalPages = Math.ceil(txTotal / txRows);
+            if (txPage < totalPages) {
+                txPage++;
+                renderTransactionsTable();
+                updateTransactionPagination();
+            }
+        });
+
+        document.getElementById('pendingRequestsCard')?.addEventListener('click', showPendingRequestsModal);
+        document.getElementById('pendingKeyRequestsCard')?.addEventListener('click', showPendingRequestsModal);
+        document.getElementById('pendingReturnsCard')?.addEventListener('click', showPendingReturnsModal);
+        document.getElementById('activeBorrowsCard')?.addEventListener('click', showActiveBorrowsModal);
+        document.getElementById('returnRemindersCard')?.addEventListener('click', showReturnRemindersModal);
+        document.getElementById('lostKeysCard')?.addEventListener('click', showLostKeysModal);
+
+        document.getElementById('refreshAuditBtn')?.addEventListener('click', loadAuditHealth);
+
+        document.getElementById('modalConfirmBtn')?.addEventListener('click', async function() {
+            const notes = document.getElementById('modalNotes').value.trim();
+            const action = currentAction;
+            const id = currentRequestId;
+            const endpoint = action === 'approve' ? '/api/admin/requests/approve' : '/api/admin/requests/deny';
+            try {
+                const res = await authenticatedFetch(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify({ request_id: id, admin_notes: notes || null })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showAlert(action === 'approve' ? 'Request approved.' : 'Request denied.', 'success');
+                    document.getElementById('adminModal').style.display = 'none';
+                    loadPendingRequests();
+                    loadTransactions();
+                    loadPendingReturns();
+                } else {
+                    showAlert(data.error || 'Action failed. Please try again.', 'error');
+                }
+            } catch (err) {
+                showAlert(err.message || 'Network error. Please check your connection.', 'error');
+            }
+        });
+
+        document.getElementById('modalCancelBtn')?.addEventListener('click', () => {
+            document.getElementById('adminModal').style.display = 'none';
+        });
+        document.getElementById('closeAdminModalBtn')?.addEventListener('click', () => {
+            document.getElementById('adminModal').style.display = 'none';
+        });
+        document.getElementById('adminModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('adminModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('searchBtn')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            loadTransactions();
+        });
+
+        document.getElementById('resetBtn')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('filterGiver').value = '';
+            document.getElementById('filterReceiver').value = '';
+            document.getElementById('filterBranch').value = '';
+            document.getElementById('filterAction').value = '';
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterFrom').value = '';
+            document.getElementById('filterTo').value = '';
+            txPage = 1;
+            loadTransactions();
+        });
+
+        document.getElementById('inventorySearchInput')?.addEventListener('input', () => {
+            invPage = 1;
+            applyInventoryFilters();
+        });
+        document.getElementById('inventoryResetFiltersBtn')?.addEventListener('click', () => {
+            document.getElementById('inventorySearchInput').value = '';
+            invPage = 1;
+            applyInventoryFilters();
+        });
+        document.getElementById('inventoryPrevPageBtn')?.addEventListener('click', () => {
+            if (invPage > 1) {
+                invPage--;
+                renderInventoryTable();
+                updateInventoryPagination();
+            }
+        });
+        document.getElementById('inventoryNextPageBtn')?.addEventListener('click', () => {
+            const totalPages = Math.ceil(invTotal / invRows);
+            if (invPage < totalPages) {
+                invPage++;
+                renderInventoryTable();
+                updateInventoryPagination();
+            }
+        });
+        document.getElementById('refreshInventoryBtn')?.addEventListener('click', loadInventory);
+        document.getElementById('inventoryRowsPerPage')?.addEventListener('change', function() {
+            invRows = parseInt(this.value);
+            invPage = 1;
+            applyInventoryFilters();
+        });
+
+        document.getElementById('manageKeysBtn')?.addEventListener('click', openKeyManageModal);
+        document.getElementById('closeKeyManageModalBtn')?.addEventListener('click', () => {
+            document.getElementById('keyManageModal').style.display = 'none';
+        });
+        document.getElementById('closeKeyManageFooterBtn')?.addEventListener('click', () => {
+            document.getElementById('keyManageModal').style.display = 'none';
+        });
+        document.getElementById('keyManageModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('keyManageModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('manageKeySearch')?.addEventListener('input', () => {
+            manageKeyPage = 1;
+            fetchManageKeys();
+        });
+        document.getElementById('resetManageKeyFilters')?.addEventListener('click', () => {
+            document.getElementById('manageKeySearch').value = '';
+            manageKeyPage = 1;
+            fetchManageKeys();
+        });
+        document.getElementById('manageKeyPrevBtn')?.addEventListener('click', () => {
+            if (manageKeyPage > 1) {
+                manageKeyPage--;
+                renderManageKeyTable();
+                updateManageKeyPagination();
+            }
+        });
+        document.getElementById('manageKeyNextBtn')?.addEventListener('click', () => {
+            const totalPages = Math.ceil(manageKeyTotal / manageKeyRows);
+            if (manageKeyPage < totalPages) {
+                manageKeyPage++;
+                renderManageKeyTable();
+                updateManageKeyPagination();
+            }
+        });
+        document.getElementById('addKeyFromManageBtn')?.addEventListener('click', () => {
+            openKeyEditModal(null);
+            document.getElementById('keyManageModal').style.display = 'none';
+        });
+
+        document.getElementById('closeKeyEditModalBtn')?.addEventListener('click', () => {
+            document.getElementById('keyEditModal').style.display = 'none';
+        });
+        document.getElementById('cancelKeyEditBtn')?.addEventListener('click', () => {
+            document.getElementById('keyEditModal').style.display = 'none';
+        });
+        document.getElementById('keyEditModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('keyEditModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('saveKeyEditBtn')?.addEventListener('click', async function() {
+            const id = document.getElementById('editKeyId').value;
+            const code = document.getElementById('editKeyCode').value.trim();
+            const brand = document.getElementById('editKeyBrand').value.trim();
+            const ownerField = document.getElementById('editKeyOwner').value.trim();
+            const totalQuantity = parseInt(document.getElementById('editKeySets').value) || 1;
+            const dateOwned = document.getElementById('editKeyDateOwned').value;
+            const remarks = document.getElementById('editKeyRemarks').value.trim();
+            const is_lost = document.getElementById('editKeyLost').checked;
+
+            if (!code || !brand) {
+                showAlert('Code and brand are required.', 'error');
+                return;
+            }
+
+            let sets = [];
+            if (ownerField) {
+                const owners = ownerField.split(',').map(s => s.trim()).filter(Boolean);
+                const quantityPerOwner = Math.max(1, Math.floor(totalQuantity / owners.length));
+                sets = owners.map((owner, index) => ({
+                    owner_name: owner,
+                    quantity: index === owners.length - 1 ? totalQuantity - (quantityPerOwner * (owners.length - 1)) : quantityPerOwner,
+                    remarks: remarks || null
+                }));
+            }
+
+            const payload = {
+                code,
+                brand,
+                sets: sets,
+                date_owned: dateOwned || null,
+                remarks: remarks || null,
+                is_lost
+            };
+
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? `/api/admin/keys/${id}` : '/api/admin/keys';
+
+            try {
+                const res = await authenticatedFetch(url, { method, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (res.ok) {
+                    showAlert(id ? 'Key updated.' : 'Key created.', 'success');
+                    document.getElementById('keyEditModal').style.display = 'none';
+                    loadInventory();
+                    if (document.getElementById('keyManageModal').style.display === 'flex') fetchManageKeys();
+                } else {
+                    showAlert(data.error || 'Save failed. Please try again.', 'error');
+                }
+            } catch (err) {
+                showAlert(err.message || 'Network error. Please check your connection.', 'error');
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.btn-print');
+            if (!btn) return;
+            const section = btn.dataset.section;
+            let containerId = '';
+            switch (section) {
+                case 'transactions': containerId = 'transactionsCard'; break;
+                case 'requests': containerId = 'requestsCard'; break;
+                case 'inventory': containerId = 'inventoryCard'; break;
+                case 'audit': containerId = 'auditCard'; break;
+                case 'users': containerId = 'usersCard'; break;
+                case 'templates': containerId = 'templatesCard'; break;
+                case 'settings': containerId = 'settingsCard'; break;
+                default: return;
+            }
+            printSection(containerId);
+        });
+
+        document.getElementById('manageTemplatesBtn')?.addEventListener('click', openTemplateManageModal);
+        document.getElementById('closeTemplateManageModalBtn')?.addEventListener('click', () => {
+            document.getElementById('templateManageModal').style.display = 'none';
+        });
+        document.getElementById('closeTemplateManageFooterBtn')?.addEventListener('click', () => {
+            document.getElementById('templateManageModal').style.display = 'none';
+        });
+        document.getElementById('templateManageModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('templateManageModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('addTemplateFromManageBtn')?.addEventListener('click', function() {
+            document.getElementById('editTemplateKey').value = '';
+            document.getElementById('editTemplateKeyDisplay').value = '';
+            document.getElementById('editTemplateKeyDisplay').disabled = false;
+            document.getElementById('editTemplateKeyDisplay').placeholder = 'Enter a unique key (e.g., welcome)';
+            document.getElementById('editTemplateSubject').value = '';
+            document.getElementById('editTemplateBody').value = '';
+            document.getElementById('editTemplateActive').checked = true;
+            document.getElementById('templateEditModalTitle').textContent = 'Add New Template';
+            document.getElementById('templateEditModal').style.display = 'flex';
+        });
+
+        document.getElementById('closeTemplateEditModalBtn')?.addEventListener('click', () => {
+            document.getElementById('templateEditModal').style.display = 'none';
+        });
+        document.getElementById('cancelTemplateEditBtn')?.addEventListener('click', () => {
+            document.getElementById('templateEditModal').style.display = 'none';
+        });
+        document.getElementById('templateEditModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('templateEditModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('saveTemplateEditBtn')?.addEventListener('click', async function() {
+            const key = document.getElementById('editTemplateKey').value.trim();
+            const keyDisplay = document.getElementById('editTemplateKeyDisplay').value.trim();
+            const subject = document.getElementById('editTemplateSubject').value.trim();
+            const body_html = document.getElementById('editTemplateBody').value.trim();
+            const is_active = document.getElementById('editTemplateActive').checked;
+            const finalKey = key || keyDisplay;
+            if (!finalKey || !subject || !body_html) {
+                showAlert('Key, subject, and body are required.', 'error');
+                return;
+            }
+            const isNew = !key;
+            const url = isNew ? '/api/admin/email/templates' : `/api/admin/email/templates/${finalKey}`;
+            const method = isNew ? 'POST' : 'PUT';
+            try {
+                const res = await authenticatedFetch(url, { method, body: JSON.stringify({ subject, body_html, is_active }) });
+                if (res.ok) {
+                    showAlert(isNew ? 'Template created.' : 'Template updated.', 'success');
+                    document.getElementById('templateEditModal').style.display = 'none';
+                    loadTemplates();
+                    if (document.getElementById('templateManageModal').style.display === 'flex') openTemplateManageModal();
+                } else {
+                    const data = await res.json();
+                    showAlert(data.error || 'Save failed. Please try again.', 'error');
+                }
+            } catch (err) {
+                showAlert(err.message || 'Network error. Please check your connection.', 'error');
+            }
+        });
+
+        document.getElementById('saveSettingsBtn')?.addEventListener('click', async function() {
+            const toggles = document.querySelectorAll('.setting-toggle');
+            const updates = [];
+            for (const toggle of toggles) {
+                const key = toggle.dataset.key;
+                const enabled = toggle.checked;
+                const config = {};
+                const configInputs = toggle.closest('.setting-control').querySelectorAll('[data-config]');
+                for (const input of configInputs) {
+                    const configKey = input.dataset.config;
+                    if (input.type === 'checkbox') {
+                        config[configKey] = input.checked;
+                    } else {
+                        if (configKey === 'reminder_days_before') {
+                            const val = input.value.trim();
+                            config[configKey] = val ? val.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
+                        } else {
+                            config[configKey] = input.value;
+                        }
+                    }
+                }
+                updates.push({ key, enabled, config });
+            }
+            try {
+                for (const update of updates) {
+                    await authenticatedFetch(`/api/admin/email/settings/${update.key}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ enabled: update.enabled, config: update.config })
+                    });
+                }
+                showAlert('All settings saved.', 'success');
+                loadSettings();
+            } catch (err) {
+                showAlert(err.message || 'Failed to save settings. Please check your network.', 'error');
+            }
+        });
+
+        document.getElementById('addAdminRecipientBtn')?.addEventListener('click', openAddAdminRecipientModal);
+        document.getElementById('closeAddAdminRecipientModalBtn')?.addEventListener('click', () => {
+            document.getElementById('addAdminRecipientModal').style.display = 'none';
+        });
+        document.getElementById('cancelAddAdminRecipientBtn')?.addEventListener('click', () => {
+            document.getElementById('addAdminRecipientModal').style.display = 'none';
+        });
+        document.getElementById('addAdminRecipientModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('addAdminRecipientModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('saveAdminRecipientBtn')?.addEventListener('click', async function() {
+            const select = document.getElementById('adminRecipientSelect');
+            const userId = parseInt(select.value);
+            if (!userId) {
+                showAlert('Please select an admin user.', 'error');
+                return;
+            }
+            try {
+                const res = await authenticatedFetch('/api/admin/admin-notification-recipients', {
+                    method: 'POST',
+                    body: JSON.stringify({ user_id: userId, enabled: true })
+                });
+                if (res.ok) {
+                    showAlert('Admin added to notification recipients.', 'success');
+                    document.getElementById('addAdminRecipientModal').style.display = 'none';
+                    loadAdminRecipients();
+                } else {
+                    const data = await res.json();
+                    showAlert(data.error || 'Failed to add recipient.', 'error');
+                }
+            } catch (err) {
+                showAlert(err.message || 'Network error.', 'error');
+            }
+        });
+
+        document.getElementById('refreshLostKeysBtn')?.addEventListener('click', loadLostKeysManagement);
+
+        document.getElementById('closeLostKeyDetailModalBtn')?.addEventListener('click', () => {
+            document.getElementById('lostKeyDetailModal').style.display = 'none';
+        });
+        document.getElementById('closeLostKeyDetailFooterBtn')?.addEventListener('click', () => {
+            document.getElementById('lostKeyDetailModal').style.display = 'none';
+        });
+        document.getElementById('lostKeyDetailModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('lostKeyDetailModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('closeLostKeyEditModalBtn')?.addEventListener('click', () => {
+            document.getElementById('lostKeyEditModal').style.display = 'none';
+        });
+        document.getElementById('cancelLostKeyEditBtn')?.addEventListener('click', () => {
+            document.getElementById('lostKeyEditModal').style.display = 'none';
+        });
+        document.getElementById('lostKeyEditModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('lostKeyEditModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('saveLostKeyEditBtn')?.addEventListener('click', async function() {
+            const id = document.getElementById('editLostTransactionId').value;
+            const reason = document.getElementById('editLostReason').value.trim();
+            const lostAt = document.getElementById('editLostDate').value;
+            const status = document.getElementById('editLostStatus').value;
+
+            if (!reason) {
+                showAlert('Reason for loss is required.', 'error');
+                return;
+            }
+
+            try {
+                const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/update`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        reason: reason,
+                        lost_at: lostAt || null,
+                        status: status
+                    })
+                });
+                if (res.ok) {
+                    showAlert('Lost key updated successfully.', 'success');
+                    document.getElementById('lostKeyEditModal').style.display = 'none';
+                    loadLostKeysManagement();
+                    loadLostKeys();
+                } else {
+                    const data = await res.json();
+                    showAlert(data.error || 'Update failed.', 'error');
+                }
+            } catch (err) {
+                showAlert(err.message || 'Network error.', 'error');
+            }
+        });
+
+        document.getElementById('refreshAdminRecipientsBtn')?.addEventListener('click', loadAdminRecipients);
+        document.getElementById('refreshAuditLogBtn')?.addEventListener('click', loadAuditLogs);
+
+        document.getElementById('addRoleBtn')?.addEventListener('click', () => {
+            document.getElementById('newRoleName').value = '';
+            document.getElementById('addRoleModal').style.display = 'flex';
+        });
+        document.getElementById('closeAddRoleModalBtn')?.addEventListener('click', () => {
+            document.getElementById('addRoleModal').style.display = 'none';
+        });
+        document.getElementById('cancelAddRoleBtn')?.addEventListener('click', () => {
+            document.getElementById('addRoleModal').style.display = 'none';
+        });
+        document.getElementById('addRoleModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('addRoleModal').style.display = 'none';
+            }
+        });
+        document.getElementById('confirmAddRoleBtn')?.addEventListener('click', () => {
+            const name = document.getElementById('newRoleName').value.trim();
+            if (!name) {
+                showAlert('Please enter a role name.', 'error');
+                return;
+            }
+            if (permissionsData.roleMappings[name]) {
+                showAlert('Role already exists.', 'error');
+                return;
+            }
+            permissionsData.roleMappings[name] = [];
+            permissionsData.roles = Object.keys(permissionsData.roleMappings);
+            renderPermissions();
+            document.getElementById('addRoleModal').style.display = 'none';
+            showAlert(`Role "${name}" added.`, 'success');
+        });
+
+        document.getElementById('savePermissionsBtn')?.addEventListener('click', async function() {
+            const updates = {};
+            document.querySelectorAll('.permission-checkbox').forEach(cb => {
+                const role = cb.dataset.role;
+                const permId = parseInt(cb.dataset.permId);
+                if (!updates[role]) updates[role] = [];
+                if (cb.checked) updates[role].push(permId);
+            });
+            try {
+                for (const [roleName, permIds] of Object.entries(updates)) {
+                    await authenticatedFetch('/api/permissions/roles', {
+                        method: 'POST',
+                        body: JSON.stringify({ role_name: roleName, permission_ids: permIds })
+                    });
+                }
+                showAlert('Permissions saved.', 'success');
+                await loadPermissions();
+            } catch (err) {
+                showAlert(err.message || 'Failed to save permissions. Please check your network.', 'error');
+            }
+        });
+
+        document.getElementById('closeKeyDetailModalBtn')?.addEventListener('click', () => {
+            document.getElementById('keyDetailModal').style.display = 'none';
+        });
+        document.getElementById('closeKeyDetailFooterBtn')?.addEventListener('click', () => {
+            document.getElementById('keyDetailModal').style.display = 'none';
+        });
+        document.getElementById('keyDetailModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('keyDetailModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('openUserManagementBtn')?.addEventListener('click', () => {
+            document.getElementById('userManagementModal').style.display = 'flex';
+            fetchManageUsers();
+        });
+        document.getElementById('closeUserManagementModalBtn')?.addEventListener('click', () => {
+            document.getElementById('userManagementModal').style.display = 'none';
+        });
+        document.getElementById('userManagementModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('userManagementModal').style.display = 'none';
+            }
         });
     }
 

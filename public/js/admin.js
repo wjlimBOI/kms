@@ -1,10 +1,19 @@
 (function() {
     'use strict';
 
+    if (!localStorage.getItem('kms_token') && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+        return;
+    }
+
     let csrfToken = null;
     let csrfFetchPromise = null;
 
     function redirectToLogin() {
+        if (window._redirecting) {
+            return;
+        }
+        window._redirecting = true;
         localStorage.removeItem('kms_token');
         localStorage.removeItem('kms_user');
         window.location.href = '/login';
@@ -137,7 +146,10 @@
     async function authenticatedFetch(url, options = {}) {
         const token = getToken();
         if (!token) {
-            redirectToLogin();
+            if (!window._redirecting) {
+                window._redirecting = true;
+                redirectToLogin();
+            }
             throw new Error('No authentication token found. Please log in again.');
         }
 
@@ -186,7 +198,10 @@
             }
 
             if (response.status === 401) {
-                redirectToLogin();
+                if (!window._redirecting) {
+                    window._redirecting = true;
+                    redirectToLogin();
+                }
                 throw new Error('Your session has expired. Please log in again.');
             }
 
@@ -335,6 +350,12 @@
 
     async function checkAuth() {
         try {
+            const token = getToken();
+            if (!token) {
+                redirectToLogin();
+                return false;
+            }
+
             const response = await fetch('/api/auth/check-session', {
                 credentials: 'include',
                 headers: { 'Accept': 'application/json' }

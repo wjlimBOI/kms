@@ -5,6 +5,12 @@
     let csrfFetchPromise = null;
     let isRedirecting = false;
 
+    function redirectToLogin() {
+        localStorage.removeItem('kms_token');
+        localStorage.removeItem('kms_user');
+        window.location.href = '/login';
+    }
+
     async function fetchCsrfToken() {
         if (csrfFetchPromise) {
             return csrfFetchPromise;
@@ -53,11 +59,11 @@
             }
 
             const data = await response.json();
-            
+
             if (data.authenticated && data.user) {
                 localStorage.setItem('kms_user', JSON.stringify(data.user));
                 isRedirecting = true;
-                
+
                 if (data.user.role === 'admin') {
                     window.location.href = '/admin';
                 } else {
@@ -75,7 +81,7 @@
     function showLoginForm() {
         const loadingContainer = document.getElementById('loadingContainer');
         const loginFormContainer = document.getElementById('loginFormContainer');
-        
+
         if (loadingContainer) {
             loadingContainer.style.display = 'none';
         }
@@ -86,7 +92,7 @@
 
     async function init() {
         await fetchCsrfToken();
-        
+
         const isRedirected = await checkSessionAndRedirect();
         if (!isRedirected && !isRedirecting) {
             showLoginForm();

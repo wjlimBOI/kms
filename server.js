@@ -55,6 +55,8 @@ const app = express();
 const IS_DEVELOPMENT = process.env.NODE_ENV !== 'production';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
+app.set('trust proxy', IS_PRODUCTION ? 1 : false);
+
 app.use((req, res, next) => {
   const path = req.path;
   if (path.startsWith('/api/')) {

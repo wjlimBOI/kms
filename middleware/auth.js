@@ -23,7 +23,9 @@ const PUBLIC_PATHS = [
   '/api/auth/register-request',
   '/api/auth/validate-password-token',
   '/api/auth/set-password-from-token',
-  '/api/csrf-token'
+  '/api/csrf-token',
+  '/change-password',
+  '/privacy-policy'
 ];
 
 function isPublicPath(path) {
@@ -65,6 +67,57 @@ function verifyToken(token) {
   }
 }
 
+function clearAuthCookies(res) {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const domain = process.env.COOKIE_DOMAIN || undefined;
+  
+  // Clear token cookie with all possible variations
+  res.clearCookie('token', {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax',
+    path: '/'
+  });
+  if (domain) {
+    res.clearCookie('token', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax',
+      path: '/',
+      domain: domain
+    });
+  }
+  
+  // Clear session cookie with all possible variations
+  res.clearCookie('kms.sid', {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax',
+    path: '/'
+  });
+  if (domain) {
+    res.clearCookie('kms.sid', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: 'lax',
+      path: '/',
+      domain: domain
+    });
+  }
+  
+  // Also clear any other potential auth cookies
+  res.clearCookie('token', {
+    path: '/',
+    secure: isProduction,
+    sameSite: 'lax'
+  });
+  res.clearCookie('kms.sid', {
+    path: '/',
+    secure: isProduction,
+    sameSite: 'lax'
+  });
+}
+
 async function requireAuth(req, res, next) {
   if (isPublicPath(req.path)) {
     return next();
@@ -96,13 +149,9 @@ async function requireAuth(req, res, next) {
       return next();
     }
     
+    // Token is invalid - clear all auth cookies
     if (req.cookies?.token) {
-      res.clearCookie('token', {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        path: '/'
-      });
+      clearAuthCookies(res);
     }
     
     await logAuthEvent({
@@ -117,6 +166,7 @@ async function requireAuth(req, res, next) {
     });
   }
 
+  // For API requests, return 401 JSON
   if (req.xhr || req.headers.accept?.includes('application/json')) {
     return res.status(401).json({ 
       error: 'Unauthorized',
@@ -124,7 +174,8 @@ async function requireAuth(req, res, next) {
     });
   }
   
-  res.redirect('/login');
+  // For HTML requests, redirect to login with cache-busting
+  res.redirect('/login?t=' + Date.now());
 }
 
 function authorize(...allowedRoles) {
@@ -233,12 +284,16 @@ function refreshTokenIfNeeded(req, res, next) {
         { expiresIn: JWT_EXPIRY }
       );
       
+      const isProduction = process.env.NODE_ENV === 'production';
+      const domain = process.env.COOKIE_DOMAIN || undefined;
+      
       res.cookie('token', newToken, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: isProduction,
         sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000,
-        path: '/'
+        path: '/',
+        domain: domain
       });
       
       res.setHeader('X-New-Token', newToken);
@@ -257,5 +312,6 @@ module.exports = {
   getTokenFromRequest,
   verifyToken,
   refreshTokenIfNeeded,
-  isPublicPath
+  isPublicPath,
+  clearAuthCookies
 };

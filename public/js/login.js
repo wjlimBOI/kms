@@ -6,9 +6,20 @@
     let isRedirecting = false;
 
     function redirectToLogin() {
+        if (isRedirecting) {
+            return;
+        }
+        isRedirecting = true;
         localStorage.removeItem('kms_token');
         localStorage.removeItem('kms_user');
-        window.location.href = '/login';
+        sessionStorage.clear();
+        
+        document.cookie.split(";").forEach(function(c) {
+            document.cookie = c.replace(/^ +/, "")
+                .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        
+        window.location.href = '/login?t=' + Date.now();
     }
 
     async function fetchCsrfToken() {

@@ -1,16 +1,11 @@
 const { ZodError } = require('zod');
 
-/**
- * Middleware factory for Zod schema validation.
- * @param {ZodSchema} schema - The Zod schema to validate against
- * @param {string} source - 'body', 'query', or 'params' (default 'body')
- */
 const validate = (schema, source = 'body') => {
   return (req, res, next) => {
     try {
       const data = req[source];
       const parsed = schema.parse(data);
-      req[source] = parsed; // replace with validated data
+      req[source] = parsed;
       next();
     } catch (error) {
       if (error instanceof ZodError) {
@@ -18,7 +13,11 @@ const validate = (schema, source = 'body') => {
           field: e.path.join('.'),
           message: e.message
         }));
-        return res.status(400).json({ errors });
+        return res.status(400).json({ 
+          error: 'Validation failed',
+          code: 'VALIDATION_ERROR',
+          errors 
+        });
       }
       next(error);
     }

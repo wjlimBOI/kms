@@ -13,7 +13,10 @@ function csrfProtection(req, res, next) {
     const sessionToken = req.session?.csrfToken;
 
     if (!token || !sessionToken || token !== sessionToken) {
-        return res.status(403).json({ error: 'Invalid CSRF token' });
+        return res.status(403).json({ 
+            error: 'Invalid CSRF token',
+            code: 'INVALID_CSRF'
+        });
     }
 
     next();

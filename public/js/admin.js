@@ -1,6 +1,8 @@
 (function() {
     'use strict';
 
+    let isRedirecting = false;
+
     if (!localStorage.getItem('kms_token') && !window.location.pathname.includes('/login')) {
         window.location.href = '/login';
         return;
@@ -10,12 +12,19 @@
     let csrfFetchPromise = null;
 
     function redirectToLogin() {
-        if (window._redirecting) {
+        if (isRedirecting) {
             return;
         }
-        window._redirecting = true;
+        isRedirecting = true;
         localStorage.removeItem('kms_token');
         localStorage.removeItem('kms_user');
+        sessionStorage.clear();
+        
+        document.cookie.split(";").forEach(function(c) {
+            document.cookie = c.replace(/^ +/, "")
+                .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+        });
+        
         window.location.href = '/login';
     }
 
@@ -146,8 +155,7 @@
     async function authenticatedFetch(url, options = {}) {
         const token = getToken();
         if (!token) {
-            if (!window._redirecting) {
-                window._redirecting = true;
+            if (!isRedirecting) {
                 redirectToLogin();
             }
             throw new Error('No authentication token found. Please log in again.');
@@ -198,8 +206,7 @@
             }
 
             if (response.status === 401) {
-                if (!window._redirecting) {
-                    window._redirecting = true;
+                if (!isRedirecting) {
                     redirectToLogin();
                 }
                 throw new Error('Your session has expired. Please log in again.');
@@ -352,7 +359,9 @@
         try {
             const token = getToken();
             if (!token) {
-                redirectToLogin();
+                if (!isRedirecting) {
+                    redirectToLogin();
+                }
                 return false;
             }
 
@@ -362,14 +371,18 @@
             });
 
             if (!response.ok) {
-                redirectToLogin();
+                if (!isRedirecting) {
+                    redirectToLogin();
+                }
                 return false;
             }
 
             const data = await response.json();
 
             if (!data.authenticated) {
-                redirectToLogin();
+                if (!isRedirecting) {
+                    redirectToLogin();
+                }
                 return false;
             }
 
@@ -386,7 +399,9 @@
             return true;
         } catch (error) {
             console.error('Auth check failed:', error);
-            redirectToLogin();
+            if (!isRedirecting) {
+                redirectToLogin();
+            }
             return false;
         }
     }
@@ -2365,6 +2380,9 @@
     }
 
     async function handleLogout() {
+        if (isRedirecting) return;
+        isRedirecting = true;
+
         try {
             const token = getToken();
             if (token) {
@@ -2377,7 +2395,7 @@
                     credentials: 'include'
                 }).catch(() => {});
             }
-            
+        } finally {
             localStorage.removeItem('kms_token');
             localStorage.removeItem('kms_user');
             sessionStorage.clear();
@@ -2387,12 +2405,7 @@
                     .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
             });
             
-            window.location.href = '/login';
-        } catch (error) {
-            localStorage.removeItem('kms_token');
-            localStorage.removeItem('kms_user');
-            sessionStorage.clear();
-            window.location.href = '/login';
+            window.location.href = '/login?t=' + Date.now();
         }
     }
 

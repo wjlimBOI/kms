@@ -37,25 +37,89 @@ const otpLimiter = rateLimit({
 
 const verifiedSessions = new Map();
 
+function getCookieDomain() {
+  const nodeEnv = process.env.NODE_ENV || 'development';
+  const domain = process.env.COOKIE_DOMAIN;
+  
+  // For development or localhost, don't set a domain
+  if (nodeEnv === 'development' || nodeEnv === 'localhost') {
+    return undefined;
+  }
+  
+  // For staging or production, use the domain if provided
+  if (domain) {
+    // Ensure domain starts with a dot for subdomain support
+    if (!domain.startsWith('.') && domain !== 'localhost') {
+      return '.' + domain;
+    }
+    return domain;
+  }
+  
+  return undefined;
+}
+
 function setAuthCookie(res, token) {
   const isProduction = process.env.NODE_ENV === 'production';
-  res.cookie('token', token, {
+  const domain = getCookieDomain();
+  
+  const cookieOptions = {
     httpOnly: true,
     secure: isProduction,
     sameSite: 'lax',
     maxAge: SESSION_EXPIRY,
     path: '/',
-    domain: process.env.COOKIE_DOMAIN || undefined
-  });
+  };
+  
+  // Only add domain if it's set and not localhost
+  if (domain && domain !== 'localhost' && !domain.includes('localhost')) {
+    cookieOptions.domain = domain;
+  }
+  
+  res.cookie('token', token, cookieOptions);
 }
 
 function clearAuthCookie(res) {
-  res.clearCookie('token', {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const domain = getCookieDomain();
+  
+  // Base clear options
+  const clearOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction,
     sameSite: 'lax',
-    path: '/'
-  });
+    path: '/',
+  };
+  
+  // Clear without domain (default)
+  res.clearCookie('token', clearOptions);
+  res.clearCookie('kms.sid', clearOptions);
+  
+  // Clear with domain if set
+  if (domain && domain !== 'localhost' && !domain.includes('localhost')) {
+    const domainOptions = { ...clearOptions, domain: domain };
+    res.clearCookie('token', domainOptions);
+    res.clearCookie('kms.sid', domainOptions);
+    
+    // Also try with the domain without the leading dot
+    const domainWithoutDot = domain.startsWith('.') ? domain.substring(1) : domain;
+    if (domainWithoutDot !== domain) {
+      const noDotOptions = { ...clearOptions, domain: domainWithoutDot };
+      res.clearCookie('token', noDotOptions);
+      res.clearCookie('kms.sid', noDotOptions);
+    }
+  }
+  
+  // Try clearing with the hostname from the request
+  try {
+    const hostname = process.env.HOSTNAME || process.env.COOKIE_DOMAIN;
+    if (hostname && hostname !== 'localhost' && !hostname.includes('localhost')) {
+      const hostOptions = { ...clearOptions, domain: hostname };
+      res.clearCookie('token', hostOptions);
+      res.clearCookie('kms.sid', hostOptions);
+    }
+  } catch (err) {
+    // Silently ignore
+  }
 }
 
 router.post('/request-otp', otpLimiter, async (req, res) => {
@@ -623,13 +687,28 @@ router.post('/logout', async (req, res) => {
   
   logger.info('Logout', { userId, username });
 
+  // Clear both token and session cookies with all variations
   clearAuthCookie(res);
 
+  // Destroy the session
   req.session.destroy(async (err) => {
     if (err) {
       logger.error('Logout failed', { error: err.message, userId, username });
-      return res.status(500).json({ error: 'Logout failed' });
+      // Still attempt to clear cookies even if session destroy fails
+      clearAuthCookie(res);
+      
+      // Send response with cache headers even on error
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Surrogate-Control', 'no-store');
+      
+      return res.status(200).json({ 
+        message: 'Logged out successfully',
+        redirect: '/login?t=' + Date.now()
+      });
     }
+    
     await logAuthEvent({
       eventType: 'LOGOUT',
       userId: userId || null,
@@ -637,7 +716,18 @@ router.post('/logout', async (req, res) => {
       req,
       extraDetails: {}
     });
-    res.json({ message: 'Logged out' });
+    
+    // Clear any response headers that might cause caching
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    res.setHeader('ETag', `"${Date.now()}"`);
+    
+    res.json({ 
+      message: 'Logged out successfully',
+      redirect: '/login?t=' + Date.now()
+    });
   });
 });
 
@@ -753,8 +843,17 @@ router.get('/check-session', async (req, res) => {
       });
     }
     
+    // Clear any stale cookies if session is invalid
+    if (req.cookies?.token) {
+      clearAuthCookie(res);
+    }
+    
     res.json({ authenticated: false });
   } catch (err) {
+    // If token verification fails, clear the cookie
+    if (req.cookies?.token) {
+      clearAuthCookie(res);
+    }
     res.json({ authenticated: false });
   }
 });

@@ -24,7 +24,7 @@ const permissionsRoutes = require('./routes/permissions');
 const emailSettingsRoutes = require('./routes/emailSettings');
 const healthRoutes = require('./routes/health');
 
-const { requireAuth, refreshTokenIfNeeded } = require('./middleware/auth');
+const { requireAuth, refreshTokenIfNeeded, clearAuthCookies } = require('./middleware/auth');
 const { csrfProtection, generateCsrfTokenForSession, getCsrfToken } = require('./middleware/csrf');
 const startReminderCron = require('./cron');
 
@@ -57,29 +57,40 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 app.set('trust proxy', IS_PRODUCTION ? 1 : false);
 
+// Enhanced cache control middleware
 app.use((req, res, next) => {
   const path = req.path;
+  
+  // API routes - no cache
   if (path.startsWith('/api/')) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
     return next();
   }
+  
+  // HTML pages - no cache
   const htmlPaths = ['/', '/dashboard', '/admin', '/login', '/change-password', '/privacy-policy'];
   const isHtml = htmlPaths.includes(path) || path.endsWith('.html');
   if (isHtml) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
-    if (IS_DEVELOPMENT) res.setHeader('ETag', `"${Date.now()}"`);
+    res.setHeader('Surrogate-Control', 'no-store');
+    res.setHeader('ETag', `"${Date.now()}"`);
+    res.setHeader('Last-Modified', new Date().toISOString());
     return next();
   }
+  
+  // Static assets - cache with versioning
   if (path.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
     const maxAge = IS_PRODUCTION ? '1y' : '1h';
     res.setHeader('Cache-Control', `public, max-age=${IS_PRODUCTION ? 31536000 : 3600}, immutable`);
     res.setHeader('Vary', 'Accept-Encoding');
     return next();
   }
+  
   res.setHeader('Cache-Control', 'no-cache, must-revalidate');
   next();
 });
@@ -143,6 +154,7 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Static assets with versioning
 app.use('/assets/v' + BUILD_HASH, express.static(path.join(__dirname, 'public', 'assets', 'v' + BUILD_HASH), {
   maxAge: IS_PRODUCTION ? '1y' : '1h',
   etag: true,
@@ -171,14 +183,19 @@ app.use('/images', express.static(path.join(__dirname, 'public', 'images'), {
   immutable: IS_PRODUCTION,
 }));
 
+// Public files with HTML cache control
 app.use(express.static(path.join(__dirname, 'public'), {
-  maxAge: IS_PRODUCTION ? '1y' : '1h',
+  maxAge: 0, // No caching for HTML
   etag: true,
   lastModified: true,
   index: false,
   setHeaders: (res, filePath) => {
     if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Surrogate-Control', 'no-store');
+      res.setHeader('ETag', `"${Date.now()}"`);
     }
   }
 }));
@@ -280,16 +297,37 @@ const sendHtml = (res, filePath, extraHeaders = {}) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  res.setHeader('ETag', `"${Date.now()}"`);
+  res.setHeader('Last-Modified', new Date().toISOString());
   Object.entries(extraHeaders).forEach(([key, value]) => res.setHeader(key, value));
   res.sendFile(path.join(__dirname, 'public', filePath));
 };
 
 app.get('/login', (req, res) => {
-  if (req.session?.userId || req.cookies?.token) {
+  // Check if user is already authenticated via session
+  if (req.session?.userId) {
     const role = req.session?.role || 'user';
     return res.redirect(role === 'admin' ? '/admin' : '/');
   }
-  sendHtml(res, 'login.html', { 'X-Build-Hash': BUILD_HASH });
+  
+  // Check if user has a valid token cookie but no session
+  if (req.cookies?.token) {
+    // Clear the invalid token cookie to prevent redirect loops
+    clearAuthCookies(res);
+    return res.redirect('/login?t=' + Date.now());
+  }
+  
+  // Add cache-busting headers for login page
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  
+  sendHtml(res, 'login.html', { 
+    'X-Build-Hash': BUILD_HASH,
+    'Cache-Control': 'no-store, no-cache, must-revalidate, private'
+  });
 });
 
 app.get('/', requireAuth, (req, res) => {
@@ -342,6 +380,7 @@ app.get('/health', (req, res) => {
   });
 });
 
+// 404 handler with cache prevention
 app.use((req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'API endpoint not found' });
@@ -349,12 +388,14 @@ app.use((req, res) => {
   if (req.path.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
     return res.status(404).send('Asset not found');
   }
+  // Only redirect to login for non-asset, non-API paths
   if (req.path !== '/login' && !req.path.startsWith('/assets')) {
     return res.redirect('/login');
   }
   sendHtml(res, 'index.html');
 });
 
+// Error handler with cache prevention
 app.use((err, req, res, next) => {
   logger.error('Unhandled error:', err);
   if (req.path.startsWith('/api/')) {

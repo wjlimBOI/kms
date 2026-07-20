@@ -2364,6 +2364,38 @@
         deleteConfirmModal?.addEventListener('click', (e) => { if (e.target === deleteConfirmModal) closeDeleteModal(); });
     }
 
+    async function handleLogout() {
+        try {
+            const token = getToken();
+            if (token) {
+                await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                }).catch(() => {});
+            }
+            
+            localStorage.removeItem('kms_token');
+            localStorage.removeItem('kms_user');
+            sessionStorage.clear();
+            
+            document.cookie.split(";").forEach(function(c) {
+                document.cookie = c.replace(/^ +/, "")
+                    .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+            });
+            
+            window.location.href = '/login';
+        } catch (error) {
+            localStorage.removeItem('kms_token');
+            localStorage.removeItem('kms_user');
+            sessionStorage.clear();
+            window.location.href = '/login';
+        }
+    }
+
     function initEventListeners() {
         document.getElementById('alertOkBtn')?.addEventListener('click', () => {
             document.getElementById('alertModal').classList.remove('active');
@@ -2414,10 +2446,8 @@
             });
         }
 
-        document.getElementById('mobileLogoutBtn')?.addEventListener('click', async () => {
-            await fetch('/api/auth/logout', { method: 'POST' });
-            redirectToLogin();
-        });
+        document.getElementById('mobileLogoutBtn')?.addEventListener('click', handleLogout);
+        document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
 
         document.getElementById('myProfileBtn')?.addEventListener('click', openProfileModal);
         document.getElementById('mobileProfileBtn')?.addEventListener('click', openProfileModal);
@@ -2477,11 +2507,6 @@
             } catch (err) {
                 showAlert(err.message || 'Network error. Please check your connection.', 'error');
             }
-        });
-
-        document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-            await fetch('/api/auth/logout', { method: 'POST' });
-            redirectToLogin();
         });
 
         document.querySelectorAll('.tab-button').forEach(btn => {

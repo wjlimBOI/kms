@@ -339,6 +339,38 @@
         }
     }
 
+    async function handleLogout() {
+        try {
+            const token = getToken();
+            if (token) {
+                await fetch('/api/auth/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include'
+                }).catch(() => {});
+            }
+            
+            localStorage.removeItem('kms_token');
+            localStorage.removeItem('kms_user');
+            sessionStorage.clear();
+            
+            document.cookie.split(";").forEach(function(c) {
+                document.cookie = c.replace(/^ +/, "")
+                    .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+            });
+            
+            window.location.href = '/login';
+        } catch (error) {
+            localStorage.removeItem('kms_token');
+            localStorage.removeItem('kms_user');
+            sessionStorage.clear();
+            window.location.href = '/login';
+        }
+    }
+
     function initUserProfile() {
         const user = getUser();
         if (user) {
@@ -369,17 +401,7 @@
     }
 
     function initEventListeners() {
-        document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-            try {
-                await fetch('/api/auth/logout', {
-                    method: 'POST',
-                    credentials: 'include'
-                });
-            } catch (err) {
-                console.error('Logout error:', err);
-            }
-            redirectToLogin();
-        });
+        document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
 
         const profileBtn = document.getElementById('userProfileBtn');
         const userDropdown = document.getElementById('userDropdown');
@@ -797,137 +819,137 @@
                 throw new Error(data.error || 'Submission failed');
             }
         } catch (e) {
-                showNotification('Submission Failed', e.message, 'error');
-                modalError.textContent = 'Submission failed. Please try again.';
-                modalError.classList.remove('hidden');
-            } finally {
-                confirmBtn.disabled = false;
-                confirmBtn.textContent = 'Submit request';
-            }
+            showNotification('Submission Failed', e.message, 'error');
+            modalError.textContent = 'Submission failed. Please try again.';
+            modalError.classList.remove('hidden');
+        } finally {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = 'Submit request';
+        }
+    }
+
+    function initFilters() {
+        const basketSidebar = document.getElementById('basketSidebar');
+
+        function updateBasketVisibility(filterValue) {
+            const shouldHide = (filterValue === 'loaned');
+            if (shouldHide) basketSidebar.classList.add('hide-basket');
+            else basketSidebar.classList.remove('hide-basket');
         }
 
-        function initFilters() {
-            const basketSidebar = document.getElementById('basketSidebar');
-
-            function updateBasketVisibility(filterValue) {
-                const shouldHide = (filterValue === 'loaned');
-                if (shouldHide) basketSidebar.classList.add('hide-basket');
-                else basketSidebar.classList.remove('hide-basket');
-            }
-
-            document.querySelectorAll('[data-filter]').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const filterValue = btn.getAttribute('data-filter');
-                    currentLoanFilter = filterValue;
-                    document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    renderFilteredGrid();
-                    updateBasketVisibility(filterValue);
-                });
+        document.querySelectorAll('[data-filter]').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const filterValue = btn.getAttribute('data-filter');
+                currentLoanFilter = filterValue;
+                document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderFilteredGrid();
+                updateBasketVisibility(filterValue);
             });
+        });
 
-            document.querySelectorAll('.brand-pill').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    currentBrandFilter = btn.getAttribute('data-brand');
-                    document.querySelectorAll('.brand-pill').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    renderFilteredGrid();
-                });
+        document.querySelectorAll('.brand-pill').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentBrandFilter = btn.getAttribute('data-brand');
+                document.querySelectorAll('.brand-pill').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                renderFilteredGrid();
             });
+        });
 
-            updateBasketVisibility(currentLoanFilter);
-        }
+        updateBasketVisibility(currentLoanFilter);
+    }
 
-        function initReturnDropdown() {
-            const returnDropdownBtn = document.getElementById('returnDropdownBtn');
-            const returnDropdownMenu = document.getElementById('returnDropdownMenu');
-            const returnDropdownChevron = document.getElementById('returnDropdownChevron');
+    function initReturnDropdown() {
+        const returnDropdownBtn = document.getElementById('returnDropdownBtn');
+        const returnDropdownMenu = document.getElementById('returnDropdownMenu');
+        const returnDropdownChevron = document.getElementById('returnDropdownChevron');
 
-            if (returnDropdownBtn) {
-                returnDropdownBtn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    returnDropdownMenu.classList.toggle('hidden');
-                    if (returnDropdownChevron) {
-                        returnDropdownChevron.style.transform = returnDropdownMenu.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
-                    }
-                });
-            }
-
-            document.addEventListener('click', (e) => {
-                const container = document.getElementById('returnDropdownContainer');
-                if (container && !container.contains(e.target)) {
-                    returnDropdownMenu?.classList.add('hidden');
-                    if (returnDropdownChevron) {
-                        returnDropdownChevron.style.transform = 'rotate(0deg)';
-                    }
+        if (returnDropdownBtn) {
+            returnDropdownBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                returnDropdownMenu.classList.toggle('hidden');
+                if (returnDropdownChevron) {
+                    returnDropdownChevron.style.transform = returnDropdownMenu.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
                 }
             });
         }
 
-        function initReturnModal() {
-            const returnModal = document.getElementById('returnModal');
-            const step1 = document.getElementById('returnStep1');
-            const step2 = document.getElementById('returnStep2');
-            const step3 = document.getElementById('returnStep3');
-            const fetchLoansBtn = document.getElementById('fetchLoansByEmailBtn');
-            const activeLoansContainer = document.getElementById('activeLoansListContainer');
-            const submitReturnBtn = document.getElementById('submitReturnConfirmBtn');
-            const selectAllBtn = document.getElementById('selectAllReturnBtn');
-            const returnSelectionError = document.getElementById('returnSelectionError');
-
-            function closeReturnModal() {
-                returnModal.style.display = 'none';
-                step1.style.display = 'block';
-                step2.style.display = 'none';
-                step3.style.display = 'none';
-                activeLoansContainer.innerHTML = '';
-            }
-
-            document.getElementById('returnNowBtn')?.addEventListener('click', () => {
-                document.getElementById('returnDropdownMenu')?.classList.add('hidden');
-                document.getElementById('returnDropdownChevron').style.transform = 'rotate(0deg)';
-                returnModal.style.display = 'flex';
-                step1.style.display = 'block';
-                step2.style.display = 'none';
-                step3.style.display = 'none';
-            });
-
-            document.getElementById('closeReturnModalBtn')?.addEventListener('click', closeReturnModal);
-            document.getElementById('closeReturnSuccessBtn')?.addEventListener('click', closeReturnModal);
-            returnModal?.addEventListener('click', (e) => {
-                if (e.target === returnModal) closeReturnModal();
-            });
-
-            if (step1) {
-                const emailInput = document.createElement('input');
-                emailInput.type = 'email';
-                emailInput.id = 'returnUserEmail';
-                emailInput.placeholder = 'Enter your email address';
-                emailInput.className = 'w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition mb-3';
-                step1.insertBefore(emailInput, step1.querySelector('p').nextSibling);
-            }
-
-            fetchLoansBtn?.addEventListener('click', async () => {
-                const emailInput = document.getElementById('returnUserEmail');
-                const email = emailInput?.value.trim();
-                if (!email || !email.includes('@')) {
-                    showToast('Please enter a valid email address', 'error');
-                    return;
+        document.addEventListener('click', (e) => {
+            const container = document.getElementById('returnDropdownContainer');
+            if (container && !container.contains(e.target)) {
+                returnDropdownMenu?.classList.add('hidden');
+                if (returnDropdownChevron) {
+                    returnDropdownChevron.style.transform = 'rotate(0deg)';
                 }
+            }
+        });
+    }
 
-                fetchLoansBtn.disabled = true;
-                fetchLoansBtn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Loading...';
+    function initReturnModal() {
+        const returnModal = document.getElementById('returnModal');
+        const step1 = document.getElementById('returnStep1');
+        const step2 = document.getElementById('returnStep2');
+        const step3 = document.getElementById('returnStep3');
+        const fetchLoansBtn = document.getElementById('fetchLoansByEmailBtn');
+        const activeLoansContainer = document.getElementById('activeLoansListContainer');
+        const submitReturnBtn = document.getElementById('submitReturnConfirmBtn');
+        const selectAllBtn = document.getElementById('selectAllReturnBtn');
+        const returnSelectionError = document.getElementById('returnSelectionError');
 
-                try {
-                    const response = await authenticatedFetch(`/api/return/active-loans?borrower_email=${encodeURIComponent(email)}&_=${Date.now()}`, {
-                        cache: 'no-store',
-                        headers: { 'Cache-Control': 'no-cache' }
-                    });
+        function closeReturnModal() {
+            returnModal.style.display = 'none';
+            step1.style.display = 'block';
+            step2.style.display = 'none';
+            step3.style.display = 'none';
+            activeLoansContainer.innerHTML = '';
+        }
 
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (!data || data.length === 0) {
-                            activeLoansContainer.innerHTML = `<div class="p-6 text-center text-slate-500 bg-gray-50 rounded-xl"><svg class="w-10 h-10 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg><p class="font-medium">No active key loans found for this email.</p><p class="text-sm mt-1">Please check the spelling or contact the administrator.</p></div>`;
+        document.getElementById('returnNowBtn')?.addEventListener('click', () => {
+            document.getElementById('returnDropdownMenu')?.classList.add('hidden');
+            document.getElementById('returnDropdownChevron').style.transform = 'rotate(0deg)';
+            returnModal.style.display = 'flex';
+            step1.style.display = 'block';
+            step2.style.display = 'none';
+            step3.style.display = 'none';
+        });
+
+        document.getElementById('closeReturnModalBtn')?.addEventListener('click', closeReturnModal);
+        document.getElementById('closeReturnSuccessBtn')?.addEventListener('click', closeReturnModal);
+        returnModal?.addEventListener('click', (e) => {
+            if (e.target === returnModal) closeReturnModal();
+        });
+
+        if (step1) {
+            const emailInput = document.createElement('input');
+            emailInput.type = 'email';
+            emailInput.id = 'returnUserEmail';
+            emailInput.placeholder = 'Enter your email address';
+            emailInput.className = 'w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition mb-3';
+            step1.insertBefore(emailInput, step1.querySelector('p').nextSibling);
+        }
+
+        fetchLoansBtn?.addEventListener('click', async () => {
+            const emailInput = document.getElementById('returnUserEmail');
+            const email = emailInput?.value.trim();
+            if (!email || !email.includes('@')) {
+                showToast('Please enter a valid email address', 'error');
+                return;
+            }
+
+            fetchLoansBtn.disabled = true;
+            fetchLoansBtn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Loading...';
+
+            try {
+                const response = await authenticatedFetch(`/api/return/active-loans?borrower_email=${encodeURIComponent(email)}&_=${Date.now()}`, {
+                    cache: 'no-store',
+                    headers: { 'Cache-Control': 'no-cache' }
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (!data || data.length === 0) {
+                        activeLoansContainer.innerHTML = `<div class="p-6 text-center text-slate-500 bg-gray-50 rounded-xl"><svg class="w-10 h-10 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg><p class="font-medium">No active key loans found for this email.</p><p class="text-sm mt-1">Please check the spelling or contact the administrator.</p></div>`;
                             document.querySelector('#returnStep2 .flex.justify-between.items-center').style.display = 'none';
                             submitReturnBtn.style.display = 'none';
                             step1.style.display = 'none';

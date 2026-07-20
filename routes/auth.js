@@ -316,18 +316,23 @@ router.post('/admin/pending-requests/:id/reject', requireAuth, authorize('admin'
   }
 });
 
-router.post('/login', loginLimiter, validate(loginSchema), async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
   const clientIp = req.ip || req.connection.remoteAddress;
 
   logger.info('Login attempt', { username, ip: clientIp });
+
+  if (!username || !password) {
+    logger.warn('Login failed - missing credentials', { username, ip: clientIp });
+    return res.status(400).json({ error: 'Username and password are required' });
+  }
 
   const db = req.db;
   try {
     const result = await db.query(
       `SELECT id, username, email, password_hash, role, must_change_password,
               failed_login_attempts, locked_until, name
-       FROM users WHERE username = $1`,
+       FROM users WHERE LOWER(username) = LOWER($1)`,
       [username]
     );
 
@@ -344,6 +349,12 @@ router.post('/login', loginLimiter, validate(loginSchema), async (req, res) => {
     }
 
     const user = result.rows[0];
+
+    logger.info('User found', { 
+      username: user.username, 
+      hasHash: !!user.password_hash,
+      hashPrefix: user.password_hash ? user.password_hash.substring(0, 20) : 'none'
+    });
 
     if (user.locked_until && new Date() < user.locked_until) {
       const remainingMs = user.locked_until - new Date();
@@ -363,11 +374,19 @@ router.post('/login', loginLimiter, validate(loginSchema), async (req, res) => {
 
     const storedHash = user.password_hash;
     if (!storedHash || !storedHash.startsWith('$2')) {
-      logger.error('Invalid hash format', { username });
+      logger.error('Invalid hash format', { username, hash: storedHash });
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    const match = await bcrypt.compare(password, storedHash);
+    let match = false;
+    try {
+      match = await bcrypt.compare(password, storedHash);
+      logger.info('Password comparison result', { username, match });
+    } catch (compareErr) {
+      logger.error('bcrypt compare error', { error: compareErr.message, username });
+      return res.status(500).json({ error: 'Internal server error during password verification' });
+    }
+
     if (!match) {
       const newAttempts = (user.failed_login_attempts || 0) + 1;
       let lockedUntil = null;
@@ -412,7 +431,7 @@ router.post('/login', loginLimiter, validate(loginSchema), async (req, res) => {
     }
 
     await db.query(
-      'UPDATE users SET failed_login_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = $1',
+      'UPDATE users SET failed_login_attempts = 0, locked_until = NULL, last_active = NOW() WHERE id = $1',
       [user.id]
     );
 
@@ -464,7 +483,7 @@ router.post('/login', loginLimiter, validate(loginSchema), async (req, res) => {
       redirect: redirectPath
     });
   } catch (err) {
-    logger.error('Login error', { error: err.message, username });
+    logger.error('Login error', { error: err.message, username, stack: err.stack });
     res.status(500).json({ error: 'Internal server error' });
   }
 });

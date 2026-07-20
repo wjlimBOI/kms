@@ -135,7 +135,6 @@ app.use(compression({
 }));
 
 app.use(cookieParser());
-
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -281,6 +280,10 @@ const sendHtml = (res, filePath, extraHeaders = {}) => {
 };
 
 app.get('/login', (req, res) => {
+  if (req.session?.userId || req.cookies?.token) {
+    const role = req.session?.role || 'user';
+    return res.redirect(role === 'admin' ? '/admin' : '/');
+  }
   sendHtml(res, 'login.html', { 'X-Build-Hash': BUILD_HASH });
 });
 
@@ -341,15 +344,10 @@ app.use((req, res) => {
   if (req.path.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
     return res.status(404).send('Asset not found');
   }
-  sendHtml(res, 'index.html');
-});
-
-app.use((req, res) => {
-  if (req.path.startsWith('/api/')) {
-    res.status(404).json({ error: 'API endpoint not found' });
-  } else {
-    res.status(404).sendFile(path.join(__dirname, 'public', '404.html'));
+  if (req.path !== '/login' && !req.path.startsWith('/assets')) {
+    return res.redirect('/login');
   }
+  sendHtml(res, 'index.html');
 });
 
 app.use((err, req, res, next) => {

@@ -8,15 +8,36 @@ if (!JWT_SECRET) {
 
 const JWT_EXPIRY = '7d';
 
-// Helper: Extract token from request
+const PUBLIC_PATHS = [
+  '/login',
+  '/css/',
+  '/js/',
+  '/assets/',
+  '/images/',
+  '/favicon.ico',
+  '/robots.txt',
+  '/health',
+  '/api/auth/login',
+  '/api/auth/request-otp',
+  '/api/auth/verify-otp',
+  '/api/auth/register-request',
+  '/api/auth/validate-password-token',
+  '/api/auth/set-password-from-token',
+  '/api/csrf-token'
+];
+
+function isPublicPath(path) {
+  return PUBLIC_PATHS.some(publicPath => 
+    path === publicPath || path.startsWith(publicPath)
+  );
+}
+
 function getTokenFromRequest(req) {
-  // Check Authorization header first
   const authHeader = req.headers.authorization;
   if (authHeader?.startsWith('Bearer ')) {
     return authHeader.split(' ')[1];
   }
   
-  // Check cookie
   if (req.cookies?.token) {
     return req.cookies.token;
   }
@@ -24,7 +45,6 @@ function getTokenFromRequest(req) {
   return null;
 }
 
-// Helper: Set user from token
 function setUserFromToken(req, decoded) {
   req.user = {
     id: decoded.id,
@@ -37,7 +57,6 @@ function setUserFromToken(req, decoded) {
   return req.user;
 }
 
-// Helper: Verify JWT token
 function verifyToken(token) {
   try {
     return jwt.verify(token, JWT_SECRET);
@@ -46,9 +65,11 @@ function verifyToken(token) {
   }
 }
 
-// Main authentication middleware
 async function requireAuth(req, res, next) {
-  // Check session first (backward compatibility)
+  if (isPublicPath(req.path)) {
+    return next();
+  }
+
   if (req.session?.userId) {
     req.user = {
       id: req.session.userId,
@@ -60,14 +81,12 @@ async function requireAuth(req, res, next) {
     return next();
   }
 
-  // Check token from header or cookie
   const token = getTokenFromRequest(req);
   if (token) {
     const decoded = verifyToken(token);
     if (decoded) {
       setUserFromToken(req, decoded);
       
-      // Sync session with token if session exists
       if (req.session) {
         req.session.userId = decoded.id;
         req.session.username = decoded.username;
@@ -77,7 +96,6 @@ async function requireAuth(req, res, next) {
       return next();
     }
     
-    // Invalid token - clear it
     if (req.cookies?.token) {
       res.clearCookie('token', {
         httpOnly: true,
@@ -92,11 +110,13 @@ async function requireAuth(req, res, next) {
       userId: null,
       userEmail: null,
       req,
-      extraDetails: { reason: 'Invalid JWT token' }
+      extraDetails: { 
+        reason: 'Invalid JWT token',
+        path: req.path
+      }
     });
   }
 
-  // No valid authentication found
   if (req.xhr || req.headers.accept?.includes('application/json')) {
     return res.status(401).json({ 
       error: 'Unauthorized',
@@ -104,11 +124,9 @@ async function requireAuth(req, res, next) {
     });
   }
   
-  // Redirect to login for browser requests
   res.redirect('/login');
 }
 
-// Role-based authorization middleware
 function authorize(...allowedRoles) {
   return async (req, res, next) => {
     if (!req.user) {
@@ -139,7 +157,6 @@ function authorize(...allowedRoles) {
   };
 }
 
-// Permission-based authorization middleware
 function requirePermission(permissionCode) {
   return async (req, res, next) => {
     if (!req.user) {
@@ -188,7 +205,6 @@ function requirePermission(permissionCode) {
   };
 }
 
-// Middleware to refresh token if it's about to expire
 function refreshTokenIfNeeded(req, res, next) {
   if (!req.user || !req.cookies?.token) {
     return next();
@@ -202,10 +218,9 @@ function refreshTokenIfNeeded(req, res, next) {
 
     const now = Math.floor(Date.now() / 1000);
     const timeLeft = decoded.exp - now;
-    const refreshThreshold = 24 * 60 * 60; // 24 hours
+    const refreshThreshold = 24 * 60 * 60;
 
     if (timeLeft < refreshThreshold && timeLeft > 0) {
-      // Token is about to expire, issue a new one
       const newToken = jwt.sign(
         {
           id: req.user.id,
@@ -226,11 +241,10 @@ function refreshTokenIfNeeded(req, res, next) {
         path: '/'
       });
       
-      // Also set in response header for clients that use Authorization header
       res.setHeader('X-New-Token', newToken);
     }
   } catch (err) {
-    // Silent fail - token refresh is a bonus feature
+    // Silent fail
   }
   
   next();
@@ -242,5 +256,6 @@ module.exports = {
   requirePermission,
   getTokenFromRequest,
   verifyToken,
-  refreshTokenIfNeeded
+  refreshTokenIfNeeded,
+  isPublicPath
 };

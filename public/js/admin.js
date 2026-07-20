@@ -46,21 +46,94 @@
         return await fetchCsrfToken();
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        fetchCsrfToken();
-    });
+    function getToken() {
+        return localStorage.getItem('kms_token');
+    }
 
-    function getToken() { return localStorage.getItem('kms_token'); }
-    function getUser() { try { return JSON.parse(localStorage.getItem('kms_user')); } catch { return null; } }
+    function getUser() {
+        try { return JSON.parse(localStorage.getItem('kms_user')); } catch { return null; }
+    }
 
-    if (!getToken() && !window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
+    }
+
+    function formatDate(iso) {
+        if (!iso) return '—';
+        return new Date(iso).toLocaleString('en-SG', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
+    function formatDateShort(iso) {
+        if (!iso) return '—';
+        return new Date(iso).toLocaleDateString('en-SG', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+    }
+
+    function updateNumber(id, value) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+    }
+
+    function safeLower(value) {
+        return (value ?? '').toString().toLowerCase();
+    }
+
+    function toArray(value) {
+        if (Array.isArray(value)) return value;
+        if (typeof value === 'string') return value.split(',').map(s => s.trim()).filter(Boolean);
+        if (value && typeof value === 'object') {
+            if (Array.isArray(value.permissions)) return value.permissions;
+            if (Array.isArray(value.roles)) return value.roles;
+            if (Array.isArray(value.permission_codes)) return value.permission_codes;
+            return [];
+        }
+        return [];
+    }
+
+    function getInitials(name) {
+        if (!name) return '?';
+        const parts = name.trim().split(/\s+/);
+        if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+        return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+    }
+
+    function getAvatarColor(name) {
+        if (!name) return 'hsl(0,70%,80%)';
+        let h = 0;
+        for (let i = 0; i < name.length; i++) {
+            h = name.charCodeAt(i) + ((h << 5) - h);
+        }
+        return `hsl(${Math.abs(h % 360)},70%,80%)`;
+    }
+
+    function formatLastActive(iso) {
+        if (!iso) return 'Never';
+        return new Date(iso).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric'
+        }) + ' at ' + new Date(iso).toLocaleTimeString([], {
+            hour: '2-digit',
+            minute: '2-digit'
+        });
     }
 
     async function authenticatedFetch(url, options = {}) {
         const token = getToken();
         if (!token) {
-            if (!window.location.pathname.includes('/login')) window.location.href = '/login';
+            if (!window.location.pathname.includes('/login')) {
+                window.location.href = '/login';
+            }
             throw new Error('No authentication token found. Please log in again.');
         }
 
@@ -111,7 +184,9 @@
             if (response.status === 401) {
                 localStorage.removeItem('kms_token');
                 localStorage.removeItem('kms_user');
-                if (!window.location.pathname.includes('/login')) window.location.href = '/login';
+                if (!window.location.pathname.includes('/login')) {
+                    window.location.href = '/login';
+                }
                 throw new Error('Your session has expired. Please log in again.');
             }
 
@@ -124,15 +199,13 @@
         }
     }
 
-    function escapeHtml(str) { if (!str) return ''; return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;'); }
-    function formatDate(iso) { if (!iso) return '—'; return new Date(iso).toLocaleString('en-SG', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }); }
-    function formatDateShort(iso) { if (!iso) return '—'; return new Date(iso).toLocaleDateString('en-SG', { year: 'numeric', month: 'short', day: 'numeric' }); }
-    function updateNumber(id, value) { const el = document.getElementById(id); if (el) el.textContent = value; }
-    function safeLower(value) { return (value ?? '').toString().toLowerCase(); }
-
     function showToast(message, type = 'success') {
         let root = document.getElementById('toastRoot');
-        if (!root) { root = document.createElement('div'); root.id = 'toastRoot'; document.body.appendChild(root); }
+        if (!root) {
+            root = document.createElement('div');
+            root.id = 'toastRoot';
+            document.body.appendChild(root);
+        }
         const toast = document.createElement('div');
         toast.className = 'toast-notification';
         toast.textContent = message;
@@ -168,63 +241,14 @@
         modal.classList.add('active');
     }
 
-    document.getElementById('alertOkBtn')?.addEventListener('click', () => document.getElementById('alertModal').classList.remove('active'));
-    document.getElementById('alertModal')?.addEventListener('click', function(e) { if (e.target === this) this.classList.remove('active'); });
-
     function showDetailModal(title, contentHtml) {
         document.getElementById('detailModalTitle').innerText = title;
         document.getElementById('detailModalContent').innerHTML = contentHtml;
         document.getElementById('detailModal').style.display = 'flex';
     }
-    function closeDetailModal() { document.getElementById('detailModal').style.display = 'none'; }
-    document.getElementById('closeDetailModalBtn')?.addEventListener('click', closeDetailModal);
-    document.getElementById('closeDetailModalFooterBtn')?.addEventListener('click', closeDetailModal);
-    document.getElementById('detailModal')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) closeDetailModal(); });
 
-    function toArray(value) {
-        if (Array.isArray(value)) return value;
-        if (typeof value === 'string') return value.split(',').map(s => s.trim()).filter(Boolean);
-        if (value && typeof value === 'object') {
-            if (Array.isArray(value.permissions)) return value.permissions;
-            if (Array.isArray(value.roles)) return value.roles;
-            if (Array.isArray(value.permission_codes)) return value.permission_codes;
-            return [];
-        }
-        return [];
-    }
-
-    document.getElementById('brandHomeLink')?.addEventListener('click', function(e) {
-        e.preventDefault();
-        document.querySelector('.tab-button[data-tab="dashboard"]')?.click();
-    });
-
-    const profileBtn = document.getElementById('userProfileBtn');
-    const userDropdown = document.getElementById('userDropdown');
-    if (profileBtn && userDropdown) {
-        profileBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            this.classList.toggle('open');
-            userDropdown.classList.toggle('show');
-        });
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.user-profile')) {
-                profileBtn.classList.remove('open');
-                userDropdown.classList.remove('show');
-            }
-        });
-    }
-    const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-    const mobileMenu = document.getElementById('mobileMenu');
-    if (mobileMenuBtn && mobileMenu) {
-        mobileMenuBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            mobileMenu.classList.toggle('open');
-        });
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.top-nav')) {
-                mobileMenu.classList.remove('open');
-            }
-        });
+    function closeDetailModal() {
+        document.getElementById('detailModal').style.display = 'none';
     }
 
     function updateUserDisplay() {
@@ -232,28 +256,11 @@
         if (user && user.name) {
             document.getElementById('userDisplay').textContent = user.name;
             document.getElementById('dropdownUserName').textContent = user.name;
-            const nameParts = user.name.trim().split(/\s+/);
-            let initials = '';
-            if (nameParts.length === 1) {
-                initials = nameParts[0].charAt(0).toUpperCase();
-            } else {
-                initials = nameParts[0].charAt(0).toUpperCase() + nameParts[nameParts.length - 1].charAt(0).toUpperCase();
-            }
-            if (!initials) initials = '?';
+            const initials = getInitials(user.name);
             document.getElementById('userAvatar').textContent = initials;
             document.getElementById('dropdownAvatar').textContent = initials;
         }
     }
-
-    document.getElementById('mobileLogoutBtn')?.addEventListener('click', async () => {
-        await fetch('/api/auth/logout', { method: 'POST' });
-        localStorage.removeItem('kms_token');
-        localStorage.removeItem('kms_user');
-        window.location.href = '/login';
-    });
-
-    document.getElementById('myProfileBtn')?.addEventListener('click', openProfileModal);
-    document.getElementById('mobileProfileBtn')?.addEventListener('click', openProfileModal);
 
     function openProfileModal() {
         const user = getUser();
@@ -272,157 +279,808 @@
                 });
         }
         document.getElementById('profileModal').style.display = 'flex';
+        const userDropdown = document.getElementById('userDropdown');
+        const profileBtn = document.getElementById('userProfileBtn');
         if (userDropdown) userDropdown.classList.remove('show');
         if (profileBtn) profileBtn.classList.remove('open');
+        const mobileMenu = document.getElementById('mobileMenu');
         if (mobileMenu) mobileMenu.classList.remove('open');
     }
 
-    document.getElementById('closeProfileModalBtn')?.addEventListener('click', () => document.getElementById('profileModal').style.display = 'none');
-    document.getElementById('cancelProfileBtn')?.addEventListener('click', () => document.getElementById('profileModal').style.display = 'none');
-    document.getElementById('profileModal')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) document.getElementById('profileModal').style.display = 'none'; });
-
-    document.getElementById('saveProfileBtn')?.addEventListener('click', async function() {
-        const name = document.getElementById('profileName').value.trim();
-        const email = document.getElementById('profileEmail').value.trim();
-        const currentPassword = document.getElementById('profileCurrentPassword').value.trim();
-        const newPassword = document.getElementById('profilePassword').value.trim();
-        if (!name || !email) { showAlert('Name and email are required.', 'error'); return; }
-        const payload = { name, email };
-        if (newPassword) {
-            if (!currentPassword) { showAlert('Current password is required to change password.', 'error'); return; }
-            payload.current_password = currentPassword;
-            payload.new_password = newPassword;
+    function printSection(containerId) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const clone = container.cloneNode(true);
+        clone.querySelectorAll('.btn-print').forEach(el => el.remove());
+        const header = clone.querySelector('.card-header');
+        if (header) {
+            const actions = header.querySelectorAll('.btn-print, .btn-manage, .btn-refresh, input, select, button');
+            actions.forEach(el => el.remove());
         }
+        const filterRows = clone.querySelectorAll('.grid, .search-bar, .flex.gap-2.justify-end');
+        filterRows.forEach(el => el.remove());
+
+        const styles = document.querySelector('style')?.innerHTML || '';
+        const printWin = window.open('', '_blank', 'width=1200,height=800');
+        printWin.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head><title>Print</title>
+            <style>
+                * { box-sizing: border-box; }
+                body { font-family: 'Inter', sans-serif; background: white; padding: 2rem; }
+                .container { max-width: 1200px; margin: 0 auto; }
+                .card-header { background: #f8fafc; padding: 0.75rem 1.125rem; border-bottom: 2px solid #d4a843; }
+                .card-header h3 { margin: 0; font-size: 1rem; }
+                .card-body { padding: 1rem 1.125rem; }
+                table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+                th { background: #f1f5f9; text-align: left; padding: 0.5rem; border-bottom: 2px solid #e2e8f0; }
+                td { padding: 0.5rem; border-bottom: 1px solid #e2e8f0; }
+                .status-badge { padding: 0.1rem 0.6rem; border-radius: 40px; font-size: 0.7rem; display: inline-block; }
+                .no-print { display: none !important; }
+                @page { margin: 1.5cm; }
+                ${styles}
+            </style>
+            </head>
+            <body>
+                <div class="container">${clone.outerHTML}</div>
+                <script>
+                    window.onload = function() { window.print(); window.close(); };
+                <\/script>
+            </body>
+            </html>
+        `);
+        printWin.document.close();
+    }
+
+    async function checkAuth() {
         try {
-            const res = await authenticatedFetch('/api/user/profile', { method: 'PUT', body: JSON.stringify(payload) });
-            const data = await res.json();
-            if (res.ok) {
-                showAlert('Profile updated successfully.', 'success');
-                const user = getUser();
-                if (user) { user.name = name; user.email = email; localStorage.setItem('kms_user', JSON.stringify(user)); updateUserDisplay(); }
-                document.getElementById('profileModal').style.display = 'none';
-            } else {
-                showAlert(data.error || 'Failed to update profile. Please try again.', 'error');
-            }
-        } catch (err) {
-            showAlert(err.message || 'Network error. Please check your connection.', 'error');
-        }
-    });
-
-    document.querySelectorAll('.tab-button').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            const tabId = this.dataset.tab;
-            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-            const panel = document.getElementById('tab-' + tabId);
-            if (panel) panel.classList.add('active');
-            if (tabId === 'security') {
-                const first = document.querySelector('#tab-security .sub-tab-button');
-                if (first) first.click();
-                loadSecurityTab();
-            } else if (tabId === 'email') {
-                const first = document.querySelector('#tab-email .sub-tab-button');
-                if (first) first.click();
-                loadEmailTab();
-            } else if (tabId === 'requests') {
-                loadPendingRegistrations();
-            } else if (tabId === 'inventory') {
-                loadInventory();
-            } else if (tabId === 'lost') {
-                loadLostKeysManagement();
-            }
-        });
-    });
-
-    document.querySelectorAll('.sub-tab-button').forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.querySelectorAll('.sub-tab-button').forEach(b => b.classList.remove('active'));
-            this.classList.add('active');
-            document.querySelectorAll('.sub-tab-panel').forEach(p => p.classList.remove('active'));
-            const panel = document.getElementById('sub-' + this.dataset.subtab);
-            if (panel) panel.classList.add('active');
-            if (this.dataset.subtab === 'templates') loadTemplates();
-            if (this.dataset.subtab === 'settings') loadSettings();
-            if (this.dataset.subtab === 'admin-notifications') loadAdminRecipients();
-        });
-    });
-
-    async function loadPendingRegistrations() {
-        const container = document.getElementById('pendingRequestsContainer');
-        container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading requests...</div>';
-        try {
-            const res = await authenticatedFetch('/api/auth/admin/pending-requests');
-            const requests = await res.json();
-            if (!requests.length) {
-                container.innerHTML = '<div class="text-center py-8 text-slate-400">No pending requests.</div>';
-                return;
-            }
-            let html = `<table class="table-clean"><thead><tr>
-                <th class="text-left">Name</th>
-                <th class="text-left">Email</th>
-                <th>Username</th>
-                <th>Requested</th>
-                <th>Actions</th>
-            </tr></thead><tbody>`;
-            for (const req of requests) {
-                html += `<tr>
-                    <td class="text-left">${escapeHtml(req.name)}</td>
-                    <td class="text-left">${escapeHtml(req.email)}</td>
-                    <td>${escapeHtml(req.username || '—')}</td>
-                    <td>${formatDate(req.created_at)}</td>
-                    <td>
-                        <button class="approveRequestBtn bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1 rounded-full transition" data-id="${req.id}">Approve</button>
-                        <button class="rejectRequestBtn bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1 rounded-full transition" data-id="${req.id}">Reject</button>
-                    </td>
-                </tr>`;
-            }
-            html += `</tbody></table>`;
-            container.innerHTML = html;
-            container.querySelectorAll('.approveRequestBtn').forEach(btn => {
-                btn.addEventListener('click', async function() {
-                    const id = this.dataset.id;
-                    if (confirm('Approve this registration request? The user will receive a password via email.')) {
-                        try {
-                            const res = await authenticatedFetch(`/api/auth/admin/pending-requests/${id}/approve`, { method: 'POST' });
-                            const data = await res.json();
-                            if (res.ok) { showAlert('User approved. Password sent.', 'success'); loadPendingRegistrations(); }
-                            else { showAlert(data.error || 'Approval failed. Please try again.', 'error'); }
-                        } catch (err) {
-                            showAlert(err.message || 'Network error. Please check your connection.', 'error');
-                        }
-                    }
-                });
+            const response = await fetch('/api/auth/check-session', {
+                credentials: 'include',
+                headers: { 'Accept': 'application/json' }
             });
-            container.querySelectorAll('.rejectRequestBtn').forEach(btn => {
-                btn.addEventListener('click', async function() {
-                    const id = this.dataset.id;
-                    const reason = prompt('Optional reason for rejection:');
-                    if (confirm('Reject this registration request?')) {
-                        try {
-                            const res = await authenticatedFetch(`/api/auth/admin/pending-requests/${id}/reject`, {
-                                method: 'POST',
-                                body: JSON.stringify({ reason: reason || null })
-                            });
-                            const data = await res.json();
-                            if (res.ok) { showAlert('Request rejected.', 'success'); loadPendingRegistrations(); }
-                            else { showAlert(data.error || 'Rejection failed. Please try again.', 'error'); }
-                        } catch (err) {
-                            showAlert(err.message || 'Network error. Please check your connection.', 'error');
-                        }
-                    }
-                });
-            });
-        } catch (err) {
-            container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load requests. Please refresh the page.</div>';
-            showAlert(err.message || 'Unable to load pending requests. Please check your internet connection.', 'error');
+
+            if (!response.ok) {
+                window.location.href = '/login';
+                return false;
+            }
+
+            const data = await response.json();
+
+            if (!data.authenticated) {
+                window.location.href = '/login';
+                return false;
+            }
+
+            localStorage.setItem('kms_user', JSON.stringify(data.user));
+
+            if (data.user.role !== 'admin') {
+                const accessDenied = document.getElementById('accessDenied');
+                const loadingContainer = document.getElementById('loadingContainer');
+                if (accessDenied) accessDenied.style.display = 'flex';
+                if (loadingContainer) loadingContainer.style.display = 'none';
+                return false;
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Auth check failed:', error);
+            window.location.href = '/login';
+            return false;
         }
     }
-    document.getElementById('refreshRequestsBtn')?.addEventListener('click', loadPendingRegistrations);
 
     let allTransactions = [];
     let filteredTransactions = [];
     let txPage = 1, txRows = 10, txTotal = 0;
+
+    let inventoryData = [];
+    let filteredInventory = [];
+    let invPage = 1, invRows = 10, invTotal = 0;
+
+    let manageKeyData = [];
+    let manageKeyFiltered = [];
+    let manageKeyPage = 1, manageKeyRows = 8, manageKeyTotal = 0;
+
+    let permissionsData = { roles: [], permissions: [], roleMappings: {} };
+    let allRolesList = [];
+    let emailTabLoaded = false;
+    let securityLoaded = false;
+    let _lostKeysListenerAttached = false;
+
+    function initEventListeners() {
+        document.getElementById('alertOkBtn')?.addEventListener('click', () => {
+            document.getElementById('alertModal').classList.remove('active');
+        });
+
+        document.getElementById('alertModal')?.addEventListener('click', function(e) {
+            if (e.target === this) this.classList.remove('active');
+        });
+
+        document.getElementById('closeDetailModalBtn')?.addEventListener('click', closeDetailModal);
+        document.getElementById('closeDetailModalFooterBtn')?.addEventListener('click', closeDetailModal);
+        document.getElementById('detailModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) closeDetailModal();
+        });
+
+        document.getElementById('brandHomeLink')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.querySelector('.tab-button[data-tab="dashboard"]')?.click();
+        });
+
+        const profileBtn = document.getElementById('userProfileBtn');
+        const userDropdown = document.getElementById('userDropdown');
+        if (profileBtn && userDropdown) {
+            profileBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                this.classList.toggle('open');
+                userDropdown.classList.toggle('show');
+            });
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.user-profile')) {
+                    profileBtn.classList.remove('open');
+                    userDropdown.classList.remove('show');
+                }
+            });
+        }
+
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+        if (mobileMenuBtn && mobileMenu) {
+            mobileMenuBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                mobileMenu.classList.toggle('open');
+            });
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.top-nav')) {
+                    mobileMenu.classList.remove('open');
+                }
+            });
+        }
+
+        document.getElementById('mobileLogoutBtn')?.addEventListener('click', async () => {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            localStorage.removeItem('kms_token');
+            localStorage.removeItem('kms_user');
+            window.location.href = '/login';
+        });
+
+        document.getElementById('myProfileBtn')?.addEventListener('click', openProfileModal);
+        document.getElementById('mobileProfileBtn')?.addEventListener('click', openProfileModal);
+
+        document.getElementById('closeProfileModalBtn')?.addEventListener('click', () => {
+            document.getElementById('profileModal').style.display = 'none';
+        });
+        document.getElementById('cancelProfileBtn')?.addEventListener('click', () => {
+            document.getElementById('profileModal').style.display = 'none';
+        });
+        document.getElementById('profileModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('profileModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('saveProfileBtn')?.addEventListener('click', async function() {
+            const name = document.getElementById('profileName').value.trim();
+            const email = document.getElementById('profileEmail').value.trim();
+            const currentPassword = document.getElementById('profileCurrentPassword').value.trim();
+            const newPassword = document.getElementById('profilePassword').value.trim();
+
+            if (!name || !email) {
+                showAlert('Name and email are required.', 'error');
+                return;
+            }
+
+            const payload = { name, email };
+            if (newPassword) {
+                if (!currentPassword) {
+                    showAlert('Current password is required to change password.', 'error');
+                    return;
+                }
+                payload.current_password = currentPassword;
+                payload.new_password = newPassword;
+            }
+
+            try {
+                const res = await authenticatedFetch('/api/user/profile', {
+                    method: 'PUT',
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showAlert('Profile updated successfully.', 'success');
+                    const user = getUser();
+                    if (user) {
+                        user.name = name;
+                        user.email = email;
+                        localStorage.setItem('kms_user', JSON.stringify(user));
+                        updateUserDisplay();
+                    }
+                    document.getElementById('profileModal').style.display = 'none';
+                } else {
+                    showAlert(data.error || 'Failed to update profile. Please try again.', 'error');
+                }
+            } catch (err) {
+                showAlert(err.message || 'Network error. Please check your connection.', 'error');
+            }
+        });
+
+        document.getElementById('logoutBtn')?.addEventListener('click', async () => {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            localStorage.removeItem('kms_token');
+            localStorage.removeItem('kms_user');
+            window.location.href = '/login';
+        });
+
+        document.querySelectorAll('.tab-button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                const tabId = this.dataset.tab;
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                const panel = document.getElementById('tab-' + tabId);
+                if (panel) panel.classList.add('active');
+                if (tabId === 'security') {
+                    const first = document.querySelector('#tab-security .sub-tab-button');
+                    if (first) first.click();
+                    loadSecurityTab();
+                } else if (tabId === 'email') {
+                    const first = document.querySelector('#tab-email .sub-tab-button');
+                    if (first) first.click();
+                    loadEmailTab();
+                } else if (tabId === 'requests') {
+                    loadPendingRegistrations();
+                } else if (tabId === 'inventory') {
+                    loadInventory();
+                } else if (tabId === 'lost') {
+                    loadLostKeysManagement();
+                }
+            });
+        });
+
+        document.querySelectorAll('.sub-tab-button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('.sub-tab-button').forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+                document.querySelectorAll('.sub-tab-panel').forEach(p => p.classList.remove('active'));
+                const panel = document.getElementById('sub-' + this.dataset.subtab);
+                if (panel) panel.classList.add('active');
+                if (this.dataset.subtab === 'templates') loadTemplates();
+                if (this.dataset.subtab === 'settings') loadSettings();
+                if (this.dataset.subtab === 'admin-notifications') loadAdminRecipients();
+            });
+        });
+
+        document.getElementById('refreshRequestsBtn')?.addEventListener('click', loadPendingRegistrations);
+
+        document.getElementById('transactionsRowsPerPage')?.addEventListener('change', function() {
+            txRows = parseInt(this.value);
+            txPage = 1;
+            applyTransactionFilters();
+        });
+
+        document.getElementById('transactionsPrevPageBtn')?.addEventListener('click', () => {
+            if (txPage > 1) {
+                txPage--;
+                renderTransactionsTable();
+                updateTransactionPagination();
+            }
+        });
+
+        document.getElementById('transactionsNextPageBtn')?.addEventListener('click', () => {
+            const totalPages = Math.ceil(txTotal / txRows);
+            if (txPage < totalPages) {
+                txPage++;
+                renderTransactionsTable();
+                updateTransactionPagination();
+            }
+        });
+
+        document.getElementById('pendingRequestsCard')?.addEventListener('click', showPendingRequestsModal);
+        document.getElementById('pendingKeyRequestsCard')?.addEventListener('click', showPendingRequestsModal);
+        document.getElementById('pendingReturnsCard')?.addEventListener('click', showPendingReturnsModal);
+        document.getElementById('activeBorrowsCard')?.addEventListener('click', showActiveBorrowsModal);
+        document.getElementById('returnRemindersCard')?.addEventListener('click', showReturnRemindersModal);
+        document.getElementById('lostKeysCard')?.addEventListener('click', showLostKeysModal);
+
+        document.getElementById('refreshAuditBtn')?.addEventListener('click', loadAuditHealth);
+
+        document.getElementById('modalConfirmBtn')?.addEventListener('click', async function() {
+            const notes = document.getElementById('modalNotes').value.trim();
+            const action = window._currentAction;
+            const id = window._currentRequestId;
+            const endpoint = action === 'approve' ? '/api/admin/requests/approve' : '/api/admin/requests/deny';
+            try {
+                const res = await authenticatedFetch(endpoint, {
+                    method: 'POST',
+                    body: JSON.stringify({ request_id: id, admin_notes: notes || null })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    showAlert(action === 'approve' ? 'Request approved.' : 'Request denied.', 'success');
+                    document.getElementById('adminModal').style.display = 'none';
+                    loadPendingRequests();
+                    loadTransactions();
+                    loadPendingReturns();
+                } else {
+                    showAlert(data.error || 'Action failed. Please try again.', 'error');
+                }
+            } catch (err) {
+                showAlert(err.message || 'Network error. Please check your connection.', 'error');
+            }
+        });
+
+        document.getElementById('modalCancelBtn')?.addEventListener('click', () => {
+            document.getElementById('adminModal').style.display = 'none';
+        });
+        document.getElementById('closeAdminModalBtn')?.addEventListener('click', () => {
+            document.getElementById('adminModal').style.display = 'none';
+        });
+        document.getElementById('adminModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('adminModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('searchBtn')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            loadTransactions();
+        });
+
+        document.getElementById('resetBtn')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('filterGiver').value = '';
+            document.getElementById('filterReceiver').value = '';
+            document.getElementById('filterBranch').value = '';
+            document.getElementById('filterAction').value = '';
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterFrom').value = '';
+            document.getElementById('filterTo').value = '';
+            txPage = 1;
+            loadTransactions();
+        });
+
+        document.getElementById('inventorySearchInput')?.addEventListener('input', () => {
+            invPage = 1;
+            applyInventoryFilters();
+        });
+        document.getElementById('inventoryResetFiltersBtn')?.addEventListener('click', () => {
+            document.getElementById('inventorySearchInput').value = '';
+            invPage = 1;
+            applyInventoryFilters();
+        });
+        document.getElementById('inventoryPrevPageBtn')?.addEventListener('click', () => {
+            if (invPage > 1) {
+                invPage--;
+                renderInventoryTable();
+                updateInventoryPagination();
+            }
+        });
+        document.getElementById('inventoryNextPageBtn')?.addEventListener('click', () => {
+            const totalPages = Math.ceil(invTotal / invRows);
+            if (invPage < totalPages) {
+                invPage++;
+                renderInventoryTable();
+                updateInventoryPagination();
+            }
+        });
+        document.getElementById('refreshInventoryBtn')?.addEventListener('click', loadInventory);
+        document.getElementById('inventoryRowsPerPage')?.addEventListener('change', function() {
+            invRows = parseInt(this.value);
+            invPage = 1;
+            applyInventoryFilters();
+        });
+
+        document.getElementById('manageKeysBtn')?.addEventListener('click', openKeyManageModal);
+        document.getElementById('closeKeyManageModalBtn')?.addEventListener('click', () => {
+            document.getElementById('keyManageModal').style.display = 'none';
+        });
+        document.getElementById('closeKeyManageFooterBtn')?.addEventListener('click', () => {
+            document.getElementById('keyManageModal').style.display = 'none';
+        });
+        document.getElementById('keyManageModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('keyManageModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('manageKeySearch')?.addEventListener('input', () => {
+            manageKeyPage = 1;
+            fetchManageKeys();
+        });
+        document.getElementById('resetManageKeyFilters')?.addEventListener('click', () => {
+            document.getElementById('manageKeySearch').value = '';
+            manageKeyPage = 1;
+            fetchManageKeys();
+        });
+        document.getElementById('manageKeyPrevBtn')?.addEventListener('click', () => {
+            if (manageKeyPage > 1) {
+                manageKeyPage--;
+                renderManageKeyTable();
+                updateManageKeyPagination();
+            }
+        });
+        document.getElementById('manageKeyNextBtn')?.addEventListener('click', () => {
+            const totalPages = Math.ceil(manageKeyTotal / manageKeyRows);
+            if (manageKeyPage < totalPages) {
+                manageKeyPage++;
+                renderManageKeyTable();
+                updateManageKeyPagination();
+            }
+        });
+        document.getElementById('addKeyFromManageBtn')?.addEventListener('click', () => {
+            openKeyEditModal(null);
+            document.getElementById('keyManageModal').style.display = 'none';
+        });
+
+        document.getElementById('closeKeyEditModalBtn')?.addEventListener('click', () => {
+            document.getElementById('keyEditModal').style.display = 'none';
+        });
+        document.getElementById('cancelKeyEditBtn')?.addEventListener('click', () => {
+            document.getElementById('keyEditModal').style.display = 'none';
+        });
+        document.getElementById('keyEditModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('keyEditModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('saveKeyEditBtn')?.addEventListener('click', async function() {
+            const id = document.getElementById('editKeyId').value;
+            const code = document.getElementById('editKeyCode').value.trim();
+            const brand = document.getElementById('editKeyBrand').value.trim();
+            const ownerField = document.getElementById('editKeyOwner').value.trim();
+            const totalQuantity = parseInt(document.getElementById('editKeySets').value) || 1;
+            const dateOwned = document.getElementById('editKeyDateOwned').value;
+            const remarks = document.getElementById('editKeyRemarks').value.trim();
+            const is_lost = document.getElementById('editKeyLost').checked;
+
+            if (!code || !brand) {
+                showAlert('Code and brand are required.', 'error');
+                return;
+            }
+
+            let sets = [];
+            if (ownerField) {
+                const owners = ownerField.split(',').map(s => s.trim()).filter(Boolean);
+                const quantityPerOwner = Math.max(1, Math.floor(totalQuantity / owners.length));
+                sets = owners.map((owner, index) => ({
+                    owner_name: owner,
+                    quantity: index === owners.length - 1 ? totalQuantity - (quantityPerOwner * (owners.length - 1)) : quantityPerOwner,
+                    remarks: remarks || null
+                }));
+            }
+
+            const payload = {
+                code,
+                brand,
+                sets: sets,
+                date_owned: dateOwned || null,
+                remarks: remarks || null,
+                is_lost
+            };
+
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? `/api/admin/keys/${id}` : '/api/admin/keys';
+
+            try {
+                const res = await authenticatedFetch(url, { method, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (res.ok) {
+                    showAlert(id ? 'Key updated.' : 'Key created.', 'success');
+                    document.getElementById('keyEditModal').style.display = 'none';
+                    loadInventory();
+                    if (document.getElementById('keyManageModal').style.display === 'flex') fetchManageKeys();
+                } else {
+                    showAlert(data.error || 'Save failed. Please try again.', 'error');
+                }
+            } catch (err) {
+                showAlert(err.message || 'Network error. Please check your connection.', 'error');
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.btn-print');
+            if (!btn) return;
+            const section = btn.dataset.section;
+            let containerId = '';
+            switch (section) {
+                case 'transactions': containerId = 'transactionsCard'; break;
+                case 'requests': containerId = 'requestsCard'; break;
+                case 'inventory': containerId = 'inventoryCard'; break;
+                case 'audit': containerId = 'auditCard'; break;
+                case 'users': containerId = 'usersCard'; break;
+                case 'templates': containerId = 'templatesCard'; break;
+                case 'settings': containerId = 'settingsCard'; break;
+                default: return;
+            }
+            printSection(containerId);
+        });
+
+        document.getElementById('manageTemplatesBtn')?.addEventListener('click', openTemplateManageModal);
+        document.getElementById('closeTemplateManageModalBtn')?.addEventListener('click', () => {
+            document.getElementById('templateManageModal').style.display = 'none';
+        });
+        document.getElementById('closeTemplateManageFooterBtn')?.addEventListener('click', () => {
+            document.getElementById('templateManageModal').style.display = 'none';
+        });
+        document.getElementById('templateManageModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('templateManageModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('addTemplateFromManageBtn')?.addEventListener('click', function() {
+            document.getElementById('editTemplateKey').value = '';
+            document.getElementById('editTemplateKeyDisplay').value = '';
+            document.getElementById('editTemplateKeyDisplay').disabled = false;
+            document.getElementById('editTemplateKeyDisplay').placeholder = 'Enter a unique key (e.g., welcome)';
+            document.getElementById('editTemplateSubject').value = '';
+            document.getElementById('editTemplateBody').value = '';
+            document.getElementById('editTemplateActive').checked = true;
+            document.getElementById('templateEditModalTitle').textContent = 'Add New Template';
+            document.getElementById('templateEditModal').style.display = 'flex';
+        });
+
+        document.getElementById('closeTemplateEditModalBtn')?.addEventListener('click', () => {
+            document.getElementById('templateEditModal').style.display = 'none';
+        });
+        document.getElementById('cancelTemplateEditBtn')?.addEventListener('click', () => {
+            document.getElementById('templateEditModal').style.display = 'none';
+        });
+        document.getElementById('templateEditModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('templateEditModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('saveTemplateEditBtn')?.addEventListener('click', async function() {
+            const key = document.getElementById('editTemplateKey').value.trim();
+            const keyDisplay = document.getElementById('editTemplateKeyDisplay').value.trim();
+            const subject = document.getElementById('editTemplateSubject').value.trim();
+            const body_html = document.getElementById('editTemplateBody').value.trim();
+            const is_active = document.getElementById('editTemplateActive').checked;
+            const finalKey = key || keyDisplay;
+            if (!finalKey || !subject || !body_html) {
+                showAlert('Key, subject, and body are required.', 'error');
+                return;
+            }
+            const isNew = !key;
+            const url = isNew ? '/api/admin/email/templates' : `/api/admin/email/templates/${finalKey}`;
+            const method = isNew ? 'POST' : 'PUT';
+            try {
+                const res = await authenticatedFetch(url, { method, body: JSON.stringify({ subject, body_html, is_active }) });
+                if (res.ok) {
+                    showAlert(isNew ? 'Template created.' : 'Template updated.', 'success');
+                    document.getElementById('templateEditModal').style.display = 'none';
+                    loadTemplates();
+                    if (document.getElementById('templateManageModal').style.display === 'flex') openTemplateManageModal();
+                } else {
+                    const data = await res.json();
+                    showAlert(data.error || 'Save failed. Please try again.', 'error');
+                }
+            } catch (err) {
+                showAlert(err.message || 'Network error. Please check your connection.', 'error');
+            }
+        });
+
+        document.getElementById('saveSettingsBtn')?.addEventListener('click', async function() {
+            const toggles = document.querySelectorAll('.setting-toggle');
+            const updates = [];
+            for (const toggle of toggles) {
+                const key = toggle.dataset.key;
+                const enabled = toggle.checked;
+                const config = {};
+                const configInputs = toggle.closest('.setting-control').querySelectorAll('[data-config]');
+                for (const input of configInputs) {
+                    const configKey = input.dataset.config;
+                    if (input.type === 'checkbox') {
+                        config[configKey] = input.checked;
+                    } else {
+                        if (configKey === 'reminder_days_before') {
+                            const val = input.value.trim();
+                            config[configKey] = val ? val.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
+                        } else {
+                            config[configKey] = input.value;
+                        }
+                    }
+                }
+                updates.push({ key, enabled, config });
+            }
+            try {
+                for (const update of updates) {
+                    await authenticatedFetch(`/api/admin/email/settings/${update.key}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ enabled: update.enabled, config: update.config })
+                    });
+                }
+                showAlert('All settings saved.', 'success');
+                loadSettings();
+            } catch (err) {
+                showAlert(err.message || 'Failed to save settings. Please check your network.', 'error');
+            }
+        });
+
+        document.getElementById('addAdminRecipientBtn')?.addEventListener('click', openAddAdminRecipientModal);
+        document.getElementById('closeAddAdminRecipientModalBtn')?.addEventListener('click', () => {
+            document.getElementById('addAdminRecipientModal').style.display = 'none';
+        });
+        document.getElementById('cancelAddAdminRecipientBtn')?.addEventListener('click', () => {
+            document.getElementById('addAdminRecipientModal').style.display = 'none';
+        });
+        document.getElementById('addAdminRecipientModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('addAdminRecipientModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('saveAdminRecipientBtn')?.addEventListener('click', async function() {
+            const select = document.getElementById('adminRecipientSelect');
+            const userId = parseInt(select.value);
+            if (!userId) {
+                showAlert('Please select an admin user.', 'error');
+                return;
+            }
+            try {
+                const res = await authenticatedFetch('/api/admin/admin-notification-recipients', {
+                    method: 'POST',
+                    body: JSON.stringify({ user_id: userId, enabled: true })
+                });
+                if (res.ok) {
+                    showAlert('Admin added to notification recipients.', 'success');
+                    document.getElementById('addAdminRecipientModal').style.display = 'none';
+                    loadAdminRecipients();
+                } else {
+                    const data = await res.json();
+                    showAlert(data.error || 'Failed to add recipient.', 'error');
+                }
+            } catch (err) {
+                showAlert(err.message || 'Network error.', 'error');
+            }
+        });
+
+        document.getElementById('refreshLostKeysBtn')?.addEventListener('click', loadLostKeysManagement);
+
+        document.getElementById('closeLostKeyDetailModalBtn')?.addEventListener('click', () => {
+            document.getElementById('lostKeyDetailModal').style.display = 'none';
+        });
+        document.getElementById('closeLostKeyDetailFooterBtn')?.addEventListener('click', () => {
+            document.getElementById('lostKeyDetailModal').style.display = 'none';
+        });
+        document.getElementById('lostKeyDetailModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('lostKeyDetailModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('closeLostKeyEditModalBtn')?.addEventListener('click', () => {
+            document.getElementById('lostKeyEditModal').style.display = 'none';
+        });
+        document.getElementById('cancelLostKeyEditBtn')?.addEventListener('click', () => {
+            document.getElementById('lostKeyEditModal').style.display = 'none';
+        });
+        document.getElementById('lostKeyEditModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('lostKeyEditModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('saveLostKeyEditBtn')?.addEventListener('click', async function() {
+            const id = document.getElementById('editLostTransactionId').value;
+            const reason = document.getElementById('editLostReason').value.trim();
+            const lostAt = document.getElementById('editLostDate').value;
+            const status = document.getElementById('editLostStatus').value;
+
+            if (!reason) {
+                showAlert('Reason for loss is required.', 'error');
+                return;
+            }
+
+            try {
+                const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/update`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        reason: reason,
+                        lost_at: lostAt || null,
+                        status: status
+                    })
+                });
+                if (res.ok) {
+                    showAlert('Lost key updated successfully.', 'success');
+                    document.getElementById('lostKeyEditModal').style.display = 'none';
+                    loadLostKeysManagement();
+                    loadLostKeys();
+                } else {
+                    const data = await res.json();
+                    showAlert(data.error || 'Update failed.', 'error');
+                }
+            } catch (err) {
+                showAlert(err.message || 'Network error.', 'error');
+            }
+        });
+
+        document.getElementById('refreshAdminRecipientsBtn')?.addEventListener('click', loadAdminRecipients);
+        document.getElementById('refreshAuditLogBtn')?.addEventListener('click', loadAuditLogs);
+
+        document.getElementById('addRoleBtn')?.addEventListener('click', () => {
+            document.getElementById('newRoleName').value = '';
+            document.getElementById('addRoleModal').style.display = 'flex';
+        });
+        document.getElementById('closeAddRoleModalBtn')?.addEventListener('click', () => {
+            document.getElementById('addRoleModal').style.display = 'none';
+        });
+        document.getElementById('cancelAddRoleBtn')?.addEventListener('click', () => {
+            document.getElementById('addRoleModal').style.display = 'none';
+        });
+        document.getElementById('addRoleModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('addRoleModal').style.display = 'none';
+            }
+        });
+        document.getElementById('confirmAddRoleBtn')?.addEventListener('click', () => {
+            const name = document.getElementById('newRoleName').value.trim();
+            if (!name) {
+                showAlert('Please enter a role name.', 'error');
+                return;
+            }
+            if (permissionsData.roleMappings[name]) {
+                showAlert('Role already exists.', 'error');
+                return;
+            }
+            permissionsData.roleMappings[name] = [];
+            permissionsData.roles = Object.keys(permissionsData.roleMappings);
+            renderPermissions();
+            document.getElementById('addRoleModal').style.display = 'none';
+            showAlert(`Role "${name}" added.`, 'success');
+        });
+
+        document.getElementById('savePermissionsBtn')?.addEventListener('click', async function() {
+            const updates = {};
+            document.querySelectorAll('.permission-checkbox').forEach(cb => {
+                const role = cb.dataset.role;
+                const permId = parseInt(cb.dataset.permId);
+                if (!updates[role]) updates[role] = [];
+                if (cb.checked) updates[role].push(permId);
+            });
+            try {
+                for (const [roleName, permIds] of Object.entries(updates)) {
+                    await authenticatedFetch('/api/permissions/roles', {
+                        method: 'POST',
+                        body: JSON.stringify({ role_name: roleName, permission_ids: permIds })
+                    });
+                }
+                showAlert('Permissions saved.', 'success');
+                await loadPermissions();
+            } catch (err) {
+                showAlert(err.message || 'Failed to save permissions. Please check your network.', 'error');
+            }
+        });
+
+        document.getElementById('closeKeyDetailModalBtn')?.addEventListener('click', () => {
+            document.getElementById('keyDetailModal').style.display = 'none';
+        });
+        document.getElementById('closeKeyDetailFooterBtn')?.addEventListener('click', () => {
+            document.getElementById('keyDetailModal').style.display = 'none';
+        });
+        document.getElementById('keyDetailModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('keyDetailModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('openUserManagementBtn')?.addEventListener('click', () => {
+            document.getElementById('userManagementModal').style.display = 'flex';
+            fetchManageUsers();
+        });
+        document.getElementById('closeUserManagementModalBtn')?.addEventListener('click', () => {
+            document.getElementById('userManagementModal').style.display = 'none';
+        });
+        document.getElementById('userManagementModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('userManagementModal').style.display = 'none';
+            }
+        });
+    }
 
     async function loadTransactions() {
         const giver = document.getElementById('filterGiver')?.value.trim() || '';
@@ -500,24 +1158,27 @@
         document.getElementById('transactionsNextPageBtn').disabled = txPage >= totalPages || txTotal === 0;
     }
 
-    document.getElementById('transactionsRowsPerPage')?.addEventListener('change', function() {
-        txRows = parseInt(this.value);
-        txPage = 1;
-        applyTransactionFilters();
-    });
-    document.getElementById('transactionsPrevPageBtn')?.addEventListener('click', () => { if (txPage > 1) { txPage--; renderTransactionsTable(); updateTransactionPagination(); } });
-    document.getElementById('transactionsNextPageBtn')?.addEventListener('click', () => { const totalPages = Math.ceil(txTotal / txRows); if (txPage < totalPages) { txPage++; renderTransactionsTable(); updateTransactionPagination(); } });
-
     function updateMetrics(transactions) {
         const active = transactions.filter(t => t.status === 'borrowed');
         updateNumber('borrowedCount', active.length);
         const withReturn = transactions.filter(t => t.status === 'borrowed' && t.planned_return);
-        const today = new Date(); today.setHours(0,0,0,0);
-        const overdue = withReturn.filter(t => { const d = new Date(t.planned_return); d.setHours(0,0,0,0); return d < today; });
-        const dueToday = withReturn.filter(t => { const d = new Date(t.planned_return); d.setHours(0,0,0,0); return d.getTime() === today.getTime(); });
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const overdue = withReturn.filter(t => {
+            const d = new Date(t.planned_return);
+            d.setHours(0, 0, 0, 0);
+            return d < today;
+        });
+        const dueToday = withReturn.filter(t => {
+            const d = new Date(t.planned_return);
+            d.setHours(0, 0, 0, 0);
+            return d.getTime() === today.getTime();
+        });
         updateNumber('overdueCount', overdue.length + dueToday.length);
         let next = null;
-        if (withReturn.length) { next = withReturn.reduce((a,b) => new Date(a.planned_return) < new Date(b.planned_return) ? a : b); }
+        if (withReturn.length) {
+            next = withReturn.reduce((a, b) => new Date(a.planned_return) < new Date(b.planned_return) ? a : b);
+        }
         document.getElementById('reminderNextDue').innerText = next ? `Next due: ${formatDateShort(next.planned_return)}` : 'Next due: --';
     }
 
@@ -537,7 +1198,10 @@
 
     function showPendingRequestsModal() {
         const data = window._pendingRequestsData || [];
-        if (!data.length) { showDetailModal('Pending Requests', '<div class="text-center py-8 text-slate-400">No pending requests.</div>'); return; }
+        if (!data.length) {
+            showDetailModal('Pending Requests', '<div class="text-center py-8 text-slate-400">No pending requests.</div>');
+            return;
+        }
         let rows = '';
         for (const req of data) {
             const keyList = req.key_details?.map(k => `${k.code} x${k.quantity}`).join(', ') || '—';
@@ -567,9 +1231,6 @@
         });
     }
 
-    document.getElementById('pendingRequestsCard')?.addEventListener('click', showPendingRequestsModal);
-    document.getElementById('pendingKeyRequestsCard')?.addEventListener('click', showPendingRequestsModal);
-
     async function loadPendingReturns() {
         try {
             const res = await authenticatedFetch('/api/return/pending');
@@ -584,7 +1245,10 @@
 
     function showPendingReturnsModal() {
         const data = window._pendingReturnsData || [];
-        if (!data.length) { showDetailModal('Pending Returns', '<div class="text-center py-8 text-slate-400">No pending returns.</div>'); return; }
+        if (!data.length) {
+            showDetailModal('Pending Returns', '<div class="text-center py-8 text-slate-400">No pending returns.</div>');
+            return;
+        }
         let rows = '';
         for (const ret of data) {
             rows += `<tr>
@@ -600,17 +1264,25 @@
             btn.addEventListener('click', async function() {
                 const id = parseInt(this.dataset.id);
                 try {
-                    const res = await authenticatedFetch('/api/return/verify', { method: 'POST', body: JSON.stringify({ return_request_id: id }) });
-                    if (res.ok) { showAlert('Return verified.', 'success'); closeDetailModal(); loadPendingReturns(); loadTransactions(); }
-                    else { const data = await res.json(); showAlert(data.error || 'Verification failed. Please try again.', 'error'); }
+                    const res = await authenticatedFetch('/api/return/verify', {
+                        method: 'POST',
+                        body: JSON.stringify({ return_request_id: id })
+                    });
+                    if (res.ok) {
+                        showAlert('Return verified.', 'success');
+                        closeDetailModal();
+                        loadPendingReturns();
+                        loadTransactions();
+                    } else {
+                        const data = await res.json();
+                        showAlert(data.error || 'Verification failed. Please try again.', 'error');
+                    }
                 } catch (err) {
                     showAlert(err.message || 'Network error. Please check your connection.', 'error');
                 }
             });
         });
     }
-
-    document.getElementById('pendingReturnsCard')?.addEventListener('click', showPendingReturnsModal);
 
     async function loadLostKeys() {
         try {
@@ -624,11 +1296,12 @@
         }
     }
 
-    let _lostKeysListenerAttached = false;
-
     function showLostKeysModal() {
         const data = window._lostKeysData || [];
-        if (!data.length) { showDetailModal('Lost Keys', '<div class="text-center py-8 text-slate-400">No lost keys.</div>'); return; }
+        if (!data.length) {
+            showDetailModal('Lost Keys', '<div class="text-center py-8 text-slate-400">No lost keys.</div>');
+            return;
+        }
         let rows = '';
         for (const item of data) {
             rows += `<tr class="lost-key-row" data-tx-id="${item.id}">
@@ -732,7 +1405,9 @@
             const dropdown = target.closest('.actions-dropdown');
             if (!dropdown) return;
             const menu = dropdown.querySelector('.dropdown-menu');
-            document.querySelectorAll('#detailModalContent .dropdown-menu').forEach(m => { if (m !== menu) m.classList.remove('show'); });
+            document.querySelectorAll('#detailModalContent .dropdown-menu').forEach(m => {
+                if (m !== menu) m.classList.remove('show');
+            });
             menu.classList.toggle('show');
             return;
         }
@@ -741,7 +1416,12 @@
         e.stopPropagation();
         let action = '';
         const classes = item.className.split(' ');
-        for (const cls of classes) { if (cls.startsWith('action-')) { action = cls.replace('action-', ''); break; } }
+        for (const cls of classes) {
+            if (cls.startsWith('action-')) {
+                action = cls.replace('action-', '');
+                break;
+            }
+        }
         if (!action) return;
         const dropdown = item.closest('.actions-dropdown');
         if (dropdown) dropdown.querySelector('.dropdown-menu').classList.remove('show');
@@ -755,41 +1435,88 @@
                 if (!confirm(`Create a $50 fee for lost key ${keyCode}?`)) return;
                 try {
                     const res = await authenticatedFetch(`/api/admin/lost-keys/${dataset.txId}/create-fine`, { method: 'POST' });
-                    if (res.ok) { showAlert('Fee created.', 'success'); closeDetailModal(); await loadLostKeys(); await loadTransactions(); }
-                    else { const data = await res.json(); showAlert(data.error || 'Failed to create fee. Please try again.', 'error'); }
-                } catch (err) { showAlert(err.message || 'Network error. Please check your connection.', 'error'); }
+                    if (res.ok) {
+                        showAlert('Fee created.', 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                    } else {
+                        const data = await res.json();
+                        showAlert(data.error || 'Failed to create fee. Please try again.', 'error');
+                    }
+                } catch (err) {
+                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                }
                 break;
             case 'mark-unavailable':
                 if (!confirm(`Mark key ${keyCode} as permanently unavailable?`)) return;
                 try {
                     const res = await authenticatedFetch(`/api/admin/keys/${dataset.keyId}/unavailable`, { method: 'POST' });
-                    if (res.ok) { showAlert('Key marked unavailable.', 'success'); closeDetailModal(); await loadLostKeys(); await loadTransactions(); await loadInventory(); }
-                    else { const data = await res.json(); showAlert(data.error || 'Failed to update key. Please try again.', 'error'); }
-                } catch (err) { showAlert(err.message || 'Network error. Please check your connection.', 'error'); }
+                    if (res.ok) {
+                        showAlert('Key marked unavailable.', 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                        await loadInventory();
+                    } else {
+                        const data = await res.json();
+                        showAlert(data.error || 'Failed to update key. Please try again.', 'error');
+                    }
+                } catch (err) {
+                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                }
                 break;
             case 'mark-available':
                 if (!confirm(`Mark key ${keyCode} as available again?`)) return;
                 try {
                     const res = await authenticatedFetch(`/api/admin/keys/${dataset.keyId}/available`, { method: 'POST' });
-                    if (res.ok) { showAlert('Key marked available.', 'success'); closeDetailModal(); await loadLostKeys(); await loadTransactions(); await loadInventory(); }
-                    else { const data = await res.json(); showAlert(data.error || 'Failed to update key. Please try again.', 'error'); }
-                } catch (err) { showAlert(err.message || 'Network error. Please check your connection.', 'error'); }
+                    if (res.ok) {
+                        showAlert('Key marked available.', 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                        await loadInventory();
+                    } else {
+                        const data = await res.json();
+                        showAlert(data.error || 'Failed to update key. Please try again.', 'error');
+                    }
+                } catch (err) {
+                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                }
                 break;
             case 'mark-paid':
                 if (!confirm(`Mark fee for ${keyCode} as paid?`)) return;
                 try {
                     const res = await authenticatedFetch(`/api/admin/fines/${dataset.fineId}/paid`, { method: 'POST' });
-                    if (res.ok) { showAlert('Fee marked paid.', 'success'); closeDetailModal(); await loadLostKeys(); await loadTransactions(); }
-                    else { const data = await res.json(); showAlert(data.error || 'Action failed. Please try again.', 'error'); }
-                } catch (err) { showAlert(err.message || 'Network error. Please check your connection.', 'error'); }
+                    if (res.ok) {
+                        showAlert('Fee marked paid.', 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                    } else {
+                        const data = await res.json();
+                        showAlert(data.error || 'Action failed. Please try again.', 'error');
+                    }
+                } catch (err) {
+                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                }
                 break;
             case 'waive':
                 if (!confirm(`Waive fee for ${keyCode}?`)) return;
                 try {
                     const res = await authenticatedFetch(`/api/admin/fines/${dataset.fineId}/waived`, { method: 'POST' });
-                    if (res.ok) { showAlert('Fee waived.', 'success'); closeDetailModal(); await loadLostKeys(); await loadTransactions(); }
-                    else { const data = await res.json(); showAlert(data.error || 'Action failed. Please try again.', 'error'); }
-                } catch (err) { showAlert(err.message || 'Network error. Please check your connection.', 'error'); }
+                    if (res.ok) {
+                        showAlert('Fee waived.', 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                    } else {
+                        const data = await res.json();
+                        showAlert(data.error || 'Action failed. Please try again.', 'error');
+                    }
+                } catch (err) {
+                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                }
                 break;
             case 'close-ticket':
                 if (!confirm(`Close lost ticket for key ${keyCode}? This will mark the issue as resolved.`)) return;
@@ -809,23 +1536,25 @@
                         const data = await res.json();
                         showAlert(data.error || 'Failed to close ticket. Please try again.', 'error');
                     }
-                } catch (err) { showAlert(err.message || 'Network error. Please check your connection.', 'error'); }
+                } catch (err) {
+                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                }
                 break;
         }
     }
 
-    document.getElementById('closeLostKeyDetailBtn')?.addEventListener('click', () => document.getElementById('lostKeyDetailModal').style.display = 'none');
-    document.getElementById('closeLostKeyDetailFooterBtn')?.addEventListener('click', () => document.getElementById('lostKeyDetailModal').style.display = 'none');
-    document.getElementById('lostKeyDetailModal')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) document.getElementById('lostKeyDetailModal').style.display = 'none'; });
-    document.getElementById('lostKeysCard')?.addEventListener('click', showLostKeysModal);
-
     function showActiveBorrowsModal() {
         const data = window._activeBorrowsData || [];
-        if (!data.length) { showDetailModal('Active Borrows', '<div class="text-center py-8 text-slate-400">No active borrows.</div>'); return; }
+        if (!data.length) {
+            showDetailModal('Active Borrows', '<div class="text-center py-8 text-slate-400">No active borrows.</div>');
+            return;
+        }
         let rows = '';
         for (const tx of data) {
-            const now = new Date(); now.setHours(0,0,0,0);
-            const due = new Date(tx.planned_return); due.setHours(0,0,0,0);
+            const now = new Date();
+            now.setHours(0, 0, 0, 0);
+            const due = new Date(tx.planned_return);
+            due.setHours(0, 0, 0, 0);
             let statusTag = due < now ? 'Overdue' : due.toDateString() === now.toDateString() ? 'Due today' : 'On loan';
             const statusClass = due < now ? 'overdue' : due.toDateString() === now.toDateString() ? 'pending' : 'borrowed';
             rows += `<tr>
@@ -842,26 +1571,41 @@
 
     function showReturnRemindersModal() {
         const data = window._activeBorrowsData || [];
-        const today = new Date(); today.setHours(0,0,0,0);
-        const overdue = [], upcoming = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const overdue = [],
+            upcoming = [];
         for (const tx of data) {
             if (!tx.planned_return) continue;
-            const d = new Date(tx.planned_return); d.setHours(0,0,0,0);
+            const d = new Date(tx.planned_return);
+            d.setHours(0, 0, 0, 0);
             if (d < today) overdue.push(tx);
-            else if (d <= new Date(today.getTime() + 30*24*60*60*1000)) upcoming.push(tx);
+            else if (d <= new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)) upcoming.push(tx);
         }
-        overdue.sort((a,b) => new Date(a.planned_return) - new Date(b.planned_return));
-        upcoming.sort((a,b) => new Date(a.planned_return) - new Date(b.planned_return));
+        overdue.sort((a, b) => new Date(a.planned_return) - new Date(b.planned_return));
+        upcoming.sort((a, b) => new Date(a.planned_return) - new Date(b.planned_return));
         const combined = [...overdue, ...upcoming];
-        if (!combined.length) { showDetailModal('Return Reminders', '<div class="text-center py-8 text-slate-400">No upcoming or overdue returns.</div>'); return; }
-        let rows = '', overdueCount = 0;
+        if (!combined.length) {
+            showDetailModal('Return Reminders', '<div class="text-center py-8 text-slate-400">No upcoming or overdue returns.</div>');
+            return;
+        }
+        let rows = '',
+            overdueCount = 0;
         for (const tx of combined) {
             const due = new Date(tx.planned_return);
-            const days = Math.ceil((due - today) / (1000*60*60*24));
+            const days = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
             let statusLabel, statusClass;
-            if (days < 0) { statusLabel = `Overdue by ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''}`; statusClass = 'overdue'; overdueCount++; }
-            else if (days === 0) { statusLabel = 'Due today'; statusClass = 'pending'; }
-            else { statusLabel = `${days} day${days !== 1 ? 's' : ''} left`; statusClass = 'borrowed'; }
+            if (days < 0) {
+                statusLabel = `Overdue by ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''}`;
+                statusClass = 'overdue';
+                overdueCount++;
+            } else if (days === 0) {
+                statusLabel = 'Due today';
+                statusClass = 'pending';
+            } else {
+                statusLabel = `${days} day${days !== 1 ? 's' : ''} left`;
+                statusClass = 'borrowed';
+            }
             rows += `<tr class="${days < 0 ? 'bg-rose-50' : ''}">
                 <td>${escapeHtml(tx.key_code)}</td>
                 <td>${escapeHtml(tx.receiver_signature_name || tx.receiver_email)}</td>
@@ -874,79 +1618,31 @@
         showDetailModal('Return Reminders', html);
     }
 
-    document.getElementById('activeBorrowsCard')?.addEventListener('click', showActiveBorrowsModal);
-    document.getElementById('returnRemindersCard')?.addEventListener('click', showReturnRemindersModal);
-
     async function loadAuditHealth() {
         try {
             const res = await authenticatedFetch('/api/admin/audit-health');
             const data = await res.json();
             const text = document.getElementById('auditStatusText');
             const last = document.getElementById('auditLastCheck');
-            if (data.status === 'ok') { text.innerHTML = '✅ Chain intact'; text.className = 'text-sm font-medium text-emerald-600'; }
-            else if (data.status === 'tampered') { text.innerHTML = '⚠️ TAMPER DETECTED'; text.className = 'text-sm font-medium text-rose-600'; }
-            else if (data.status === 'error') { text.innerHTML = '⚠️ Validation error'; text.className = 'text-sm font-medium text-amber-600'; }
-            else { text.innerHTML = 'Unknown'; text.className = 'text-sm font-medium text-slate-500'; }
+            if (data.status === 'ok') {
+                text.innerHTML = '✅ Chain intact';
+                text.className = 'text-sm font-medium text-emerald-600';
+            } else if (data.status === 'tampered') {
+                text.innerHTML = '⚠️ TAMPER DETECTED';
+                text.className = 'text-sm font-medium text-rose-600';
+            } else if (data.status === 'error') {
+                text.innerHTML = '⚠️ Validation error';
+                text.className = 'text-sm font-medium text-amber-600';
+            } else {
+                text.innerHTML = 'Unknown';
+                text.className = 'text-sm font-medium text-slate-500';
+            }
             last.innerText = data.checked_at ? `Last check: ${formatDate(data.checked_at)}` : 'Last check: --';
         } catch (err) {
             document.getElementById('auditStatusText').innerHTML = '❌ Unable to verify audit integrity. Please refresh.';
             showAlert(err.message || 'Failed to load audit health status. Please check your network.', 'error');
         }
     }
-    document.getElementById('refreshAuditBtn')?.addEventListener('click', loadAuditHealth);
-
-    document.getElementById('modalConfirmBtn')?.addEventListener('click', async function() {
-        const notes = document.getElementById('modalNotes').value.trim();
-        const action = window._currentAction;
-        const id = window._currentRequestId;
-        const endpoint = action === 'approve' ? '/api/admin/requests/approve' : '/api/admin/requests/deny';
-        try {
-            const res = await authenticatedFetch(endpoint, { method: 'POST', body: JSON.stringify({ request_id: id, admin_notes: notes || null }) });
-            const data = await res.json();
-            if (res.ok) {
-                showAlert(action === 'approve' ? 'Request approved.' : 'Request denied.', 'success');
-                document.getElementById('adminModal').style.display = 'none';
-                loadPendingRequests();
-                loadTransactions();
-                loadPendingReturns();
-            } else {
-                showAlert(data.error || 'Action failed. Please try again.', 'error');
-            }
-        } catch (err) {
-            showAlert(err.message || 'Network error. Please check your connection.', 'error');
-        }
-    });
-    document.getElementById('modalCancelBtn')?.addEventListener('click', () => document.getElementById('adminModal').style.display = 'none');
-    document.getElementById('closeAdminModalBtn')?.addEventListener('click', () => document.getElementById('adminModal').style.display = 'none');
-    document.getElementById('adminModal')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) document.getElementById('adminModal').style.display = 'none'; });
-
-    document.getElementById('searchBtn')?.addEventListener('click', function(e) {
-        e.preventDefault();
-        loadTransactions();
-    });
-    document.getElementById('resetBtn')?.addEventListener('click', function(e) {
-        e.preventDefault();
-        document.getElementById('filterGiver').value = '';
-        document.getElementById('filterReceiver').value = '';
-        document.getElementById('filterBranch').value = '';
-        document.getElementById('filterAction').value = '';
-        document.getElementById('filterStatus').value = '';
-        document.getElementById('filterFrom').value = '';
-        document.getElementById('filterTo').value = '';
-        txPage = 1;
-        loadTransactions();
-    });
-
-    document.getElementById('logoutBtn')?.addEventListener('click', async () => {
-        await fetch('/api/auth/logout', { method: 'POST' });
-        localStorage.removeItem('kms_token');
-        localStorage.removeItem('kms_user');
-        window.location.href = '/login';
-    });
-
-    let inventoryData = [];
-    let filteredInventory = [];
-    let invPage = 1, invRows = 10, invTotal = 0;
 
     async function loadInventory() {
         const container = document.getElementById('inventoryTableBody');
@@ -966,9 +1662,9 @@
         const search = safeLower(document.getElementById('inventorySearchInput').value).trim();
         filteredInventory = inventoryData.filter(key => {
             const matchesSearch = safeLower(key.code).includes(search) ||
-                                  safeLower(key.brand).includes(search) ||
-                                  safeLower(key.sets).includes(search) ||
-                                  safeLower(key.remarks).includes(search);
+                safeLower(key.brand).includes(search) ||
+                safeLower(key.sets).includes(search) ||
+                safeLower(key.remarks).includes(search);
             return matchesSearch;
         });
         invTotal = filteredInventory.length;
@@ -1019,21 +1715,6 @@
         document.getElementById('inventoryNextPageBtn').disabled = invPage >= totalPages || invTotal === 0;
     }
 
-    document.getElementById('inventorySearchInput')?.addEventListener('input', () => { invPage = 1; applyInventoryFilters(); });
-    document.getElementById('inventoryResetFiltersBtn')?.addEventListener('click', () => {
-        document.getElementById('inventorySearchInput').value = '';
-        invPage = 1;
-        applyInventoryFilters();
-    });
-    document.getElementById('inventoryPrevPageBtn')?.addEventListener('click', () => { if (invPage > 1) { invPage--; renderInventoryTable(); updateInventoryPagination(); } });
-    document.getElementById('inventoryNextPageBtn')?.addEventListener('click', () => { const totalPages = Math.ceil(invTotal / invRows); if (invPage < totalPages) { invPage++; renderInventoryTable(); updateInventoryPagination(); } });
-    document.getElementById('refreshInventoryBtn')?.addEventListener('click', loadInventory);
-    document.getElementById('inventoryRowsPerPage')?.addEventListener('change', function() {
-        invRows = parseInt(this.value);
-        invPage = 1;
-        applyInventoryFilters();
-    });
-
     async function showKeyDetailModal(keyId) {
         const modal = document.getElementById('keyDetailModal');
         const content = document.getElementById('keyDetailModalContent');
@@ -1063,7 +1744,9 @@
                     </tr>`;
                 }
                 auditHtml += `</tbody></table>`;
-                if (auditLogs.length > 10) auditHtml += `<p class="text-xs text-slate-500 mt-2">Showing last 10 of ${auditLogs.length} entries</p>`;
+                if (auditLogs.length > 10) {
+                    auditHtml += `<p class="text-xs text-slate-500 mt-2">Showing last 10 of ${auditLogs.length} entries</p>`;
+                }
             } else {
                 auditHtml += `<p class="text-sm text-slate-500">No audit logs found for this key.</p>`;
             }
@@ -1098,14 +1781,6 @@
         }
     }
 
-    document.getElementById('closeKeyDetailModalBtn')?.addEventListener('click', () => document.getElementById('keyDetailModal').style.display = 'none');
-    document.getElementById('closeKeyDetailFooterBtn')?.addEventListener('click', () => document.getElementById('keyDetailModal').style.display = 'none');
-    document.getElementById('keyDetailModal')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) document.getElementById('keyDetailModal').style.display = 'none'; });
-
-    let manageKeyData = [];
-    let manageKeyFiltered = [];
-    let manageKeyPage = 1, manageKeyRows = 8, manageKeyTotal = 0;
-
     async function openKeyManageModal() {
         const modal = document.getElementById('keyManageModal');
         modal.style.display = 'flex';
@@ -1121,7 +1796,9 @@
             const data = await res.json();
             manageKeyData = Array.isArray(data) ? data : [];
             manageKeyFiltered = manageKeyData.filter(key => {
-                const matchSearch = safeLower(key.code).includes(search) || safeLower(key.brand).includes(search) || safeLower(key.sets).includes(search);
+                const matchSearch = safeLower(key.code).includes(search) ||
+                    safeLower(key.brand).includes(search) ||
+                    safeLower(key.sets).includes(search);
                 return matchSearch;
             });
             manageKeyTotal = manageKeyFiltered.length;
@@ -1206,24 +1883,6 @@
         document.getElementById('manageKeyNextBtn').disabled = manageKeyPage >= totalPages || manageKeyTotal === 0;
     }
 
-    document.getElementById('manageKeySearch')?.addEventListener('input', () => { manageKeyPage = 1; fetchManageKeys(); });
-    document.getElementById('resetManageKeyFilters')?.addEventListener('click', () => {
-        document.getElementById('manageKeySearch').value = '';
-        manageKeyPage = 1;
-        fetchManageKeys();
-    });
-    document.getElementById('manageKeyPrevBtn')?.addEventListener('click', () => { if (manageKeyPage > 1) { manageKeyPage--; renderManageKeyTable(); updateManageKeyPagination(); } });
-    document.getElementById('manageKeyNextBtn')?.addEventListener('click', () => { const totalPages = Math.ceil(manageKeyTotal / manageKeyRows); if (manageKeyPage < totalPages) { manageKeyPage++; renderManageKeyTable(); updateManageKeyPagination(); } });
-    document.getElementById('addKeyFromManageBtn')?.addEventListener('click', () => {
-        openKeyEditModal(null);
-        document.getElementById('keyManageModal').style.display = 'none';
-    });
-
-    document.getElementById('manageKeysBtn')?.addEventListener('click', openKeyManageModal);
-    document.getElementById('closeKeyManageModalBtn')?.addEventListener('click', () => document.getElementById('keyManageModal').style.display = 'none');
-    document.getElementById('closeKeyManageFooterBtn')?.addEventListener('click', () => document.getElementById('keyManageModal').style.display = 'none');
-    document.getElementById('keyManageModal')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) document.getElementById('keyManageModal').style.display = 'none'; });
-
     function openKeyEditModal(key = null) {
         const modal = document.getElementById('keyEditModal');
         const title = document.getElementById('keyEditModalTitle');
@@ -1264,130 +1923,6 @@
         }
         modal.style.display = 'flex';
     }
-
-    document.getElementById('closeKeyEditModalBtn')?.addEventListener('click', () => document.getElementById('keyEditModal').style.display = 'none');
-    document.getElementById('cancelKeyEditBtn')?.addEventListener('click', () => document.getElementById('keyEditModal').style.display = 'none');
-    document.getElementById('keyEditModal')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) document.getElementById('keyEditModal').style.display = 'none'; });
-
-    document.getElementById('saveKeyEditBtn')?.addEventListener('click', async function() {
-        const id = document.getElementById('editKeyId').value;
-        const code = document.getElementById('editKeyCode').value.trim();
-        const brand = document.getElementById('editKeyBrand').value.trim();
-        const ownerField = document.getElementById('editKeyOwner').value.trim();
-        const totalQuantity = parseInt(document.getElementById('editKeySets').value) || 1;
-        const dateOwned = document.getElementById('editKeyDateOwned').value;
-        const remarks = document.getElementById('editKeyRemarks').value.trim();
-        const is_lost = document.getElementById('editKeyLost').checked;
-
-        if (!code || !brand) {
-            showAlert('Code and brand are required.', 'error');
-            return;
-        }
-
-        let sets = [];
-        if (ownerField) {
-            const owners = ownerField.split(',').map(s => s.trim()).filter(Boolean);
-            const quantityPerOwner = Math.max(1, Math.floor(totalQuantity / owners.length));
-            sets = owners.map((owner, index) => ({
-                owner_name: owner,
-                quantity: index === owners.length - 1 ? totalQuantity - (quantityPerOwner * (owners.length - 1)) : quantityPerOwner,
-                remarks: remarks || null
-            }));
-        }
-
-        const payload = {
-            code,
-            brand,
-            sets: sets,
-            date_owned: dateOwned || null,
-            remarks: remarks || null,
-            is_lost
-        };
-
-        const method = id ? 'PUT' : 'POST';
-        const url = id ? `/api/admin/keys/${id}` : '/api/admin/keys';
-
-        try {
-            const res = await authenticatedFetch(url, { method, body: JSON.stringify(payload) });
-            const data = await res.json();
-            if (res.ok) {
-                showAlert(id ? 'Key updated.' : 'Key created.', 'success');
-                document.getElementById('keyEditModal').style.display = 'none';
-                loadInventory();
-                if (document.getElementById('keyManageModal').style.display === 'flex') fetchManageKeys();
-            } else {
-                showAlert(data.error || 'Save failed. Please try again.', 'error');
-            }
-        } catch (err) {
-            showAlert(err.message || 'Network error. Please check your connection.', 'error');
-        }
-    });
-
-    function printSection(containerId) {
-        const container = document.getElementById(containerId);
-        if (!container) return;
-        const clone = container.cloneNode(true);
-        clone.querySelectorAll('.btn-print').forEach(el => el.remove());
-        const header = clone.querySelector('.card-header');
-        if (header) {
-            const actions = header.querySelectorAll('.btn-print, .btn-manage, .btn-refresh, input, select, button');
-            actions.forEach(el => el.remove());
-        }
-        const filterRows = clone.querySelectorAll('.grid, .search-bar, .flex.gap-2.justify-end');
-        filterRows.forEach(el => el.remove());
-
-        const styles = document.querySelector('style')?.innerHTML || '';
-        const printWin = window.open('', '_blank', 'width=1200,height=800');
-        printWin.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head><title>Print</title>
-            <style>
-                * { box-sizing: border-box; }
-                body { font-family: 'Inter', sans-serif; background: white; padding: 2rem; }
-                .container { max-width: 1200px; margin: 0 auto; }
-                .card-header { background: #f8fafc; padding: 0.75rem 1.125rem; border-bottom: 2px solid #d4a843; }
-                .card-header h3 { margin: 0; font-size: 1rem; }
-                .card-body { padding: 1rem 1.125rem; }
-                table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-                th { background: #f1f5f9; text-align: left; padding: 0.5rem; border-bottom: 2px solid #e2e8f0; }
-                td { padding: 0.5rem; border-bottom: 1px solid #e2e8f0; }
-                .status-badge { padding: 0.1rem 0.6rem; border-radius: 40px; font-size: 0.7rem; display: inline-block; }
-                .no-print { display: none !important; }
-                @page { margin: 1.5cm; }
-                ${styles}
-            </style>
-            </head>
-            <body>
-                <div class="container">${clone.outerHTML}</div>
-                <script>
-                    window.onload = function() { window.print(); window.close(); };
-                <\/script>
-            </body>
-            </html>
-        `);
-        printWin.document.close();
-    }
-
-    document.addEventListener('click', function(e) {
-        const btn = e.target.closest('.btn-print');
-        if (!btn) return;
-        const section = btn.dataset.section;
-        let containerId = '';
-        switch (section) {
-            case 'transactions': containerId = 'transactionsCard'; break;
-            case 'requests': containerId = 'requestsCard'; break;
-            case 'inventory': containerId = 'inventoryCard'; break;
-            case 'audit': containerId = 'auditCard'; break;
-            case 'users': containerId = 'usersCard'; break;
-            case 'templates': containerId = 'templatesCard'; break;
-            case 'settings': containerId = 'settingsCard'; break;
-            default: return;
-        }
-        printSection(containerId);
-    });
-
-    let emailTabLoaded = false;
 
     async function checkEmailPermissions() {
         try {
@@ -1450,8 +1985,6 @@
         }
     }
 
-    document.getElementById('manageTemplatesBtn')?.addEventListener('click', openTemplateManageModal);
-
     async function openTemplateManageModal() {
         const modal = document.getElementById('templateManageModal');
         const container = document.getElementById('templateManageContainer');
@@ -1511,22 +2044,6 @@
         }
     }
 
-    document.getElementById('closeTemplateManageModalBtn')?.addEventListener('click', () => document.getElementById('templateManageModal').style.display = 'none');
-    document.getElementById('closeTemplateManageFooterBtn')?.addEventListener('click', () => document.getElementById('templateManageModal').style.display = 'none');
-    document.getElementById('templateManageModal')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) document.getElementById('templateManageModal').style.display = 'none'; });
-
-    document.getElementById('addTemplateFromManageBtn')?.addEventListener('click', function() {
-        document.getElementById('editTemplateKey').value = '';
-        document.getElementById('editTemplateKeyDisplay').value = '';
-        document.getElementById('editTemplateKeyDisplay').disabled = false;
-        document.getElementById('editTemplateKeyDisplay').placeholder = 'Enter a unique key (e.g., welcome)';
-        document.getElementById('editTemplateSubject').value = '';
-        document.getElementById('editTemplateBody').value = '';
-        document.getElementById('editTemplateActive').checked = true;
-        document.getElementById('templateEditModalTitle').textContent = 'Add New Template';
-        document.getElementById('templateEditModal').style.display = 'flex';
-    });
-
     async function openTemplateEditModal(key) {
         try {
             const res = await authenticatedFetch(`/api/admin/email/templates/${key}`);
@@ -1544,44 +2061,16 @@
         }
     }
 
-    document.getElementById('closeTemplateEditModalBtn')?.addEventListener('click', () => document.getElementById('templateEditModal').style.display = 'none');
-    document.getElementById('cancelTemplateEditBtn')?.addEventListener('click', () => document.getElementById('templateEditModal').style.display = 'none');
-    document.getElementById('templateEditModal')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) document.getElementById('templateEditModal').style.display = 'none'; });
-
-    document.getElementById('saveTemplateEditBtn')?.addEventListener('click', async function() {
-        const key = document.getElementById('editTemplateKey').value.trim();
-        const keyDisplay = document.getElementById('editTemplateKeyDisplay').value.trim();
-        const subject = document.getElementById('editTemplateSubject').value.trim();
-        const body_html = document.getElementById('editTemplateBody').value.trim();
-        const is_active = document.getElementById('editTemplateActive').checked;
-        const finalKey = key || keyDisplay;
-        if (!finalKey || !subject || !body_html) { showAlert('Key, subject, and body are required.', 'error'); return; }
-        const isNew = !key;
-        const url = isNew ? '/api/admin/email/templates' : `/api/admin/email/templates/${finalKey}`;
-        const method = isNew ? 'POST' : 'PUT';
-        try {
-            const res = await authenticatedFetch(url, { method, body: JSON.stringify({ subject, body_html, is_active }) });
-            if (res.ok) {
-                showAlert(isNew ? 'Template created.' : 'Template updated.', 'success');
-                document.getElementById('templateEditModal').style.display = 'none';
-                loadTemplates();
-                if (document.getElementById('templateManageModal').style.display === 'flex') openTemplateManageModal();
-            } else {
-                const data = await res.json();
-                showAlert(data.error || 'Save failed. Please try again.', 'error');
-            }
-        } catch (err) {
-            showAlert(err.message || 'Network error. Please check your connection.', 'error');
-        }
-    });
-
     async function loadSettings() {
         const container = document.getElementById('settingsContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading settings...</div>';
         try {
             const res = await authenticatedFetch('/api/admin/email/settings');
             const settings = await res.json();
-            if (!settings.length) { container.innerHTML = '<div class="text-center py-8 text-slate-400">No settings found.</div>'; return; }
+            if (!settings.length) {
+                container.innerHTML = '<div class="text-center py-8 text-slate-400">No settings found.</div>';
+                return;
+            }
             const categories = {
                 user: { label: 'User Notifications', keys: ['send_otp', 'send_welcome_email', 'send_password_reset', 'send_account_locked'] },
                 requests: { label: 'Request Notifications', keys: ['send_request_submitted', 'send_request_approved'] },
@@ -1630,42 +2119,6 @@
             showAlert(err.message || 'Unable to load notification settings. Please check your network.', 'error');
         }
     }
-
-    document.getElementById('saveSettingsBtn')?.addEventListener('click', async function() {
-        const toggles = document.querySelectorAll('.setting-toggle');
-        const updates = [];
-        for (const toggle of toggles) {
-            const key = toggle.dataset.key;
-            const enabled = toggle.checked;
-            const config = {};
-            const configInputs = toggle.closest('.setting-control').querySelectorAll('[data-config]');
-            for (const input of configInputs) {
-                const configKey = input.dataset.config;
-                if (input.type === 'checkbox') { config[configKey] = input.checked; }
-                else {
-                    if (configKey === 'reminder_days_before') {
-                        const val = input.value.trim();
-                        config[configKey] = val ? val.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
-                    } else {
-                        config[configKey] = input.value;
-                    }
-                }
-            }
-            updates.push({ key, enabled, config });
-        }
-        try {
-            for (const update of updates) {
-                await authenticatedFetch(`/api/admin/email/settings/${update.key}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({ enabled: update.enabled, config: update.config })
-                });
-            }
-            showAlert('All settings saved.', 'success');
-            loadSettings();
-        } catch (err) {
-            showAlert(err.message || 'Failed to save settings. Please check your network.', 'error');
-        }
-    });
 
     async function loadLostKeysManagement() {
         const container = document.getElementById('lostKeysManagementContainer');
@@ -1757,8 +2210,6 @@
         }
     }
 
-    document.getElementById('refreshLostKeysBtn')?.addEventListener('click', loadLostKeysManagement);
-
     async function showLostKeyDetail(id) {
         const modal = document.getElementById('lostKeyDetailModal');
         const content = document.getElementById('lostKeyDetailContent');
@@ -1815,12 +2266,6 @@
         }
     }
 
-    document.getElementById('closeLostKeyDetailModalBtn')?.addEventListener('click', () => document.getElementById('lostKeyDetailModal').style.display = 'none');
-    document.getElementById('closeLostKeyDetailFooterBtn')?.addEventListener('click', () => document.getElementById('lostKeyDetailModal').style.display = 'none');
-    document.getElementById('lostKeyDetailModal')?.addEventListener('click', (e) => {
-        if (e.target === e.currentTarget) document.getElementById('lostKeyDetailModal').style.display = 'none';
-    });
-
     async function openLostKeyEditModal(id) {
         const modal = document.getElementById('lostKeyEditModal');
         modal.style.display = 'flex';
@@ -1843,46 +2288,6 @@
             modal.style.display = 'none';
         }
     }
-
-    document.getElementById('closeLostKeyEditModalBtn')?.addEventListener('click', () => document.getElementById('lostKeyEditModal').style.display = 'none');
-    document.getElementById('cancelLostKeyEditBtn')?.addEventListener('click', () => document.getElementById('lostKeyEditModal').style.display = 'none');
-    document.getElementById('lostKeyEditModal')?.addEventListener('click', (e) => {
-        if (e.target === e.currentTarget) document.getElementById('lostKeyEditModal').style.display = 'none';
-    });
-
-    document.getElementById('saveLostKeyEditBtn')?.addEventListener('click', async function() {
-        const id = document.getElementById('editLostTransactionId').value;
-        const reason = document.getElementById('editLostReason').value.trim();
-        const lostAt = document.getElementById('editLostDate').value;
-        const status = document.getElementById('editLostStatus').value;
-
-        if (!reason) {
-            showAlert('Reason for loss is required.', 'error');
-            return;
-        }
-
-        try {
-            const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/update`, {
-                method: 'POST',
-                body: JSON.stringify({
-                    reason: reason,
-                    lost_at: lostAt || null,
-                    status: status
-                })
-            });
-            if (res.ok) {
-                showAlert('Lost key updated successfully.', 'success');
-                document.getElementById('lostKeyEditModal').style.display = 'none';
-                loadLostKeysManagement();
-                loadLostKeys();
-            } else {
-                const data = await res.json();
-                showAlert(data.error || 'Update failed.', 'error');
-            }
-        } catch (err) {
-            showAlert(err.message || 'Network error.', 'error');
-        }
-    });
 
     async function loadAdminRecipients() {
         const container = document.getElementById('adminRecipientsContainer');
@@ -1969,8 +2374,6 @@
         }
     }
 
-    document.getElementById('refreshAdminRecipientsBtn')?.addEventListener('click', loadAdminRecipients);
-
     async function openAddAdminRecipientModal() {
         const modal = document.getElementById('addAdminRecipientModal');
         const select = document.getElementById('adminRecipientSelect');
@@ -1996,45 +2399,6 @@
         }
     }
 
-    document.getElementById('addAdminRecipientBtn')?.addEventListener('click', openAddAdminRecipientModal);
-
-    document.getElementById('saveAdminRecipientBtn')?.addEventListener('click', async function() {
-        const select = document.getElementById('adminRecipientSelect');
-        const userId = parseInt(select.value);
-        if (!userId) {
-            showAlert('Please select an admin user.', 'error');
-            return;
-        }
-        try {
-            const res = await authenticatedFetch('/api/admin/admin-notification-recipients', {
-                method: 'POST',
-                body: JSON.stringify({ user_id: userId, enabled: true })
-            });
-            if (res.ok) {
-                showAlert('Admin added to notification recipients.', 'success');
-                document.getElementById('addAdminRecipientModal').style.display = 'none';
-                loadAdminRecipients();
-            } else {
-                const data = await res.json();
-                showAlert(data.error || 'Failed to add recipient.', 'error');
-            }
-        } catch (err) {
-            showAlert(err.message || 'Network error.', 'error');
-        }
-    });
-
-    document.getElementById('closeAddAdminRecipientModalBtn')?.addEventListener('click', () => {
-        document.getElementById('addAdminRecipientModal').style.display = 'none';
-    });
-    document.getElementById('cancelAddAdminRecipientBtn')?.addEventListener('click', () => {
-        document.getElementById('addAdminRecipientModal').style.display = 'none';
-    });
-    document.getElementById('addAdminRecipientModal')?.addEventListener('click', (e) => {
-        if (e.target === e.currentTarget) document.getElementById('addAdminRecipientModal').style.display = 'none';
-    });
-
-    let securityLoaded = false;
-
     async function loadSecurityTab() {
         if (securityLoaded) return;
         securityLoaded = true;
@@ -2047,7 +2411,10 @@
         try {
             const res = await authenticatedFetch('/api/audit/logs');
             const logs = await res.json();
-            if (!logs.length) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">No audit entries found.</td></tr>'; return; }
+            if (!logs.length) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">No audit entries found.</td></tr>';
+                return;
+            }
             let html = '';
             for (const entry of logs) {
                 html += `<tr class="audit-row" data-entry='${escapeHtml(JSON.stringify(entry))}'>
@@ -2069,7 +2436,6 @@
             showAlert(err.message || 'Failed to load audit logs. Please check your network.', 'error');
         }
     }
-    document.getElementById('refreshAuditLogBtn')?.addEventListener('click', loadAuditLogs);
 
     function showAuditDetail(entry) {
         let detailsHtml = `<div class="space-y-4">
@@ -2077,14 +2443,18 @@
             <p><strong>Target:</strong> ${escapeHtml(entry.target_type)} (ID: ${escapeHtml(entry.target_id || 'N/A')})</p>
             <p><strong>User:</strong> ${escapeHtml(entry.user_name || entry.user_email || 'System')}</p>
             <p><strong>Timestamp:</strong> ${formatDate(entry.created_at)}</p>`;
-        if (entry.details) detailsHtml += `<p><strong>Details:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">${escapeHtml(typeof entry.details === 'string' ? entry.details : JSON.stringify(entry.details, null, 2))}</pre></p>`;
-        if (entry.old_data) detailsHtml += `<p><strong>Old Data:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">${escapeHtml(typeof entry.old_data === 'string' ? entry.old_data : JSON.stringify(entry.old_data, null, 2))}</pre></p>`;
-        if (entry.new_data) detailsHtml += `<p><strong>New Data:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">${escapeHtml(typeof entry.new_data === 'string' ? entry.new_data : JSON.stringify(entry.new_data, null, 2))}</pre></p>`;
+        if (entry.details) {
+            detailsHtml += `<p><strong>Details:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">${escapeHtml(typeof entry.details === 'string' ? entry.details : JSON.stringify(entry.details, null, 2))}</pre></p>`;
+        }
+        if (entry.old_data) {
+            detailsHtml += `<p><strong>Old Data:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">${escapeHtml(typeof entry.old_data === 'string' ? entry.old_data : JSON.stringify(entry.old_data, null, 2))}</pre></p>`;
+        }
+        if (entry.new_data) {
+            detailsHtml += `<p><strong>New Data:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">${escapeHtml(typeof entry.new_data === 'string' ? entry.new_data : JSON.stringify(entry.new_data, null, 2))}</pre></p>`;
+        }
         detailsHtml += `</div>`;
         showDetailModal('Audit Entry Details', detailsHtml);
     }
-
-    let permissionsData = { roles: [], permissions: [], roleMappings: {} };
 
     async function loadPermissions() {
         const container = document.getElementById('permissionsContainer');
@@ -2130,8 +2500,14 @@
     function renderPermissions() {
         const container = document.getElementById('permissionsContainer');
         const { roles, permissions, roleMappings } = permissionsData;
-        if (!permissions || permissions.length === 0) { container.innerHTML = '<div class="text-center py-8 text-amber-600">No permissions defined.</div>'; return; }
-        if (!roles || roles.length === 0) { container.innerHTML = '<div class="text-center py-8 text-amber-600">No roles found. Add roles to role_permissions.</div>'; return; }
+        if (!permissions || permissions.length === 0) {
+            container.innerHTML = '<div class="text-center py-8 text-amber-600">No permissions defined.</div>';
+            return;
+        }
+        if (!roles || roles.length === 0) {
+            container.innerHTML = '<div class="text-center py-8 text-amber-600">No roles found. Add roles to role_permissions.</div>';
+            return;
+        }
 
         let html = `<table class="table-clean"><thead><tr><th class="text-left">Role</th>`;
         for (const p of permissions) html += `<th>${escapeHtml(p.permission_name)}</th>`;
@@ -2192,48 +2568,6 @@
         });
     }
 
-    document.getElementById('savePermissionsBtn')?.addEventListener('click', async function() {
-        const updates = {};
-        document.querySelectorAll('.permission-checkbox').forEach(cb => {
-            const role = cb.dataset.role;
-            const permId = parseInt(cb.dataset.permId);
-            if (!updates[role]) updates[role] = [];
-            if (cb.checked) updates[role].push(permId);
-        });
-        try {
-            for (const [roleName, permIds] of Object.entries(updates)) {
-                await authenticatedFetch('/api/permissions/roles', {
-                    method: 'POST',
-                    body: JSON.stringify({ role_name: roleName, permission_ids: permIds })
-                });
-            }
-            showAlert('Permissions saved.', 'success');
-            await loadPermissions();
-        } catch (err) {
-            showAlert(err.message || 'Failed to save permissions. Please check your network.', 'error');
-        }
-    });
-
-    document.getElementById('addRoleBtn')?.addEventListener('click', () => {
-        document.getElementById('newRoleName').value = '';
-        document.getElementById('addRoleModal').style.display = 'flex';
-    });
-    document.getElementById('closeAddRoleModalBtn')?.addEventListener('click', () => document.getElementById('addRoleModal').style.display = 'none');
-    document.getElementById('cancelAddRoleBtn')?.addEventListener('click', () => document.getElementById('addRoleModal').style.display = 'none');
-    document.getElementById('addRoleModal')?.addEventListener('click', (e) => { if (e.target === e.currentTarget) document.getElementById('addRoleModal').style.display = 'none'; });
-    document.getElementById('confirmAddRoleBtn')?.addEventListener('click', () => {
-        const name = document.getElementById('newRoleName').value.trim();
-        if (!name) { showAlert('Please enter a role name.', 'error'); return; }
-        if (permissionsData.roleMappings[name]) { showAlert('Role already exists.', 'error'); return; }
-        permissionsData.roleMappings[name] = [];
-        permissionsData.roles = Object.keys(permissionsData.roleMappings);
-        renderPermissions();
-        document.getElementById('addRoleModal').style.display = 'none';
-        showAlert(`Role "${name}" added.`, 'success');
-    });
-
-    let allRolesList = [];
-
     async function loadRolesForUsers() {
         try {
             const res = await authenticatedFetch('/api/permissions/roles');
@@ -2279,7 +2613,86 @@
         }
     }
 
-    (function() {
+    async function loadPendingRegistrations() {
+        const container = document.getElementById('pendingRequestsContainer');
+        container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading requests...</div>';
+        try {
+            const res = await authenticatedFetch('/api/auth/admin/pending-requests');
+            const requests = await res.json();
+            if (!requests.length) {
+                container.innerHTML = '<div class="text-center py-8 text-slate-400">No pending requests.</div>';
+                return;
+            }
+            let html = `<table class="table-clean"><thead><tr>
+                <th class="text-left">Name</th>
+                <th class="text-left">Email</th>
+                <th>Username</th>
+                <th>Requested</th>
+                <th>Actions</th>
+            </tr></thead><tbody>`;
+            for (const req of requests) {
+                html += `<tr>
+                    <td class="text-left">${escapeHtml(req.name)}</td>
+                    <td class="text-left">${escapeHtml(req.email)}</td>
+                    <td>${escapeHtml(req.username || '—')}</td>
+                    <td>${formatDate(req.created_at)}</td>
+                    <td>
+                        <button class="approveRequestBtn bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1 rounded-full transition" data-id="${req.id}">Approve</button>
+                        <button class="rejectRequestBtn bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1 rounded-full transition" data-id="${req.id}">Reject</button>
+                    </td>
+                </tr>`;
+            }
+            html += `</tbody></table>`;
+            container.innerHTML = html;
+            container.querySelectorAll('.approveRequestBtn').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const id = this.dataset.id;
+                    if (confirm('Approve this registration request? The user will receive a password via email.')) {
+                        try {
+                            const res = await authenticatedFetch(`/api/auth/admin/pending-requests/${id}/approve`, { method: 'POST' });
+                            const data = await res.json();
+                            if (res.ok) {
+                                showAlert('User approved. Password sent.', 'success');
+                                loadPendingRegistrations();
+                            } else {
+                                showAlert(data.error || 'Approval failed. Please try again.', 'error');
+                            }
+                        } catch (err) {
+                            showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                        }
+                    }
+                });
+            });
+            container.querySelectorAll('.rejectRequestBtn').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const id = this.dataset.id;
+                    const reason = prompt('Optional reason for rejection:');
+                    if (confirm('Reject this registration request?')) {
+                        try {
+                            const res = await authenticatedFetch(`/api/auth/admin/pending-requests/${id}/reject`, {
+                                method: 'POST',
+                                body: JSON.stringify({ reason: reason || null })
+                            });
+                            const data = await res.json();
+                            if (res.ok) {
+                                showAlert('Request rejected.', 'success');
+                                loadPendingRegistrations();
+                            } else {
+                                showAlert(data.error || 'Rejection failed. Please try again.', 'error');
+                            }
+                        } catch (err) {
+                            showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                        }
+                    }
+                });
+            });
+        } catch (err) {
+            container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load requests. Please refresh the page.</div>';
+            showAlert(err.message || 'Unable to load pending requests. Please check your internet connection.', 'error');
+        }
+    }
+
+    function initUserManagement() {
         const tbody = document.getElementById('acmUserTableBody');
         const searchInput = document.getElementById('acmSearchInput');
         const roleFilter = document.getElementById('acmRoleFilter');
@@ -2288,7 +2701,11 @@
         const prevBtn = document.getElementById('acmPrevPageBtn');
         const nextBtn = document.getElementById('acmNextPageBtn');
         const paginationInfo = document.getElementById('acmPaginationInfo');
-        let allUsers = [], filteredUsers = [], currentPage = 1, rowsPerPage = 5, totalUsers = 0;
+        let allUsers = [],
+            filteredUsers = [],
+            currentPage = 1,
+            rowsPerPage = 5,
+            totalUsers = 0;
 
         const manageModal = document.getElementById('userManagementModal');
         const manageTbody = document.getElementById('manageUserTableBody');
@@ -2301,21 +2718,29 @@
         const managePaginationInfo = document.getElementById('manageUserPaginationInfo');
         const addUserFromManageBtn = document.getElementById('addUserFromManageBtn');
         const manageTotalLabel = document.getElementById('manageUserTotalLabel');
-        let manageUsers = [], manageFiltered = [], managePage = 1, manageRows = 5, manageTotal = 0;
+        let manageUsers = [],
+            manageFiltered = [],
+            managePage = 1,
+            manageRows = 5,
+            manageTotal = 0;
 
         document.getElementById('openUserManagementBtn')?.addEventListener('click', () => {
             manageModal.style.display = 'flex';
             fetchManageUsers();
         });
-        document.getElementById('closeUserManagementModalBtn')?.addEventListener('click', () => manageModal.style.display = 'none');
-        manageModal?.addEventListener('click', (e) => { if (e.target === e.currentTarget) manageModal.style.display = 'none'; });
-
-        function formatLastActive(iso) { if (!iso) return 'Never'; return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) + ' at ' + new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
-        function getInitials(name) { if (!name) return '?'; return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2); }
-        function getAvatarColor(name) { if (!name) return 'hsl(0,70%,80%)'; let h = 0; for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h); return `hsl(${Math.abs(h % 360)},70%,80%)`; }
+        document.getElementById('closeUserManagementModalBtn')?.addEventListener('click', () => {
+            manageModal.style.display = 'none';
+        });
+        manageModal?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                manageModal.style.display = 'none';
+            }
+        });
 
         async function fetchUsersInline() {
-            const search = searchInput.value.trim(), role = roleFilter.value, status = statusFilter.value;
+            const search = searchInput.value.trim(),
+                role = roleFilter.value,
+                status = statusFilter.value;
             const params = new URLSearchParams();
             if (search) params.append('search', search);
             if (role !== 'all') params.append('role', role);
@@ -2338,10 +2763,15 @@
         }
 
         function renderInlineTable() {
-            if (!filteredUsers.length) { tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">No users found</td></tr>'; return; }
+            if (!filteredUsers.length) {
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">No users found</td></tr>';
+                return;
+            }
             let html = '';
             for (const user of filteredUsers) {
-                const statusBadge = user.status === 'active' ? 'bg-emerald-100 text-emerald-700' : user.status === 'suspended' ? 'bg-rose-100 text-rose-700' : user.status === 'locked' ? 'bg-amber-100 text-amber-700' : 'bg-amber-100 text-amber-700';
+                const statusBadge = user.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                    user.status === 'suspended' ? 'bg-rose-100 text-rose-700' :
+                    user.status === 'locked' ? 'bg-amber-100 text-amber-700' : 'bg-amber-100 text-amber-700';
                 const statusLabel = user.status.charAt(0).toUpperCase() + user.status.slice(1);
                 const initials = getInitials(user.name);
                 const avatarColor = getAvatarColor(user.name);
@@ -2374,12 +2804,38 @@
             nextBtn.disabled = currentPage === totalPages || totalPages === 0;
         }
 
-        searchInput?.addEventListener('input', () => { currentPage = 1; fetchUsersInline(); });
-        roleFilter?.addEventListener('change', () => { currentPage = 1; fetchUsersInline(); });
-        statusFilter?.addEventListener('change', () => { currentPage = 1; fetchUsersInline(); });
-        resetBtn?.addEventListener('click', () => { searchInput.value = ''; roleFilter.value = 'all'; statusFilter.value = 'all'; currentPage = 1; fetchUsersInline(); });
-        prevBtn?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; fetchUsersInline(); } });
-        nextBtn?.addEventListener('click', () => { const totalPages = Math.ceil(totalUsers / rowsPerPage); if (currentPage < totalPages) { currentPage++; fetchUsersInline(); } });
+        searchInput?.addEventListener('input', () => {
+            currentPage = 1;
+            fetchUsersInline();
+        });
+        roleFilter?.addEventListener('change', () => {
+            currentPage = 1;
+            fetchUsersInline();
+        });
+        statusFilter?.addEventListener('change', () => {
+            currentPage = 1;
+            fetchUsersInline();
+        });
+        resetBtn?.addEventListener('click', () => {
+            searchInput.value = '';
+            roleFilter.value = 'all';
+            statusFilter.value = 'all';
+            currentPage = 1;
+            fetchUsersInline();
+        });
+        prevBtn?.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                fetchUsersInline();
+            }
+        });
+        nextBtn?.addEventListener('click', () => {
+            const totalPages = Math.ceil(totalUsers / rowsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                fetchUsersInline();
+            }
+        });
         document.getElementById('acmRowsPerPage')?.addEventListener('change', function() {
             rowsPerPage = parseInt(this.value);
             currentPage = 1;
@@ -2396,10 +2852,13 @@
         const deleteConfirmModal = document.getElementById('acmDeleteConfirmModal');
         const cancelDeleteBtn = document.getElementById('acmCancelDeleteBtn');
         const confirmDeleteBtn = document.getElementById('acmConfirmDeleteBtn');
-        let editUserId = null, deleteUserId = null;
+        let editUserId = null,
+            deleteUserId = null;
 
         async function fetchManageUsers() {
-            const search = manageSearch.value.trim(), role = manageRoleFilter.value, status = manageStatusFilter.value;
+            const search = manageSearch.value.trim(),
+                role = manageRoleFilter.value,
+                status = manageStatusFilter.value;
             const params = new URLSearchParams();
             if (search) params.append('search', search);
             if (role !== 'all') params.append('role', role);
@@ -2423,10 +2882,15 @@
         }
 
         function renderManageTable() {
-            if (!manageFiltered.length) { manageTbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">No users found</td></tr>'; return; }
+            if (!manageFiltered.length) {
+                manageTbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">No users found</td></tr>';
+                return;
+            }
             let html = '';
             for (const user of manageFiltered) {
-                const statusBadge = user.status === 'active' ? 'bg-emerald-100 text-emerald-700' : user.status === 'suspended' ? 'bg-rose-100 text-rose-700' : user.status === 'locked' ? 'bg-amber-100 text-amber-700' : 'bg-amber-100 text-amber-700';
+                const statusBadge = user.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                    user.status === 'suspended' ? 'bg-rose-100 text-rose-700' :
+                    user.status === 'locked' ? 'bg-amber-100 text-amber-700' : 'bg-amber-100 text-amber-700';
                 const statusLabel = user.status.charAt(0).toUpperCase() + user.status.slice(1);
                 const initials = getInitials(user.name);
                 const avatarColor = getAvatarColor(user.name);
@@ -2553,26 +3017,75 @@
             manageNextBtn.disabled = managePage === totalPages || totalPages === 0;
         }
 
-        manageSearch?.addEventListener('input', () => { managePage = 1; fetchManageUsers(); });
-        manageRoleFilter?.addEventListener('change', () => { managePage = 1; fetchManageUsers(); });
-        manageStatusFilter?.addEventListener('change', () => { managePage = 1; fetchManageUsers(); });
-        manageResetBtn?.addEventListener('click', () => { manageSearch.value = ''; manageRoleFilter.value = 'all'; manageStatusFilter.value = 'all'; managePage = 1; fetchManageUsers(); });
-        managePrevBtn?.addEventListener('click', () => { if (managePage > 1) { managePage--; fetchManageUsers(); } });
-        manageNextBtn?.addEventListener('click', () => { const totalPages = Math.ceil(manageTotal / manageRows); if (managePage < totalPages) { managePage++; fetchManageUsers(); } });
+        manageSearch?.addEventListener('input', () => {
+            managePage = 1;
+            fetchManageUsers();
+        });
+        manageRoleFilter?.addEventListener('change', () => {
+            managePage = 1;
+            fetchManageUsers();
+        });
+        manageStatusFilter?.addEventListener('change', () => {
+            managePage = 1;
+            fetchManageUsers();
+        });
+        manageResetBtn?.addEventListener('click', () => {
+            manageSearch.value = '';
+            manageRoleFilter.value = 'all';
+            manageStatusFilter.value = 'all';
+            managePage = 1;
+            fetchManageUsers();
+        });
+        managePrevBtn?.addEventListener('click', () => {
+            if (managePage > 1) {
+                managePage--;
+                fetchManageUsers();
+            }
+        });
+        manageNextBtn?.addEventListener('click', () => {
+            const totalPages = Math.ceil(manageTotal / manageRows);
+            if (managePage < totalPages) {
+                managePage++;
+                fetchManageUsers();
+            }
+        });
 
-        addUserFromManageBtn?.addEventListener('click', () => { resetForm(); openUserModal(); manageModal.style.display = 'none'; });
+        addUserFromManageBtn?.addEventListener('click', () => {
+            resetForm();
+            openUserModal();
+            manageModal.style.display = 'none';
+        });
 
-        function closeUserModal() { userModal.classList.remove('active'); }
-        function openUserModal() { userModal.classList.add('active'); }
-        function resetForm() { editUserId = null; document.getElementById('acmFullName').value = ''; document.getElementById('acmEmail').value = ''; document.getElementById('acmRole').value = ''; document.getElementById('acmStatus').value = 'active'; modalTitle.innerText = 'Add New User'; }
+        function closeUserModal() {
+            userModal.classList.remove('active');
+        }
+
+        function openUserModal() {
+            userModal.classList.add('active');
+        }
+
+        function resetForm() {
+            editUserId = null;
+            document.getElementById('acmFullName').value = '';
+            document.getElementById('acmEmail').value = '';
+            document.getElementById('acmRole').value = '';
+            document.getElementById('acmStatus').value = 'active';
+            modalTitle.innerText = 'Add New User';
+        }
 
         async function saveUser() {
             const name = document.getElementById('acmFullName').value.trim();
             const email = document.getElementById('acmEmail').value.trim();
             const role = document.getElementById('acmRole').value;
             const status = document.getElementById('acmStatus').value;
-            if (!name || !email) { showAlert('Name and email are required', 'error'); return; }
-            if (!role) { showAlert('Please select a role.', 'error'); return; }
+            if (!name || !email) {
+                showAlert('Name and email are required', 'error');
+                return;
+            }
+            if (!role) {
+                showAlert('Please select a role.', 'error');
+                return;
+            }
             saveUserBtn.disabled = true;
             saveUserBtn.innerText = 'Saving...';
             try {
@@ -2600,7 +3113,10 @@
             }
         }
 
-        function closeDeleteModal() { deleteConfirmModal.classList.remove('active'); }
+        function closeDeleteModal() {
+            deleteConfirmModal.classList.remove('active');
+        }
+
         async function confirmDelete() {
             if (!deleteUserId) return;
             confirmDeleteBtn.disabled = true;
@@ -2625,27 +3141,51 @@
         saveUserBtn?.addEventListener('click', saveUser);
         cancelDeleteBtn?.addEventListener('click', closeDeleteModal);
         confirmDeleteBtn?.addEventListener('click', confirmDelete);
-        userModal?.addEventListener('click', (e) => { if (e.target === userModal) closeUserModal(); });
-        deleteConfirmModal?.addEventListener('click', (e) => { if (e.target === deleteConfirmModal) closeDeleteModal(); });
-    })();
+        userModal?.addEventListener('click', (e) => {
+            if (e.target === userModal) closeUserModal();
+        });
+        deleteConfirmModal?.addEventListener('click', (e) => {
+            if (e.target === deleteConfirmModal) closeDeleteModal();
+        });
+    }
 
-    document.addEventListener('DOMContentLoaded', async () => {
-        updateUserDisplay();
-        await Promise.all([
-            loadTransactions(),
-            loadPendingRequests(),
-            loadPendingReturns(),
-            loadLostKeys(),
-            loadAuditHealth(),
-            loadPendingRegistrations(),
-            checkEmailPermissions()
-        ]);
-        setInterval(() => {
-            loadTransactions();
-            loadPendingRequests();
-            loadPendingReturns();
-            loadLostKeys();
-            loadAuditHealth();
-        }, 30000);
-    });
+    async function init() {
+        const isAuthenticated = await checkAuth();
+        if (isAuthenticated) {
+            const loadingContainer = document.getElementById('loadingContainer');
+            const adminContentWrapper = document.getElementById('adminContentWrapper');
+
+            if (loadingContainer) {
+                loadingContainer.style.display = 'none';
+            }
+            if (adminContentWrapper) {
+                adminContentWrapper.style.display = 'block';
+            }
+
+            fetchCsrfToken();
+            updateUserDisplay();
+            initEventListeners();
+            initUserManagement();
+
+            await Promise.all([
+                loadTransactions(),
+                loadPendingRequests(),
+                loadPendingReturns(),
+                loadLostKeys(),
+                loadAuditHealth(),
+                loadPendingRegistrations(),
+                checkEmailPermissions()
+            ]);
+
+            setInterval(() => {
+                loadTransactions();
+                loadPendingRequests();
+                loadPendingReturns();
+                loadLostKeys();
+                loadAuditHealth();
+            }, 30000);
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
 })();

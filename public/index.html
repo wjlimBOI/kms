@@ -5,7 +5,7 @@
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
   <meta http-equiv="Pragma" content="no-cache" />
   <meta http-equiv="Expires" content="0" />
-  <meta name="build-hash" content="03cc98a40de1a238" />
+  <meta name="build-hash" content="d48646c8860ce954" />
   <meta name="build-version" content="1.0.0" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="csrf-token" content="" />
@@ -16,373 +16,409 @@
   
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  
+  <style>
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      gap: 1rem;
+      background: #F0F4F8;
+    }
+    .spinner-large {
+      width: 50px;
+      height: 50px;
+      border: 4px solid #E2E8F0;
+      border-radius: 50%;
+      border-top-color: #1E2A3E;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .loading-container p {
+      color: #64748B;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.95rem;
+    }
+    .main-content-wrapper {
+      display: none;
+    }
+  </style>
 </head>
 <body>
-
-  <div class="dashboard-container">
-    <nav class="top-nav">
-      <div class="top-nav-inner">
-        <div class="brand-text">
-          <span class="brand-name">Key Management System</span>
-        </div>
-        <div class="nav-actions">
-          <div class="admin-nav-link" id="adminNavLink">
-            <a href="/admin" id="adminPortalLink" class="admin-portal-btn">
-              <i class="fas fa-user-shield"></i>
-              <span>Admin Portal</span>
-            </a>
-          </div>
-          <div class="user-profile">
-            <button class="user-profile-btn" id="userProfileBtn">
-              <div class="user-avatar" id="userAvatar">U</div>
-              <div class="user-info">
-                <span class="user-name" id="userDisplay">User</span>
-                <span class="user-role" id="userRoleDisplay">User</span>
-              </div>
-              <i class="fas fa-chevron-down user-chevron"></i>
-            </button>
-            <div class="user-dropdown" id="userDropdown">
-              <div class="dropdown-header">
-                <div class="dropdown-avatar" id="dropdownAvatar">U</div>
-                <div class="dropdown-user-info">
-                  <span class="dropdown-name" id="dropdownUserName">User</span>
-                  <span class="dropdown-role" id="dropdownUserRole">User</span>
-                </div>
-              </div>
-              <div class="dropdown-divider"></div>
-              <button class="dropdown-item" id="myProfileBtn"><i class="fas fa-user"></i> My Profile</button>
-              <div class="dropdown-divider"></div>
-              <button class="dropdown-item logout-item" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </nav>
+  <div id="loadingContainer" class="loading-container">
+    <div class="spinner-large"></div>
+    <p>Loading dashboard...</p>
   </div>
 
-  <main class="main-content">
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-
-      <div class="lg:col-span-2">
-        <div class="flex flex-col md:flex-row gap-4 mb-6">
-          <div class="flex flex-col sm:flex-row gap-3 flex-1">
-            <div class="flex flex-wrap gap-2 items-center">
-              <button data-filter="all" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all active">All Keys</button>
-              <button data-filter="available" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Available Now</button>
-              <button data-filter="loaned" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Currently Loaned Out</button>
+  <div id="mainContentWrapper" class="main-content-wrapper">
+    <div class="dashboard-container">
+      <nav class="top-nav">
+        <div class="top-nav-inner">
+          <div class="brand-text">
+            <span class="brand-name">Key Management System</span>
+          </div>
+          <div class="nav-actions">
+            <div class="admin-nav-link" id="adminNavLink">
+              <a href="/admin" id="adminPortalLink" class="admin-portal-btn">
+                <i class="fas fa-user-shield"></i>
+                <span>Admin Portal</span>
+              </a>
             </div>
-            <div class="relative flex-1 min-w-[200px]">
-              <input type="text" id="globalSearch" placeholder="Search by key code or borrower email..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-full text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white" />
-              <svg class="absolute left-3 top-2.5 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-            </div>
-          </div>
-        </div>
-
-        <div class="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
-          <button data-brand="all" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all active">All brands</button>
-          <button data-brand="Yun Nam" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Yun Nam</button>
-          <button data-brand="London" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">London</button>
-          <button data-brand="New York" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">New York</button>
-          <button data-brand="Dorra" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Dorra</button>
-          <button data-brand="Shakura" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Shakura</button>
-          <button data-brand="Victoria" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Victoria</button>
-          <button data-brand="Jonsson" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Jonsson</button>
-        </div>
-
-        <div id="keysGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 flex flex-col shimmer h-28"></div>
-          <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 flex flex-col shimmer h-28"></div>
-          <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 flex flex-col shimmer h-28"></div>
-        </div>
-        <div id="emptySearchState" class="hidden text-center py-8 text-slate-400">No keys match your search.</div>
-      </div>
-
-      <aside id="basketSidebar" class="basket-sidebar bg-white rounded-2xl border border-slate-200/80 shadow-md sticky top-24 h-fit overflow-visible custom-scroll transition-all duration-200">
-        <div class="p-4 border-b border-slate-100 flex justify-between items-center">
-          <div class="flex items-center gap-2">
-            <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
-            <h3 class="font-semibold text-slate-800">Borrow basket</h3>
-            <span id="basketCountBadge" class="bg-slate-100 text-slate-700 text-xs font-medium px-2 py-0.5 rounded-full">0</span>
-          </div>
-          <button id="clearBasketBtn" class="text-xs text-rose-600 hover:text-rose-700 transition font-medium">Clear all</button>
-        </div>
-        <div id="basketItemsContainer" class="divide-y divide-slate-100 max-h-48 overflow-y-auto custom-scroll">
-          <div class="p-6 text-center text-slate-400 text-sm">No keys selected. Click on available keys to add.</div>
-        </div>
-        <div class="p-4 border-t border-slate-100 bg-slate-50/50">
-          <div class="flex justify-between text-sm mb-3">
-            <span class="text-slate-600">Total keys</span>
-            <span id="totalQuantity" class="font-semibold text-slate-800">0</span>
-          </div>
-          <button id="submitRequestBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2.5 rounded-xl transition shadow-sm disabled:opacity-50">Submit request →</button>
-          <p class="text-[10px] text-slate-400 text-center mt-2">Approval required · email confirmation</p>
-        </div>
-
-        <div class="px-4 pb-3 return-dropdown-wrapper">
-          <div class="relative" id="returnDropdownContainer">
-            <button id="returnDropdownBtn" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2">
-              <i class="fas fa-key"></i>
-              <span>Return Key</span>
-              <i class="fas fa-chevron-down text-xs ml-1 transition-transform duration-200" id="returnDropdownChevron"></i>
-            </button>
-            <div id="returnDropdownMenu" class="return-dropdown-menu hidden">
-              <button id="returnNowBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3 border-b border-slate-100">
-                <i class="fas fa-undo-alt text-emerald-600 w-5"></i>
-                <div>
-                  <div class="font-medium text-slate-800 text-sm">Return Key Now</div>
-                  <div class="text-xs text-slate-500">Return your borrowed keys immediately</div>
+            <div class="user-profile">
+              <button class="user-profile-btn" id="userProfileBtn">
+                <div class="user-avatar" id="userAvatar">U</div>
+                <div class="user-info">
+                  <span class="user-name" id="userDisplay">User</span>
+                  <span class="user-role" id="userRoleDisplay">User</span>
                 </div>
+                <i class="fas fa-chevron-down user-chevron"></i>
               </button>
-              <button id="extensionRequestBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3 border-b border-slate-100">
-                <i class="fas fa-calendar-plus text-purple-600 w-5"></i>
-                <div>
-                  <div class="font-medium text-slate-800 text-sm">Extension Request</div>
-                  <div class="text-xs text-slate-500">Extend your return date</div>
+              <div class="user-dropdown" id="userDropdown">
+                <div class="dropdown-header">
+                  <div class="dropdown-avatar" id="dropdownAvatar">U</div>
+                  <div class="dropdown-user-info">
+                    <span class="dropdown-name" id="dropdownUserName">User</span>
+                    <span class="dropdown-role" id="dropdownUserRole">User</span>
+                  </div>
                 </div>
-              </button>
-              <button id="reportLostKeyBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3">
-                <i class="fas fa-exclamation-triangle text-rose-600 w-5"></i>
-                <div>
-                  <div class="font-medium text-slate-800 text-sm">Report Lost Key</div>
-                  <div class="text-xs text-slate-500">Report a key as lost (SGD 50 fee)</div>
-                </div>
-              </button>
+                <div class="dropdown-divider"></div>
+                <button class="dropdown-item" id="myProfileBtn"><i class="fas fa-user"></i> My Profile</button>
+                <div class="dropdown-divider"></div>
+                <button class="dropdown-item logout-item" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
+              </div>
             </div>
           </div>
-          <p class="text-[10px] text-slate-400 text-center mt-2">
-            <i class="fas fa-chevron-down text-[8px] mr-1"></i>
-            Click for more return options
-            <i class="fas fa-chevron-down text-[8px] ml-1"></i>
-          </p>
         </div>
-
-        <div id="adminActions" class="admin-only mt-1 p-4 bg-white rounded-xl border border-slate-200/80 shadow-sm">
-          <div class="flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
-            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-            <span>A Key Replacement Fee of 50 SGD will be charged for each lost key.</span>
-          </div>
-        </div>
-      </aside>
+      </nav>
     </div>
-  </main>
 
-  <div id="requestModal" class="modal-overlay">
-    <div class="modal-container">
-      <div class="p-5 border-b border-slate-100 flex justify-between items-center">
-        <h3 class="text-lg font-semibold text-slate-800">Submit key request</h3>
-        <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
-      </div>
-      <div class="p-5">
-        <div class="mb-4 p-3 bg-slate-50 rounded-xl text-sm text-slate-600">
-          <span class="font-medium">Selected keys:</span>
-          <div id="modalSelectedKeysList" class="mt-1 text-slate-500"></div>
+    <main class="main-content">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div class="lg:col-span-2">
+          <div class="flex flex-col md:flex-row gap-4 mb-6">
+            <div class="flex flex-col sm:flex-row gap-3 flex-1">
+              <div class="flex flex-wrap gap-2 items-center">
+                <button data-filter="all" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all active">All Keys</button>
+                <button data-filter="available" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Available Now</button>
+                <button data-filter="loaned" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Currently Loaned Out</button>
+              </div>
+              <div class="relative flex-1 min-w-[200px]">
+                <input type="text" id="globalSearch" placeholder="Search by key code or borrower email..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-full text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white" />
+                <svg class="absolute left-3 top-2.5 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+            <button data-brand="all" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all active">All brands</button>
+            <button data-brand="Yun Nam" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Yun Nam</button>
+            <button data-brand="London" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">London</button>
+            <button data-brand="New York" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">New York</button>
+            <button data-brand="Dorra" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Dorra</button>
+            <button data-brand="Shakura" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Shakura</button>
+            <button data-brand="Victoria" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Victoria</button>
+            <button data-brand="Jonsson" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Jonsson</button>
+          </div>
+
+          <div id="keysGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 flex flex-col shimmer h-28"></div>
+            <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 flex flex-col shimmer h-28"></div>
+            <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 flex flex-col shimmer h-28"></div>
+          </div>
+          <div id="emptySearchState" class="hidden text-center py-8 text-slate-400">No keys match your search.</div>
         </div>
 
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-slate-700 mb-1.5">Borrow date <span class="text-rose-500">*</span></label>
-          <div class="borrow-toggle-group" id="borrowToggleGroup">
-            <button type="button" class="borrow-toggle-btn active" data-borrow-type="now">Borrow Now</button>
-            <button type="button" class="borrow-toggle-btn" data-borrow-type="today">Borrow Today</button>
+        <aside id="basketSidebar" class="basket-sidebar bg-white rounded-2xl border border-slate-200/80 shadow-md sticky top-24 h-fit overflow-visible custom-scroll transition-all duration-200">
+          <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+            <div class="flex items-center gap-2">
+              <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+              <h3 class="font-semibold text-slate-800">Borrow basket</h3>
+              <span id="basketCountBadge" class="bg-slate-100 text-slate-700 text-xs font-medium px-2 py-0.5 rounded-full">0</span>
+            </div>
+            <button id="clearBasketBtn" class="text-xs text-rose-600 hover:text-rose-700 transition font-medium">Clear all</button>
           </div>
-          <div id="borrowTimeContainer" style="display:none;" class="mt-2">
-            <label class="block text-xs font-medium text-slate-600 mb-1">Pick time</label>
-            <input type="time" id="borrowTimePicker" value="09:00" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
-            <p class="text-[11px] text-slate-400 mt-1">Date will be set to today automatically.</p>
+          <div id="basketItemsContainer" class="divide-y divide-slate-100 max-h-48 overflow-y-auto custom-scroll">
+            <div class="p-6 text-center text-slate-400 text-sm">No keys selected. Click on available keys to add.</div>
           </div>
-          <input type="hidden" id="borrowDateHidden" value="" />
-        </div>
+          <div class="p-4 border-t border-slate-100 bg-slate-50/50">
+            <div class="flex justify-between text-sm mb-3">
+              <span class="text-slate-600">Total keys</span>
+              <span id="totalQuantity" class="font-semibold text-slate-800">0</span>
+            </div>
+            <button id="submitRequestBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2.5 rounded-xl transition shadow-sm disabled:opacity-50">Submit request →</button>
+            <p class="text-[10px] text-slate-400 text-center mt-2">Approval required · email confirmation</p>
+          </div>
 
-        <div class="space-y-3">
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Full name <span class="text-rose-500">*</span></label>
-            <input type="text" id="modalName" placeholder="Your full name" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+          <div class="px-4 pb-3 return-dropdown-wrapper">
+            <div class="relative" id="returnDropdownContainer">
+              <button id="returnDropdownBtn" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2">
+                <i class="fas fa-key"></i>
+                <span>Return Key</span>
+                <i class="fas fa-chevron-down text-xs ml-1 transition-transform duration-200" id="returnDropdownChevron"></i>
+              </button>
+              <div id="returnDropdownMenu" class="return-dropdown-menu hidden">
+                <button id="returnNowBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3 border-b border-slate-100">
+                  <i class="fas fa-undo-alt text-emerald-600 w-5"></i>
+                  <div>
+                    <div class="font-medium text-slate-800 text-sm">Return Key Now</div>
+                    <div class="text-xs text-slate-500">Return your borrowed keys immediately</div>
+                  </div>
+                </button>
+                <button id="extensionRequestBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3 border-b border-slate-100">
+                  <i class="fas fa-calendar-plus text-purple-600 w-5"></i>
+                  <div>
+                    <div class="font-medium text-slate-800 text-sm">Extension Request</div>
+                    <div class="text-xs text-slate-500">Extend your return date</div>
+                  </div>
+                </button>
+                <button id="reportLostKeyBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3">
+                  <i class="fas fa-exclamation-triangle text-rose-600 w-5"></i>
+                  <div>
+                    <div class="font-medium text-slate-800 text-sm">Report Lost Key</div>
+                    <div class="text-xs text-slate-500">Report a key as lost (SGD 50 fee)</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+            <p class="text-[10px] text-slate-400 text-center mt-2">
+              <i class="fas fa-chevron-down text-[8px] mr-1"></i>
+              Click for more return options
+              <i class="fas fa-chevron-down text-[8px] ml-1"></i>
+            </p>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Email address <span class="text-rose-500">*</span></label>
-            <input type="email" id="modalEmail" placeholder="your@email.com" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Reason (optional)</label>
-            <textarea id="modalReason" rows="2" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="e.g., Office event..."></textarea>
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-700 mb-1">Planned return date <span class="text-rose-500">*</span></label>
-            <input type="datetime-local" id="modalPlannedReturn" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
-          </div>
-          <div class="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-            <input type="checkbox" id="consentCheckbox" class="consent-checkbox mt-0.5" />
-            <label for="consentCheckbox" class="text-xs text-slate-600 leading-relaxed">I acknowledge that keys must be returned by the planned return date. I agree to be liable for a <strong>Key Replacement Fee of SGD 50</strong> if the key is lost or not returned.</label>
-          </div>
-        </div>
-        <div id="modalError" class="mt-3 text-sm text-rose-600 hidden"></div>
-        <div class="mt-5 flex gap-3 justify-end">
-          <button id="cancelModalBtn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-sm font-medium transition">Cancel</button>
-          <button id="confirmSubmitBtn" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full text-sm font-medium transition shadow-sm" disabled>Submit request</button>
-        </div>
-      </div>
-    </div>
-  </div>
 
-  <div id="returnModal" class="modal-overlay">
-    <div class="modal-container">
-      <div class="p-5 border-b border-slate-100 flex justify-between items-center">
-        <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2"><span class="text-purple-600">↩️</span> Return Keys</h3>
-        <button id="closeReturnModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
+          <div id="adminActions" class="admin-only mt-1 p-4 bg-white rounded-xl border border-slate-200/80 shadow-sm">
+            <div class="flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+              <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>A Key Replacement Fee of 50 SGD will be charged for each lost key.</span>
+            </div>
+          </div>
+        </aside>
       </div>
-      <div id="returnStep1" class="p-5">
-        <p class="text-sm text-slate-600 mb-3">Your active loans will be fetched automatically.</p>
-        <button id="fetchLoansByEmailBtn" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 rounded-full transition shadow-sm">Find my active loans →</button>
-      </div>
-      <div id="returnStep2" style="display:none">
-        <div class="px-5 pt-3 pb-2 border-b border-slate-100 flex justify-between items-center">
-          <span class="text-sm font-medium text-slate-700">Select keys to return</span>
-          <button id="selectAllReturnBtn" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-full transition">✓ Select all</button>
+    </main>
+
+    <div id="requestModal" class="modal-overlay">
+      <div class="modal-container">
+        <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+          <h3 class="text-lg font-semibold text-slate-800">Submit key request</h3>
+          <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
         </div>
         <div class="p-5">
-          <div id="activeLoansListContainer" class="max-h-64 overflow-y-auto custom-scroll space-y-2 mb-4"></div>
-          <div id="returnSelectionError" class="text-sm text-rose-600 hidden mb-2"></div>
-          <button id="submitReturnConfirmBtn" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 rounded-full transition shadow-sm">Submit return request →</button>
-        </div>
-      </div>
-      <div id="returnStep3" style="display:none" class="p-6 text-center">
-        <div class="flex flex-col items-center">
-          <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-3xl mb-4">✓</div>
-          <h4 class="text-xl font-semibold text-slate-800">Return submitted</h4>
-          <p class="text-slate-500 mt-2 text-sm">Please hand your keys to the Administrator for physical verification.</p>
-          <button id="closeReturnSuccessBtn" class="mt-6 px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full transition text-sm font-medium">Close</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="reportLostModal" class="modal-overlay">
-    <div class="modal-container max-w-2xl">
-      <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-        <div>
-          <h3 class="text-lg font-semibold text-slate-900">Report Lost Key</h3>
-          <p class="text-xs text-slate-600 mt-0.5">Select the key you have lost. A Key Replacement Fee of 50 SGD will be levied.</p>
-        </div>
-        <button id="closeReportLostModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
-      </div>
-      <div class="p-5">
-        <button id="fetchLostReportKeysBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-full transition text-sm">Load my borrowed keys</button>
-        <div id="reportLostKeysListContainer" class="max-h-80 overflow-y-auto custom-scroll space-y-3 mt-4">
-          <div class="text-center py-8 text-slate-400">Click "Load" to see your borrowed keys.</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="confirmLostModal" class="modal-overlay">
-    <div class="modal-container max-w-sm">
-      <div class="p-5 text-center">
-        <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-rose-100 mb-4">
-          <svg class="h-6 w-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-        </div>
-        <h3 class="text-lg font-semibold text-slate-800 mb-2">Confirm Lost Key</h3>
-        <p class="text-sm text-slate-600 mb-4" id="confirmLostMessage">Are you sure you want to report this key as lost? A Key Replacement Fee of 50 SGD will be applied to your account.</p>
-        <div class="flex gap-3 justify-center">
-          <button id="cancelLostBtn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition">Cancel</button>
-          <button id="confirmLostBtn" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition">Yes, Report Lost</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="extensionModal" class="modal-overlay">
-    <div class="modal-container max-w-2xl">
-      <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50">
-        <div>
-          <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
-            <i class="fas fa-calendar-plus text-purple-600"></i> Extension Request
-          </h3>
-          <p class="text-xs text-slate-500 mt-0.5">Select an active loan and set a new return date.</p>
-        </div>
-        <button id="closeExtensionModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
-      </div>
-      <div class="p-5">
-        <div class="mb-4">
-          <label class="block text-sm font-medium text-slate-700 mb-1">Your email</label>
-          <input type="email" id="extensionEmailInput" placeholder="Enter your email address" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition" />
-          <button id="fetchExtensionLoansBtn" class="mt-2 w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 rounded-xl transition text-sm">Load my active loans</button>
-        </div>
-        <div id="extensionLoansContainer" class="max-h-64 overflow-y-auto custom-scroll space-y-2 mb-4">
-          <div class="text-center py-8 text-slate-400 text-sm">Enter your email and click "Load" to see your active loans.</div>
-        </div>
-        <div id="extensionSelectionArea" style="display:none;" class="border-t border-slate-200 pt-4 mt-2">
-          <div class="mb-3">
-            <label class="block text-sm font-medium text-slate-700 mb-1">New return date <span class="text-rose-500">*</span></label>
-            <input type="datetime-local" id="extensionNewReturnDate" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition" />
+          <div class="mb-4 p-3 bg-slate-50 rounded-xl text-sm text-slate-600">
+            <span class="font-medium">Selected keys:</span>
+            <div id="modalSelectedKeysList" class="mt-1 text-slate-500"></div>
           </div>
-          <div id="extensionError" class="text-sm text-rose-600 hidden mb-2"></div>
-          <button id="submitExtensionBtn" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2.5 rounded-xl transition shadow-sm disabled:opacity-50">Submit extension request</button>
-          <p class="text-[11px] text-slate-400 text-center mt-2">Extension requests require admin approval.</p>
+
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-slate-700 mb-1.5">Borrow date <span class="text-rose-500">*</span></label>
+            <div class="borrow-toggle-group" id="borrowToggleGroup">
+              <button type="button" class="borrow-toggle-btn active" data-borrow-type="now">Borrow Now</button>
+              <button type="button" class="borrow-toggle-btn" data-borrow-type="today">Borrow Today</button>
+            </div>
+            <div id="borrowTimeContainer" style="display:none;" class="mt-2">
+              <label class="block text-xs font-medium text-slate-600 mb-1">Pick time</label>
+              <input type="time" id="borrowTimePicker" value="09:00" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+              <p class="text-[11px] text-slate-400 mt-1">Date will be set to today automatically.</p>
+            </div>
+            <input type="hidden" id="borrowDateHidden" value="" />
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Full name <span class="text-rose-500">*</span></label>
+              <input type="text" id="modalName" placeholder="Your full name" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Email address <span class="text-rose-500">*</span></label>
+              <input type="email" id="modalEmail" placeholder="your@email.com" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Reason (optional)</label>
+              <textarea id="modalReason" rows="2" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="e.g., Office event..."></textarea>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-slate-700 mb-1">Planned return date <span class="text-rose-500">*</span></label>
+              <input type="datetime-local" id="modalPlannedReturn" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+            </div>
+            <div class="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <input type="checkbox" id="consentCheckbox" class="consent-checkbox mt-0.5" />
+              <label for="consentCheckbox" class="text-xs text-slate-600 leading-relaxed">I acknowledge that keys must be returned by the planned return date. I agree to be liable for a <strong>Key Replacement Fee of SGD 50</strong> if the key is lost or not returned.</label>
+            </div>
+          </div>
+          <div id="modalError" class="mt-3 text-sm text-rose-600 hidden"></div>
+          <div class="mt-5 flex gap-3 justify-end">
+            <button id="cancelModalBtn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-sm font-medium transition">Cancel</button>
+            <button id="confirmSubmitBtn" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full text-sm font-medium transition shadow-sm" disabled>Submit request</button>
+          </div>
         </div>
       </div>
     </div>
+
+    <div id="returnModal" class="modal-overlay">
+      <div class="modal-container">
+        <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+          <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2"><span class="text-purple-600">↩️</span> Return Keys</h3>
+          <button id="closeReturnModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
+        </div>
+        <div id="returnStep1" class="p-5">
+          <p class="text-sm text-slate-600 mb-3">Your active loans will be fetched automatically.</p>
+          <button id="fetchLoansByEmailBtn" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 rounded-full transition shadow-sm">Find my active loans →</button>
+        </div>
+        <div id="returnStep2" style="display:none">
+          <div class="px-5 pt-3 pb-2 border-b border-slate-100 flex justify-between items-center">
+            <span class="text-sm font-medium text-slate-700">Select keys to return</span>
+            <button id="selectAllReturnBtn" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-full transition">✓ Select all</button>
+          </div>
+          <div class="p-5">
+            <div id="activeLoansListContainer" class="max-h-64 overflow-y-auto custom-scroll space-y-2 mb-4"></div>
+            <div id="returnSelectionError" class="text-sm text-rose-600 hidden mb-2"></div>
+            <button id="submitReturnConfirmBtn" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 rounded-full transition shadow-sm">Submit return request →</button>
+          </div>
+        </div>
+        <div id="returnStep3" style="display:none" class="p-6 text-center">
+          <div class="flex flex-col items-center">
+            <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-3xl mb-4">✓</div>
+            <h4 class="text-xl font-semibold text-slate-800">Return submitted</h4>
+            <p class="text-slate-500 mt-2 text-sm">Please hand your keys to the Administrator for physical verification.</p>
+            <button id="closeReturnSuccessBtn" class="mt-6 px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full transition text-sm font-medium">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="reportLostModal" class="modal-overlay">
+      <div class="modal-container max-w-2xl">
+        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+          <div>
+            <h3 class="text-lg font-semibold text-slate-900">Report Lost Key</h3>
+            <p class="text-xs text-slate-600 mt-0.5">Select the key you have lost. A Key Replacement Fee of 50 SGD will be levied.</p>
+          </div>
+          <button id="closeReportLostModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
+        </div>
+        <div class="p-5">
+          <button id="fetchLostReportKeysBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-full transition text-sm">Load my borrowed keys</button>
+          <div id="reportLostKeysListContainer" class="max-h-80 overflow-y-auto custom-scroll space-y-3 mt-4">
+            <div class="text-center py-8 text-slate-400">Click "Load" to see your borrowed keys.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="confirmLostModal" class="modal-overlay">
+      <div class="modal-container max-w-sm">
+        <div class="p-5 text-center">
+          <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-rose-100 mb-4">
+            <svg class="h-6 w-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          </div>
+          <h3 class="text-lg font-semibold text-slate-800 mb-2">Confirm Lost Key</h3>
+          <p class="text-sm text-slate-600 mb-4" id="confirmLostMessage">Are you sure you want to report this key as lost? A Key Replacement Fee of 50 SGD will be applied to your account.</p>
+          <div class="flex gap-3 justify-center">
+            <button id="cancelLostBtn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition">Cancel</button>
+            <button id="confirmLostBtn" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition">Yes, Report Lost</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="extensionModal" class="modal-overlay">
+      <div class="modal-container max-w-2xl">
+        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50">
+          <div>
+            <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+              <i class="fas fa-calendar-plus text-purple-600"></i> Extension Request
+            </h3>
+            <p class="text-xs text-slate-500 mt-0.5">Select an active loan and set a new return date.</p>
+          </div>
+          <button id="closeExtensionModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
+        </div>
+        <div class="p-5">
+          <div class="mb-4">
+            <label class="block text-sm font-medium text-slate-700 mb-1">Your email</label>
+            <input type="email" id="extensionEmailInput" placeholder="Enter your email address" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition" />
+            <button id="fetchExtensionLoansBtn" class="mt-2 w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 rounded-xl transition text-sm">Load my active loans</button>
+          </div>
+          <div id="extensionLoansContainer" class="max-h-64 overflow-y-auto custom-scroll space-y-2 mb-4">
+            <div class="text-center py-8 text-slate-400 text-sm">Enter your email and click "Load" to see your active loans.</div>
+          </div>
+          <div id="extensionSelectionArea" style="display:none;" class="border-t border-slate-200 pt-4 mt-2">
+            <div class="mb-3">
+              <label class="block text-sm font-medium text-slate-700 mb-1">New return date <span class="text-rose-500">*</span></label>
+              <input type="datetime-local" id="extensionNewReturnDate" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition" />
+            </div>
+            <div id="extensionError" class="text-sm text-rose-600 hidden mb-2"></div>
+            <button id="submitExtensionBtn" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2.5 rounded-xl transition shadow-sm disabled:opacity-50">Submit extension request</button>
+            <p class="text-[11px] text-slate-400 text-center mt-2">Extension requests require admin approval.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="notificationModal" class="modal-overlay">
+      <div class="modal-container max-w-sm">
+        <div class="p-6 text-center">
+          <div class="notification-icon success" id="notificationIcon">
+            <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <h4 class="text-lg font-semibold text-slate-800 mt-3" id="notificationTitle">Success</h4>
+          <p class="text-slate-500 mt-1 text-sm" id="notificationMessage">Action completed.</p>
+          <button id="closeNotificationBtn" class="mt-4 px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full transition text-sm font-medium">OK</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="profileModal" class="modal-overlay">
+      <div class="modal-container">
+        <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+          <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+            <i class="fas fa-user-circle text-blue-600"></i> My Profile
+          </h3>
+          <button id="closeProfileModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
+        </div>
+        <div class="p-5">
+          <div id="profileError" class="profile-error"></div>
+          <div id="profileSuccess" class="profile-success"></div>
+          <div class="profile-field">
+            <label for="profileName">Full Name</label>
+            <input type="text" id="profileName" placeholder="Your full name" />
+          </div>
+          <div class="profile-field">
+            <label for="profileEmail">Email Address</label>
+            <input type="email" id="profileEmail" placeholder="your@email.com" />
+            <div class="hint">Changing your email will update your login credentials.</div>
+          </div>
+          <div class="profile-field">
+            <label for="profileCurrentPassword">Current Password</label>
+            <input type="password" id="profileCurrentPassword" placeholder="Enter current password" />
+          </div>
+          <div class="profile-field">
+            <label for="profileNewPassword">New Password</label>
+            <input type="password" id="profileNewPassword" placeholder="Leave blank to keep current" />
+            <div class="hint">Min 8 characters, with uppercase, lowercase, number, and special character.</div>
+          </div>
+          <div class="profile-actions">
+            <button class="btn-secondary" id="cancelProfileBtn">Cancel</button>
+            <button class="btn-primary" id="saveProfileBtn">Save Changes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="toastRoot"></div>
+
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center text-xs text-slate-500 flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4">
+          <span>&copy; 2026 Beauty One International Pte Ltd. All rights reserved.</span>
+          <span class="hidden sm:inline text-slate-300">|</span>
+          <a href="/privacy-policy" class="text-indigo-600 hover:text-indigo-700 hover:underline transition">Privacy Policy &amp; Terms of Service</a>
+        </div>
+      </div>
+    </footer>
   </div>
-
-  <div id="notificationModal" class="modal-overlay">
-    <div class="modal-container max-w-sm">
-      <div class="p-6 text-center">
-        <div class="notification-icon success" id="notificationIcon">
-          <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-        </div>
-        <h4 class="text-lg font-semibold text-slate-800 mt-3" id="notificationTitle">Success</h4>
-        <p class="text-slate-500 mt-1 text-sm" id="notificationMessage">Action completed.</p>
-        <button id="closeNotificationBtn" class="mt-4 px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full transition text-sm font-medium">OK</button>
-      </div>
-    </div>
-  </div>
-
-  <div id="profileModal" class="modal-overlay">
-    <div class="modal-container">
-      <div class="p-5 border-b border-slate-100 flex justify-between items-center">
-        <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
-          <i class="fas fa-user-circle text-blue-600"></i> My Profile
-        </h3>
-        <button id="closeProfileModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
-      </div>
-      <div class="p-5">
-        <div id="profileError" class="profile-error"></div>
-        <div id="profileSuccess" class="profile-success"></div>
-        <div class="profile-field">
-          <label for="profileName">Full Name</label>
-          <input type="text" id="profileName" placeholder="Your full name" />
-        </div>
-        <div class="profile-field">
-          <label for="profileEmail">Email Address</label>
-          <input type="email" id="profileEmail" placeholder="your@email.com" />
-          <div class="hint">Changing your email will update your login credentials.</div>
-        </div>
-        <div class="profile-field">
-          <label for="profileCurrentPassword">Current Password</label>
-          <input type="password" id="profileCurrentPassword" placeholder="Enter current password" />
-        </div>
-        <div class="profile-field">
-          <label for="profileNewPassword">New Password</label>
-          <input type="password" id="profileNewPassword" placeholder="Leave blank to keep current" />
-          <div class="hint">Min 8 characters, with uppercase, lowercase, number, and special character.</div>
-        </div>
-        <div class="profile-actions">
-          <button class="btn-secondary" id="cancelProfileBtn">Cancel</button>
-          <button class="btn-primary" id="saveProfileBtn">Save Changes</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <div id="toastRoot"></div>
-
-  <footer class="bg-white border-t border-slate-200 py-4 mt-8">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="text-center text-xs text-slate-500 flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4">
-        <span>&copy; 2026 Beauty One International Pte Ltd. All rights reserved.</span>
-        <span class="hidden sm:inline text-slate-300">|</span>
-        <a href="/privacy-policy" class="text-indigo-600 hover:text-indigo-700 hover:underline transition">Privacy Policy &amp; Terms of Service</a>
-      </div>
-    </div>
-  </footer>
 
   <script src="/js/main.js?v=d48646c8860ce954"></script>
 </body>

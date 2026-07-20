@@ -20,7 +20,7 @@ const BCRYPT_ROUNDS = parseInt(process.env.BCRYPT_ROUNDS) || 12;
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_DURATION_MINUTES = 30;
 const JWT_EXPIRY = '7d';
-const SESSION_EXPIRY = 7 * 24 * 60 * 60 * 1000; // 7 days
+const SESSION_EXPIRY = 7 * 24 * 60 * 60 * 1000;
 
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -37,7 +37,6 @@ const otpLimiter = rateLimit({
 
 const verifiedSessions = new Map();
 
-// Helper: Set secure cookie with JWT
 function setAuthCookie(res, token) {
   const isProduction = process.env.NODE_ENV === 'production';
   res.cookie('token', token, {
@@ -50,7 +49,6 @@ function setAuthCookie(res, token) {
   });
 }
 
-// Helper: Clear auth cookie
 function clearAuthCookie(res) {
   res.clearCookie('token', {
     httpOnly: true,
@@ -413,13 +411,11 @@ router.post('/login', loginLimiter, validate(loginSchema), async (req, res) => {
       }
     }
 
-    // Reset failed attempts on successful login
     await db.query(
       'UPDATE users SET failed_login_attempts = 0, locked_until = NULL, last_login = NOW() WHERE id = $1',
       [user.id]
     );
 
-    // Generate JWT
     const jwtToken = jwt.sign(
       {
         id: user.id,
@@ -432,10 +428,8 @@ router.post('/login', loginLimiter, validate(loginSchema), async (req, res) => {
       { expiresIn: JWT_EXPIRY }
     );
 
-    // Set HTTP-only cookie (IMDA compliant)
     setAuthCookie(res, jwtToken);
 
-    // Also set session for backward compatibility
     req.session.userId = user.id;
     req.session.username = user.username;
     req.session.role = user.role || 'user';
@@ -610,7 +604,6 @@ router.post('/logout', async (req, res) => {
   
   logger.info('Logout', { userId, username });
 
-  // Clear auth cookie
   clearAuthCookie(res);
 
   req.session.destroy(async (err) => {
@@ -709,6 +702,41 @@ router.post('/set-password-from-token', async (req, res) => {
     await db.query('ROLLBACK');
     logger.error('Set-password error', { error: err.message });
     res.status(500).json({ error: 'Internal server error.' });
+  }
+});
+
+router.get('/check-session', async (req, res) => {
+  try {
+    const token = req.cookies?.token;
+    if (token) {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      if (decoded) {
+        return res.json({ 
+          authenticated: true, 
+          user: {
+            id: decoded.id,
+            username: decoded.username,
+            role: decoded.role,
+            email: decoded.email
+          }
+        });
+      }
+    }
+    
+    if (req.session?.userId) {
+      return res.json({ 
+        authenticated: true,
+        user: {
+          id: req.session.userId,
+          username: req.session.username,
+          role: req.session.role
+        }
+      });
+    }
+    
+    res.json({ authenticated: false });
+  } catch (err) {
+    res.json({ authenticated: false });
   }
 });
 

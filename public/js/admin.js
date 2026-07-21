@@ -152,6 +152,11 @@
         });
     }
 
+    function safeNumber(value, fallback = 0) {
+        const num = parseFloat(value);
+        return isNaN(num) ? fallback : num;
+    }
+
     async function authenticatedFetch(url, options = {}) {
         const token = getToken();
         if (!token) {
@@ -236,31 +241,45 @@
         setTimeout(() => toast.remove(), 3000);
     }
 
-    function showAlert(message, type = 'success') {
+    // Alert Modal functions
+    function showAlertModal(message, type = 'success', title = null) {
         const modal = document.getElementById('alertModal');
         const icon = document.getElementById('alertIcon');
-        const title = document.getElementById('alertTitle');
-        const msg = document.getElementById('alertMessage');
+        const titleEl = document.getElementById('alertTitle');
+        const msgEl = document.getElementById('alertMessage');
+        
         icon.className = 'alert-icon';
-        if (type === 'success') {
-            icon.classList.add('success');
-            icon.innerHTML = '<i class="fas fa-check-circle"></i>';
-            title.textContent = 'Success';
-        } else if (type === 'error') {
-            icon.classList.add('error');
-            icon.innerHTML = '<i class="fas fa-times-circle"></i>';
-            title.textContent = 'Error';
-        } else if (type === 'warning') {
-            icon.classList.add('warning');
-            icon.innerHTML = '<i class="fas fa-exclamation-triangle"></i>';
-            title.textContent = 'Warning';
-        } else {
-            icon.classList.add('success');
-            icon.innerHTML = '<i class="fas fa-check-circle"></i>';
-            title.textContent = 'Notice';
-        }
-        msg.textContent = message;
+        const titles = {
+            success: 'Success',
+            error: 'Error',
+            warning: 'Warning',
+            info: 'Information'
+        };
+        
+        const icons = {
+            success: 'fa-check-circle',
+            error: 'fa-times-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+        
+        const classes = {
+            success: 'success',
+            error: 'error',
+            warning: 'warning',
+            info: 'info'
+        };
+        
+        icon.classList.add(classes[type] || 'success');
+        icon.innerHTML = `<i class="fas ${icons[type] || icons.success}"></i>`;
+        titleEl.textContent = title || titles[type] || 'Notice';
+        msgEl.textContent = message;
+        
         modal.classList.add('active');
+    }
+
+    function closeAlertModal() {
+        document.getElementById('alertModal').classList.remove('active');
     }
 
     function showDetailModal(title, contentHtml) {
@@ -275,12 +294,43 @@
 
     function updateUserDisplay() {
         const user = getUser();
-        if (user && user.name) {
-            document.getElementById('userDisplay').textContent = user.name;
-            document.getElementById('dropdownUserName').textContent = user.name;
-            const initials = getInitials(user.name);
+        if (user) {
+            const displayName = user.name || 'User';
+            document.getElementById('userDisplay').textContent = displayName;
+            document.getElementById('dropdownUserName').textContent = displayName;
+            const initials = getInitials(displayName);
             document.getElementById('userAvatar').textContent = initials;
             document.getElementById('dropdownAvatar').textContent = initials;
+        }
+    }
+
+    async function refreshUserProfile() {
+        try {
+            const token = getToken();
+            if (!token) return;
+            
+            const res = await fetch('/api/user/profile', {
+                credentials: 'include',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Accept': 'application/json'
+                }
+            });
+            
+            if (res.ok) {
+                const data = await res.json();
+                const user = getUser() || {};
+                user.name = data.name || user.name || 'User';
+                user.email = data.email || user.email;
+                user.role = data.role || user.role || 'user';
+                localStorage.setItem('kms_user', JSON.stringify(user));
+                updateUserDisplay();
+                return true;
+            }
+            return false;
+        } catch (err) {
+            console.error('Failed to refresh user profile:', err);
+            return false;
         }
     }
 
@@ -386,7 +436,33 @@
                 return false;
             }
 
-            localStorage.setItem('kms_user', JSON.stringify(data.user));
+            if (data.user) {
+                try {
+                    const profileRes = await fetch('/api/user/profile', {
+                        credentials: 'include',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Accept': 'application/json'
+                        }
+                    });
+                    if (profileRes.ok) {
+                        const profileData = await profileRes.json();
+                        data.user.name = profileData.name || data.user.name || 'User';
+                        data.user.email = profileData.email || data.user.email;
+                        data.user.role = profileData.role || data.user.role || 'user';
+                    }
+                } catch (profileErr) {
+                    if (!data.user.name) {
+                        data.user.name = 'User';
+                    }
+                }
+                
+                if (!data.user.name || data.user.name.trim() === '') {
+                    data.user.name = 'User';
+                }
+                
+                localStorage.setItem('kms_user', JSON.stringify(data.user));
+            }
 
             if (data.user.role !== 'admin') {
                 const accessDenied = document.getElementById('accessDenied');
@@ -403,6 +479,28 @@
                 redirectToLogin();
             }
             return false;
+        }
+    }
+
+    // Helper function to log audit events
+    async function logAuditEvent(action, targetType, targetId, details = {}, oldData = null, newData = null) {
+        try {
+            const user = getUser();
+            await authenticatedFetch('/api/audit/log', {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: action,
+                    target_type: targetType,
+                    target_id: targetId,
+                    details: details,
+                    old_data: oldData,
+                    new_data: newData,
+                    user_name: user?.name || 'System',
+                    user_email: user?.email || 'system'
+                })
+            });
+        } catch (err) {
+            console.error('Failed to log audit event:', err);
         }
     }
 
@@ -455,7 +553,7 @@
             window._activeBorrowsData = data.filter(t => t.status === 'borrowed');
         } catch (err) {
             document.getElementById('transactionsTableBody').innerHTML = '<tr><td colspan="10" class="text-center py-8 text-slate-400">Unable to load transactions. Please refresh the page.</td></tr>';
-            showAlert(err.message || 'Failed to load transactions. Please check your network.', 'error');
+            showAlertModal(err.message || 'Failed to load transactions. Please check your network.', 'error');
         }
     }
 
@@ -537,7 +635,7 @@
         } catch (err) {
             updateNumber('pendingCount', 0);
             updateNumber('pendingKeyRequestsCount', 0);
-            showAlert(err.message || 'Unable to load pending requests. Please refresh.', 'error');
+            showAlertModal(err.message || 'Unable to load pending requests. Please refresh.', 'error');
         }
     }
 
@@ -556,8 +654,10 @@
                 <td>${escapeHtml(keyList)}</td>
                 <td>${formatDate(req.planned_return)}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary approveBtnModal" data-id="${req.id}">Approve</button>
-                    <button class="btn btn-sm btn-critical denyBtnModal" data-id="${req.id}">Deny</button>
+                    <div class="action-buttons">
+                        <button class="btn btn-success approveBtnModal" data-id="${req.id}"><i class="fas fa-check"></i> Approve</button>
+                        <button class="btn btn-danger denyBtnModal" data-id="${req.id}"><i class="fas fa-times"></i> Deny</button>
+                    </div>
                 </td>
             </tr>`;
         }
@@ -584,7 +684,7 @@
             window._pendingReturnsData = data;
         } catch (err) {
             updateNumber('pendingReturnsCount', 0);
-            showAlert(err.message || 'Unable to load pending returns. Please refresh.', 'error');
+            showAlertModal(err.message || 'Unable to load pending returns. Please refresh.', 'error');
         }
     }
 
@@ -600,7 +700,11 @@
                 <td>${escapeHtml(ret.requester_name || ret.requester_email)}</td>
                 <td>${escapeHtml(ret.key_list)}</td>
                 <td>${formatDate(ret.created_at)}</td>
-                <td><button class="btn btn-sm btn-primary approveReturnModalBtn" data-id="${ret.id}">Approve</button></td>
+                <td>
+                    <div class="action-buttons">
+                        <button class="btn btn-success approveReturnModalBtn" data-id="${ret.id}"><i class="fas fa-check"></i> Verify</button>
+                    </div>
+                </td>
             </tr>`;
         }
         const html = `<table class="table-clean"><thead><tr><th>Requester</th><th>Keys</th><th>Requested</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -614,16 +718,16 @@
                         body: JSON.stringify({ return_request_id: id })
                     });
                     if (res.ok) {
-                        showAlert('Return verified.', 'success');
+                        showAlertModal('Return verified successfully.', 'success');
                         closeDetailModal();
                         loadPendingReturns();
                         loadTransactions();
                     } else {
                         const data = await res.json();
-                        showAlert(data.error || 'Verification failed. Please try again.', 'error');
+                        showAlertModal(data.error || 'Verification failed. Please try again.', 'error');
                     }
                 } catch (err) {
-                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                 }
             });
         });
@@ -637,7 +741,7 @@
             window._lostKeysData = data;
         } catch (err) {
             updateNumber('lostKeysCount', 0);
-            showAlert(err.message || 'Unable to load lost keys. Please refresh the page.', 'error');
+            showAlertModal(err.message || 'Unable to load lost keys. Please refresh the page.', 'error');
         }
     }
 
@@ -660,30 +764,33 @@
                 <td>
                     <div class="lost-keys-actions">
                         ${!item.resolved_at ? `
-                            <button class="btn-action btn-view btn-action-sm" data-tx-id="${item.id}" title="View Details">
+                            <button class="btn-action btn-view" data-tx-id="${item.id}" title="View Details">
                                 <i class="fas fa-eye"></i> View
                             </button>
-                            <button class="btn-action btn-edit btn-action-sm" data-tx-id="${item.id}" title="Edit">
+                            <button class="btn-action btn-edit" data-tx-id="${item.id}" title="Edit">
                                 <i class="fas fa-edit"></i> Edit
                             </button>
                             ${!item.fine_id ? `
-                                <button class="btn-action btn-primary btn-action-sm" data-tx-id="${item.id}" data-action="create-fine" title="Create Fee">
+                                <button class="btn-action btn-primary" data-tx-id="${item.id}" data-action="create-fine" title="Create Fee">
                                     <i class="fas fa-plus-circle"></i> Fee
                                 </button>
                             ` : ''}
-                            <button class="btn-action btn-success btn-action-sm" data-tx-id="${item.id}" data-action="close-ticket" title="Close Ticket">
+                            <button class="btn-action btn-success" data-tx-id="${item.id}" data-action="close-ticket" title="Close Ticket">
                                 <i class="fas fa-check-circle"></i> Close
                             </button>
+                            <button class="btn-action btn-warning" data-tx-id="${item.id}" data-action="make-available" title="Make Available">
+                                <i class="fas fa-check"></i> Available
+                            </button>
                         ` : `
-                            <button class="btn-action btn-view btn-action-sm" data-tx-id="${item.id}" title="View Details">
+                            <button class="btn-action btn-view" data-tx-id="${item.id}" title="View Details">
                                 <i class="fas fa-eye"></i> View
                             </button>
                         `}
                         ${item.fine_id && item.fine_status === 'pending' ? `
-                            <button class="btn-action btn-success btn-action-sm" data-tx-id="${item.id}" data-action="mark-paid" data-fine-id="${item.fine_id}" title="Mark Paid">
+                            <button class="btn-action btn-success" data-tx-id="${item.id}" data-action="mark-paid" data-fine-id="${item.fine_id}" title="Mark Paid">
                                 <i class="fas fa-dollar-sign"></i> Paid
                             </button>
-                            <button class="btn-action btn-warning btn-action-sm" data-tx-id="${item.id}" data-action="waive" data-fine-id="${item.fine_id}" title="Waive">
+                            <button class="btn-action btn-warning" data-tx-id="${item.id}" data-action="waive" data-fine-id="${item.fine_id}" title="Waive">
                                 <i class="fas fa-handshake"></i> Waive
                             </button>
                         ` : ''}
@@ -701,7 +808,7 @@
                     const txId = parseInt(row.dataset.txId);
                     const item = window._lostKeysData.find(d => d.id === txId);
                     if (item) showLostKeyDetailFromItem(item);
-                    else showAlert('Key details not found. Please refresh and try again.', 'warning');
+                    else showAlertModal('Key details not found. Please refresh and try again.', 'warning');
                 }
             });
             modalContent.addEventListener('click', lostKeysActionHandler);
@@ -717,7 +824,7 @@
         const txId = parseInt(btn.dataset.txId);
         const item = window._lostKeysData?.find(d => d.id === txId);
         if (!item) {
-            showAlert('Key details not found. Please refresh.', 'warning');
+            showAlertModal('Key details not found. Please refresh.', 'warning');
             return;
         }
         executeLostKeyAction(action, item);
@@ -736,18 +843,23 @@
                 if (!confirm(`Create a $50 fee for lost key ${keyCode}?`)) return;
                 try {
                     const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/create-fine`, { method: 'POST' });
+                    const data = await res.json();
                     if (res.ok) {
-                        showAlert('Fee created.', 'success');
+                        await logAuditEvent('create_fine', 'lost_key', item.id, {
+                            key_code: keyCode,
+                            amount: 50,
+                            borrower: item.borrower_name || item.borrower_email
+                        });
+                        showAlertModal('Fee created successfully.', 'success');
                         closeDetailModal();
                         await loadLostKeys();
                         await loadTransactions();
                         await loadLostKeysManagement();
                     } else {
-                        const data = await res.json();
-                        showAlert(data.error || 'Failed to create fee. Please try again.', 'error');
+                        showAlertModal(data.error || 'Failed to create fee. Please try again.', 'error');
                     }
                 } catch (err) {
-                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                 }
                 break;
             case 'mark-paid':
@@ -755,17 +867,21 @@
                 try {
                     const res = await authenticatedFetch(`/api/admin/fines/${item.fine_id}/paid`, { method: 'POST' });
                     if (res.ok) {
-                        showAlert('Fee marked paid.', 'success');
+                        await logAuditEvent('mark_fine_paid', 'lost_key', item.id, {
+                            key_code: keyCode,
+                            fine_id: item.fine_id
+                        });
+                        showAlertModal('Fee marked paid.', 'success');
                         closeDetailModal();
                         await loadLostKeys();
                         await loadTransactions();
                         await loadLostKeysManagement();
                     } else {
                         const data = await res.json();
-                        showAlert(data.error || 'Action failed. Please try again.', 'error');
+                        showAlertModal(data.error || 'Action failed. Please try again.', 'error');
                     }
                 } catch (err) {
-                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                 }
                 break;
             case 'waive':
@@ -773,17 +889,21 @@
                 try {
                     const res = await authenticatedFetch(`/api/admin/fines/${item.fine_id}/waived`, { method: 'POST' });
                     if (res.ok) {
-                        showAlert('Fee waived.', 'success');
+                        await logAuditEvent('waive_fine', 'lost_key', item.id, {
+                            key_code: keyCode,
+                            fine_id: item.fine_id
+                        });
+                        showAlertModal('Fee waived.', 'success');
                         closeDetailModal();
                         await loadLostKeys();
                         await loadTransactions();
                         await loadLostKeysManagement();
                     } else {
                         const data = await res.json();
-                        showAlert(data.error || 'Action failed. Please try again.', 'error');
+                        showAlertModal(data.error || 'Action failed. Please try again.', 'error');
                     }
                 } catch (err) {
-                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                 }
                 break;
             case 'close-ticket':
@@ -795,7 +915,11 @@
                         body: JSON.stringify({ resolution_notes: notes || null })
                     });
                     if (res.ok) {
-                        showAlert('Ticket closed.', 'success');
+                        await logAuditEvent('close_lost_ticket', 'lost_key', item.id, {
+                            key_code: keyCode,
+                            resolution_notes: notes || null
+                        });
+                        showAlertModal('Ticket closed successfully.', 'success');
                         closeDetailModal();
                         await loadLostKeys();
                         await loadTransactions();
@@ -803,10 +927,34 @@
                         await loadLostKeysManagement();
                     } else {
                         const data = await res.json();
-                        showAlert(data.error || 'Failed to close ticket. Please try again.', 'error');
+                        showAlertModal(data.error || 'Failed to close ticket. Please try again.', 'error');
                     }
                 } catch (err) {
-                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                }
+                break;
+            case 'make-available':
+                if (!confirm(`Mark key ${keyCode} as available again? This will make it available for borrowing.`)) return;
+                try {
+                    const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/make-available`, {
+                        method: 'POST'
+                    });
+                    if (res.ok) {
+                        await logAuditEvent('make_key_available', 'lost_key', item.id, {
+                            key_code: keyCode
+                        });
+                        showAlertModal(`Key ${keyCode} is now available.`, 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                        await loadInventory();
+                        await loadLostKeysManagement();
+                    } else {
+                        const data = await res.json();
+                        showAlertModal(data.error || 'Failed to make key available. Please try again.', 'error');
+                    }
+                } catch (err) {
+                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                 }
                 break;
         }
@@ -821,9 +969,8 @@
             const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}`);
             const data = await res.json();
             const formatAmount = (amount) => {
-                if (amount === null || amount === undefined) return '0.00';
-                const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-                return isNaN(num) ? '0.00' : num.toFixed(2);
+                const num = safeNumber(amount);
+                return num.toFixed(2);
             };
             const statusClass = data.resolved_at ? 'returned' : 'lost';
             const statusLabel = data.resolved_at ? 'Resolved' : 'Lost';
@@ -864,7 +1011,7 @@
             content.innerHTML = html;
         } catch (err) {
             content.innerHTML = `<div class="text-center py-8 text-rose-600">Unable to load details: ${escapeHtml(err.message || 'Please refresh and try again.')}</div>`;
-            showAlert(err.message || 'Failed to load lost key details. Please check your connection.', 'error');
+            showAlertModal(err.message || 'Failed to load lost key details. Please check your connection.', 'error');
         }
     }
 
@@ -963,7 +1110,7 @@
             last.innerText = data.checked_at ? `Last check: ${formatDate(data.checked_at)}` : 'Last check: --';
         } catch (err) {
             document.getElementById('auditStatusText').innerHTML = '❌ Unable to verify audit integrity. Please refresh.';
-            showAlert(err.message || 'Failed to load audit health status. Please check your network.', 'error');
+            showAlertModal(err.message || 'Failed to load audit health status. Please check your network.', 'error');
         }
     }
 
@@ -977,7 +1124,7 @@
             applyInventoryFilters();
         } catch (err) {
             container.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-rose-600">Unable to load keys. Please refresh the page.</td></tr>';
-            showAlert(err.message || 'Failed to load inventory. Please check your network.', 'error');
+            showAlertModal(err.message || 'Failed to load inventory. Please check your network.', 'error');
         }
     }
 
@@ -1100,7 +1247,7 @@
             document.getElementById('keyDetailModalTitle').textContent = `Key: ${key.code}`;
         } catch (err) {
             content.innerHTML = `<div class="text-center py-8 text-rose-600">Unable to load key details: ${escapeHtml(err.message || 'Please refresh and try again.')}</div>`;
-            showAlert(err.message || 'Failed to load key details. Please check your connection.', 'error');
+            showAlertModal(err.message || 'Failed to load key details. Please check your connection.', 'error');
         }
     }
 
@@ -1129,7 +1276,7 @@
             updateManageKeyPagination();
         } catch (err) {
             tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-rose-600">Unable to load keys.</td></tr>';
-            showAlert(err.message || 'Failed to load keys for management.', 'error');
+            showAlertModal(err.message || 'Failed to load keys for management.', 'error');
         }
     }
 
@@ -1154,12 +1301,14 @@
                     <td class="text-left">${escapeHtml(key.brand)}</td>
                     <td class="text-left">${escapeHtml(setsDisplay)}</td>
                     <td class="text-right">
-                        <button class="btn btn-sm btn-secondary edit-manage-key-btn" data-id="${key.id}" style="margin-right:4px;">
-                            <i class="fas fa-edit"></i> Edit
-                        </button>
-                        <button class="btn btn-sm btn-critical delete-manage-key-btn" data-id="${key.id}" data-code="${escapeHtml(key.code)}">
-                            <i class="fas fa-trash"></i> Delete
-                        </button>
+                        <div class="action-buttons" style="justify-content:flex-end;">
+                            <button class="btn btn-secondary btn-sm edit-manage-key-btn" data-id="${key.id}">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                            <button class="btn btn-danger btn-sm delete-manage-key-btn" data-id="${key.id}" data-code="${escapeHtml(key.code)}">
+                                <i class="fas fa-trash"></i> Delete
+                            </button>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -1183,15 +1332,18 @@
                 try {
                     const res = await authenticatedFetch(`/api/admin/keys/${id}`, { method: 'DELETE' });
                     if (res.ok) {
-                        showToast('Key deleted.', 'success');
+                        await logAuditEvent('delete_key', 'key', id, {
+                            key_code: code
+                        });
+                        showAlertModal('Key deleted successfully.', 'success');
                         fetchManageKeys();
                         loadInventory();
                     } else {
                         const data = await res.json();
-                        showAlert(data.error || 'Deletion failed. Please try again.', 'error');
+                        showAlertModal(data.error || 'Deletion failed. Please try again.', 'error');
                     }
                 } catch (err) {
-                    showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                 }
             });
         });
@@ -1261,7 +1413,7 @@
         } catch (err) {
             const emailTab = document.querySelector('.tab-button[data-tab="email"]');
             if (emailTab) emailTab.style.display = 'none';
-            showAlert(err.message || 'Unable to load permissions. Please refresh.', 'error');
+            showAlertModal(err.message || 'Unable to load permissions. Please refresh.', 'error');
             return false;
         }
     }
@@ -1304,7 +1456,7 @@
             });
         } catch (err) {
             container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load templates. Please refresh.</div>';
-            showAlert(err.message || 'Unable to load email templates. Please check your network.', 'error');
+            showAlertModal(err.message || 'Unable to load email templates. Please check your network.', 'error');
         }
     }
 
@@ -1327,8 +1479,10 @@
                     <td class="text-left">${escapeHtml(t.subject)}</td>
                     <td>${t.is_active ? '✅' : '❌'}</td>
                     <td class="text-right">
-                        <button class="btn btn-sm btn-secondary edit" data-key="${escapeHtml(t.template_key)}" title="Edit"><i class="fas fa-edit"></i> Edit</button>
-                        <button class="btn btn-sm btn-critical delete" data-key="${escapeHtml(t.template_key)}" title="Delete"><i class="fas fa-trash"></i> Delete</button>
+                        <div class="action-buttons" style="justify-content:flex-end;">
+                            <button class="btn btn-secondary btn-sm edit" data-key="${escapeHtml(t.template_key)}" title="Edit"><i class="fas fa-edit"></i> Edit</button>
+                            <button class="btn btn-danger btn-sm delete" data-key="${escapeHtml(t.template_key)}" title="Delete"><i class="fas fa-trash"></i> Delete</button>
+                        </div>
                     </td>
                 </tr>`;
             }
@@ -1349,21 +1503,24 @@
                     try {
                         const res = await authenticatedFetch(`/api/admin/email/templates/${key}`, { method: 'DELETE' });
                         if (res.ok) {
-                            showAlert('Template deleted.', 'success');
+                            await logAuditEvent('delete_email_template', 'email_template', key, {
+                                template_key: key
+                            });
+                            showAlertModal('Template deleted successfully.', 'success');
                             openTemplateManageModal();
                             loadTemplates();
                         } else {
                             const data = await res.json();
-                            showAlert(data.error || 'Delete failed. Please try again.', 'error');
+                            showAlertModal(data.error || 'Delete failed. Please try again.', 'error');
                         }
                     } catch (err) {
-                        showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                     }
                 });
             });
         } catch (err) {
             container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load templates. Please refresh.</div>';
-            showAlert(err.message || 'Unable to load templates. Please check your network.', 'error');
+            showAlertModal(err.message || 'Unable to load templates. Please check your network.', 'error');
         }
     }
 
@@ -1380,7 +1537,7 @@
             document.getElementById('templateEditModalTitle').textContent = `Edit Template: ${key}`;
             document.getElementById('templateEditModal').style.display = 'flex';
         } catch (err) {
-            showAlert(err.message || 'Failed to load template details. Please refresh.', 'error');
+            showAlertModal(err.message || 'Failed to load template details. Please refresh.', 'error');
         }
     }
 
@@ -1439,7 +1596,7 @@
             container.innerHTML = html;
         } catch (err) {
             container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load settings. Please refresh.</div>';
-            showAlert(err.message || 'Unable to load notification settings. Please check your network.', 'error');
+            showAlertModal(err.message || 'Unable to load notification settings. Please check your network.', 'error');
         }
     }
 
@@ -1473,15 +1630,18 @@
                     <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
                     <td class="text-right">
                         <div class="lost-keys-actions" style="justify-content:flex-end;">
-                            <button class="btn-action btn-view btn-action-sm view-lost-key-btn" data-id="${item.id}">
+                            <button class="btn-action btn-view view-lost-key-btn" data-id="${item.id}">
                                 <i class="fas fa-eye"></i> View
                             </button>
                             ${!item.resolved_at ? `
-                                <button class="btn-action btn-edit btn-action-sm edit-lost-key-btn" data-id="${item.id}">
+                                <button class="btn-action btn-edit edit-lost-key-btn" data-id="${item.id}">
                                     <i class="fas fa-edit"></i> Edit
                                 </button>
-                                <button class="btn-action btn-success btn-action-sm close-lost-ticket-btn" data-id="${item.id}" data-key="${escapeHtml(item.key_code)}">
+                                <button class="btn-action btn-success close-lost-ticket-btn" data-id="${item.id}" data-key="${escapeHtml(item.key_code)}">
                                     <i class="fas fa-check-circle"></i> Close
+                                </button>
+                                <button class="btn-action btn-warning make-available-btn" data-id="${item.id}" data-key="${escapeHtml(item.key_code)}">
+                                    <i class="fas fa-check"></i> Available
                                 </button>
                             ` : ''}
                         </div>
@@ -1517,21 +1677,52 @@
                             body: JSON.stringify({ resolution_notes: notes || null })
                         });
                         if (res.ok) {
-                            showAlert('Ticket closed.', 'success');
+                            await logAuditEvent('close_lost_ticket', 'lost_key', id, {
+                                key_code: key,
+                                resolution_notes: notes || null
+                            });
+                            showAlertModal('Ticket closed successfully.', 'success');
                             loadLostKeysManagement();
                             loadLostKeys();
                         } else {
                             const data = await res.json();
-                            showAlert(data.error || 'Failed to close ticket.', 'error');
+                            showAlertModal(data.error || 'Failed to close ticket.', 'error');
                         }
                     } catch (err) {
-                        showAlert(err.message || 'Network error.', 'error');
+                        showAlertModal(err.message || 'Network error.', 'error');
+                    }
+                });
+            });
+
+            document.querySelectorAll('.make-available-btn').forEach(btn => {
+                btn.addEventListener('click', async function() {
+                    const id = parseInt(this.dataset.id);
+                    const key = this.dataset.key;
+                    if (!confirm(`Mark key ${key} as available again?`)) return;
+                    try {
+                        const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/make-available`, {
+                            method: 'POST'
+                        });
+                        if (res.ok) {
+                            await logAuditEvent('make_key_available', 'lost_key', id, {
+                                key_code: key
+                            });
+                            showAlertModal(`Key ${key} is now available.`, 'success');
+                            loadLostKeysManagement();
+                            loadLostKeys();
+                            loadInventory();
+                        } else {
+                            const data = await res.json();
+                            showAlertModal(data.error || 'Failed to make key available.', 'error');
+                        }
+                    } catch (err) {
+                        showAlertModal(err.message || 'Network error.', 'error');
                     }
                 });
             });
         } catch (err) {
             container.innerHTML = `<div class="text-center py-8 text-rose-600">Failed to load lost keys: ${escapeHtml(err.message)}</div>`;
-            showAlert(err.message || 'Failed to load lost keys.', 'error');
+            showAlertModal(err.message || 'Failed to load lost keys.', 'error');
         }
     }
 
@@ -1545,6 +1736,10 @@
             const data = await res.json();
             const statusClass = data.resolved_at ? 'returned' : 'lost';
             const statusLabel = data.resolved_at ? 'Resolved' : 'Lost';
+            const formatAmount = (amount) => {
+                const num = safeNumber(amount);
+                return num.toFixed(2);
+            };
             const html = `
                 <div class="detail-section">
                     <div class="detail-label">Key Information</div>
@@ -1575,7 +1770,7 @@
                 <div class="detail-section">
                     <div class="detail-label">Fee</div>
                     <div class="detail-grid">
-                        <div><span class="detail-label">Amount</span><div class="detail-value">$${data.fine.amount.toFixed(2)}</div></div>
+                        <div><span class="detail-label">Amount</span><div class="detail-value">$${formatAmount(data.fine.amount)}</div></div>
                         <div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ${data.fine.status === 'paid' ? 'returned' : 'pending'}">${escapeHtml(data.fine.status || 'pending')}</span></div></div>
                         <div><span class="detail-label">Issued</span><div class="detail-value">${formatDate(data.fine.created_at)}</div></div>
                         ${data.fine.paid_at ? `<div><span class="detail-label">Paid At</span><div class="detail-value">${formatDate(data.fine.paid_at)}</div></div>` : ''}
@@ -1587,7 +1782,7 @@
             document.getElementById('lostKeyDetailTitle').textContent = `Lost Key: ${data.key_code}`;
         } catch (err) {
             content.innerHTML = `<div class="text-center py-8 text-rose-600">Unable to load details: ${escapeHtml(err.message || 'Please refresh and try again.')}</div>`;
-            showAlert(err.message || 'Failed to load lost key details.', 'error');
+            showAlertModal(err.message || 'Failed to load lost key details.', 'error');
         }
     }
 
@@ -1609,7 +1804,7 @@
             document.getElementById('editLostStatus').value = data.resolved_at ? 'resolved' : 'lost';
             document.getElementById('lostKeyEditTitle').textContent = `Edit Lost Key: ${data.key_code}`;
         } catch (err) {
-            showAlert(err.message || 'Failed to load lost key details.', 'error');
+            showAlertModal(err.message || 'Failed to load lost key details.', 'error');
             modal.style.display = 'none';
         }
     }
@@ -1639,12 +1834,14 @@
                     <td class="text-left">${escapeHtml(r.email)}</td>
                     <td><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
                     <td class="text-right">
-                        <button class="btn btn-sm btn-secondary toggle-admin-recipient" data-user-id="${r.id}" data-enabled="${r.enabled}">
-                            <i class="fas ${r.enabled ? 'fa-pause' : 'fa-play'}"></i> ${r.enabled ? 'Disable' : 'Enable'}
-                        </button>
-                        <button class="btn btn-sm btn-critical delete-admin-recipient" data-user-id="${r.id}" data-name="${escapeHtml(r.name)}">
-                            <i class="fas fa-trash"></i> Remove
-                        </button>
+                        <div class="action-buttons" style="justify-content:flex-end;">
+                            <button class="btn btn-secondary btn-sm toggle-admin-recipient" data-user-id="${r.id}" data-enabled="${r.enabled}">
+                                <i class="fas ${r.enabled ? 'fa-pause' : 'fa-play'}"></i> ${r.enabled ? 'Disable' : 'Enable'}
+                            </button>
+                            <button class="btn btn-danger btn-sm delete-admin-recipient" data-user-id="${r.id}" data-name="${escapeHtml(r.name)}">
+                                <i class="fas fa-trash"></i> Remove
+                            </button>
+                        </div>
                     </td>
                 </tr>`;
             }
@@ -1662,14 +1859,17 @@
                             body: JSON.stringify({ user_id: userId, enabled: newEnabled })
                         });
                         if (res.ok) {
-                            showAlert(`Recipient ${newEnabled ? 'enabled' : 'disabled'}.`, 'success');
+                            await logAuditEvent('toggle_admin_recipient', 'admin_recipient', userId, {
+                                enabled: newEnabled
+                            });
+                            showAlertModal(`Recipient ${newEnabled ? 'enabled' : 'disabled'}.`, 'success');
                             loadAdminRecipients();
                         } else {
                             const data = await res.json();
-                            showAlert(data.error || 'Update failed.', 'error');
+                            showAlertModal(data.error || 'Update failed.', 'error');
                         }
                     } catch (err) {
-                        showAlert(err.message || 'Network error.', 'error');
+                        showAlertModal(err.message || 'Network error.', 'error');
                     }
                 });
             });
@@ -1682,20 +1882,23 @@
                     try {
                         const res = await authenticatedFetch(`/api/admin/admin-notification-recipients/${userId}`, { method: 'DELETE' });
                         if (res.ok) {
-                            showAlert('Recipient removed.', 'success');
+                            await logAuditEvent('delete_admin_recipient', 'admin_recipient', userId, {
+                                name: name
+                            });
+                            showAlertModal('Recipient removed successfully.', 'success');
                             loadAdminRecipients();
                         } else {
                             const data = await res.json();
-                            showAlert(data.error || 'Removal failed.', 'error');
+                            showAlertModal(data.error || 'Removal failed.', 'error');
                         }
                     } catch (err) {
-                        showAlert(err.message || 'Network error.', 'error');
+                        showAlertModal(err.message || 'Network error.', 'error');
                     }
                 });
             });
         } catch (err) {
             container.innerHTML = `<div class="text-center py-8 text-rose-600">Failed to load recipients: ${escapeHtml(err.message)}</div>`;
-            showAlert(err.message || 'Failed to load admin notification recipients.', 'error');
+            showAlertModal(err.message || 'Failed to load admin notification recipients.', 'error');
         }
     }
 
@@ -1720,7 +1923,7 @@
             }
         } catch (err) {
             select.innerHTML = '<option value="">Error loading users</option>';
-            showAlert(err.message || 'Failed to load available admins.', 'error');
+            showAlertModal(err.message || 'Failed to load available admins.', 'error');
         }
     }
 
@@ -1758,7 +1961,7 @@
             });
         } catch (err) {
             tbody.innerHTML = '<tr><td colspan="4" class="text-rose-600 text-center py-8">Unable to load audit logs. Please refresh.</td></tr>';
-            showAlert(err.message || 'Failed to load audit logs. Please check your network.', 'error');
+            showAlertModal(err.message || 'Failed to load audit logs. Please check your network.', 'error');
         }
     }
 
@@ -1818,7 +2021,7 @@
             renderPermissions();
         } catch (err) {
             container.innerHTML = `<div class="text-rose-600 text-center py-8">Error: ${escapeHtml(err.message)}</div>`;
-            showAlert(err.message || 'Unable to load permissions. Please refresh.', 'error');
+            showAlertModal(err.message || 'Unable to load permissions. Please refresh.', 'error');
         }
     }
 
@@ -1846,9 +2049,9 @@
                 html += `<td><input type="checkbox" class="permission-checkbox" data-role="${escapeHtml(role)}" data-perm-id="${p.permission_id}" ${checked}></td>`;
             }
             if (role.toLowerCase() === 'admin') {
-                html += `<td><button class="btn btn-sm btn-secondary viewRoleBtn" data-role="${escapeHtml(role)}"><i class="fas fa-eye"></i> View</button></td>`;
+                html += `<td><button class="btn btn-secondary btn-sm viewRoleBtn" data-role="${escapeHtml(role)}"><i class="fas fa-eye"></i> View</button></td>`;
             } else {
-                html += `<td><button class="btn btn-sm btn-critical deleteRoleBtn" data-role="${escapeHtml(role)}"><i class="fas fa-trash"></i> Delete</button></td>`;
+                html += `<td><button class="btn btn-danger btn-sm deleteRoleBtn" data-role="${escapeHtml(role)}"><i class="fas fa-trash"></i> Delete</button></td>`;
             }
             html += `</tr>`;
         }
@@ -1862,7 +2065,7 @@
                     delete permissionsData.roleMappings[role];
                     permissionsData.roles = Object.keys(permissionsData.roleMappings);
                     renderPermissions();
-                    showAlert(`Role "${role}" removed.`, 'info');
+                    showAlertModal(`Role "${role}" removed.`, 'info');
                 }
             });
         });
@@ -1901,7 +2104,7 @@
             allRolesList = roleNames;
             populateRoleDropdowns(roleNames);
         } catch (err) {
-            showAlert(err.message || 'Failed to load roles. Please refresh.', 'error');
+            showAlertModal(err.message || 'Failed to load roles. Please refresh.', 'error');
         }
     }
 
@@ -1962,8 +2165,10 @@
                     <td>${escapeHtml(req.username || '—')}</td>
                     <td>${formatDate(req.created_at)}</td>
                     <td>
-                        <button class="btn btn-sm btn-primary approveRequestBtn" data-id="${req.id}">Approve</button>
-                        <button class="btn btn-sm btn-critical rejectRequestBtn" data-id="${req.id}">Reject</button>
+                        <div class="action-buttons">
+                            <button class="btn btn-success approveRequestBtn" data-id="${req.id}"><i class="fas fa-check"></i> Approve</button>
+                            <button class="btn btn-danger rejectRequestBtn" data-id="${req.id}"><i class="fas fa-times"></i> Reject</button>
+                        </div>
                     </td>
                 </tr>`;
             }
@@ -1977,13 +2182,18 @@
                             const res = await authenticatedFetch(`/api/auth/admin/pending-requests/${id}/approve`, { method: 'POST' });
                             const data = await res.json();
                             if (res.ok) {
-                                showAlert('User approved. Password sent.', 'success');
+                                await logAuditEvent('registration_approved', 'registration_request', id, {
+                                    user_name: data.name,
+                                    user_email: data.email,
+                                    approved_by: getUser()?.name || 'Admin'
+                                });
+                                showAlertModal(data.message || 'User approved. Password sent.', 'success');
                                 loadPendingRegistrations();
                             } else {
-                                showAlert(data.error || 'Approval failed. Please try again.', 'error');
+                                showAlertModal(data.error || 'Approval failed. Please try again.', 'error');
                             }
                         } catch (err) {
-                            showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                            showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                         }
                     }
                 });
@@ -2000,20 +2210,24 @@
                             });
                             const data = await res.json();
                             if (res.ok) {
-                                showAlert('Request rejected.', 'success');
+                                await logAuditEvent('registration_rejected', 'registration_request', id, {
+                                    reason: reason || 'No reason provided',
+                                    rejected_by: getUser()?.name || 'Admin'
+                                });
+                                showAlertModal('Request rejected successfully.', 'success');
                                 loadPendingRegistrations();
                             } else {
-                                showAlert(data.error || 'Rejection failed. Please try again.', 'error');
+                                showAlertModal(data.error || 'Rejection failed. Please try again.', 'error');
                             }
                         } catch (err) {
-                            showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                            showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                         }
                     }
                 });
             });
         } catch (err) {
             container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load requests. Please refresh the page.</div>';
-            showAlert(err.message || 'Unable to load pending requests. Please check your internet connection.', 'error');
+            showAlertModal(err.message || 'Unable to load pending requests. Please check your internet connection.', 'error');
         }
     }
 
@@ -2073,7 +2287,7 @@
                 updateInlinePagination();
             } catch (err) {
                 tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-rose-600">Unable to load users. Please refresh.</td></tr>`;
-                showAlert(err.message || 'Failed to load users. Please check your network.', 'error');
+                showAlertModal(err.message || 'Failed to load users. Please check your network.', 'error');
             }
         }
 
@@ -2163,7 +2377,7 @@
                 if (manageTotalLabel) manageTotalLabel.textContent = `Total: ${manageTotal}`;
             } catch (err) {
                 manageTbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-rose-600">Unable to load users. Please refresh.</td></tr>`;
-                showAlert(err.message || 'Failed to load users. Please check your network.', 'error');
+                showAlertModal(err.message || 'Failed to load users. Please check your network.', 'error');
             }
         }
 
@@ -2195,15 +2409,14 @@
                         <td><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
                         <td>${formatLastActive(user.lastActive)}</td>
                         <td class="actions-cell">
-                            <button class="btn btn-sm btn-secondary manageActionDots" data-user-id="${user.id}">
-                                <i class="fas fa-ellipsis-v"></i> Actions
-                            </button>
-                            <div class="manage-action-menu" data-user-id="${user.id}">
-                                <div class="py-1">
+                            <div class="action-buttons" style="justify-content:flex-end;">
+                                <button class="btn btn-secondary btn-sm manageActionDots" data-user-id="${user.id}">
+                                    <i class="fas fa-ellipsis-v"></i> Actions
+                                </button>
+                                <div class="manage-action-menu" data-user-id="${user.id}">
                                     <button class="manageEditUserBtn menu-item" data-user-id="${user.id}"><i class="fas fa-edit"></i> Edit</button>
                                     <button class="manageSuspendUserBtn menu-item" data-user-id="${user.id}" data-status="${user.status}"><i class="fas fa-ban"></i> ${user.status === 'suspended' ? 'Unsuspend' : 'Suspend'}</button>
                                     ${user.status === 'locked' ? `<button class="manageUnlockUserBtn menu-item" data-user-id="${user.id}"><i class="fas fa-unlock"></i> Unlock</button>` : ''}
-                                    <div class="menu-divider"></div>
                                     <button class="manageDeleteUserBtn menu-item text-rose-600" data-user-id="${user.id}"><i class="fas fa-trash"></i> Delete</button>
                                 </div>
                             </div>
@@ -2254,11 +2467,15 @@
                     try {
                         const res = await authenticatedFetch(`/api/admin/users/${userId}/suspend`, { method: 'PATCH' });
                         const data = await res.json();
-                        showAlert(`User ${user.name} ${data.status === 'suspended' ? 'suspended' : 'activated'}.`, 'success');
+                        await logAuditEvent('toggle_user_suspend', 'user', userId, {
+                            status: data.status,
+                            user_name: user.name
+                        });
+                        showAlertModal(`User ${user.name} ${data.status === 'suspended' ? 'suspended' : 'activated'}.`, 'success');
                         fetchManageUsers();
                         fetchUsersInline();
                     } catch (err) {
-                        showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                     }
                     document.querySelectorAll('.manage-action-menu').forEach(m => m.classList.remove('show'));
                 });
@@ -2271,11 +2488,14 @@
                     if (!confirm(`Unlock account for ${user.name}?`)) return;
                     try {
                         await authenticatedFetch(`/api/admin/users/${userId}/unlock`, { method: 'POST' });
-                        showAlert(`User ${user.name} unlocked successfully.`, 'success');
+                        await logAuditEvent('unlock_user', 'user', userId, {
+                            user_name: user.name
+                        });
+                        showAlertModal(`User ${user.name} unlocked successfully.`, 'success');
                         fetchManageUsers();
                         fetchUsersInline();
                     } catch (err) {
-                        showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                     }
                     document.querySelectorAll('.manage-action-menu').forEach(m => m.classList.remove('show'));
                 });
@@ -2321,8 +2541,8 @@
             const email = document.getElementById('acmEmail').value.trim();
             const role = document.getElementById('acmRole').value;
             const status = document.getElementById('acmStatus').value;
-            if (!name || !email) { showAlert('Name and email are required', 'error'); return; }
-            if (!role) { showAlert('Please select a role.', 'error'); return; }
+            if (!name || !email) { showAlertModal('Name and email are required', 'error'); return; }
+            if (!role) { showAlertModal('Please select a role.', 'error'); return; }
             saveUserBtn.disabled = true;
             saveUserBtn.innerText = 'Saving...';
             try {
@@ -2335,15 +2555,21 @@
                 }
                 const data = await res.json();
                 if (res.ok) {
-                    showAlert(editUserId ? 'User updated.' : `User ${data.name} created.`, 'success');
+                    await logAuditEvent(editUserId ? 'update_user' : 'create_user', 'user', data.id || editUserId, {
+                        user_name: name,
+                        user_email: email,
+                        role: role,
+                        status: status
+                    });
+                    showAlertModal(editUserId ? 'User updated successfully.' : `User ${data.name} created successfully.`, 'success');
                     closeUserModal();
                     fetchUsersInline();
                     fetchManageUsers();
                 } else {
-                    showAlert(data.error || 'Operation failed. Please try again.', 'error');
+                    showAlertModal(data.error || 'Operation failed. Please try again.', 'error');
                 }
             } catch (err) {
-                showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
             } finally {
                 saveUserBtn.disabled = false;
                 saveUserBtn.innerText = 'Save User';
@@ -2357,13 +2583,16 @@
             confirmDeleteBtn.innerText = 'Deleting...';
             try {
                 await authenticatedFetch(`/api/admin/users/${deleteUserId}`, { method: 'DELETE' });
-                showAlert('User deleted.', 'success');
+                await logAuditEvent('delete_user', 'user', deleteUserId, {
+                    user_id: deleteUserId
+                });
+                showAlertModal('User deleted successfully.', 'success');
                 closeDeleteModal();
                 deleteUserId = null;
                 fetchUsersInline();
                 fetchManageUsers();
             } catch (err) {
-                showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
             } finally {
                 confirmDeleteBtn.disabled = false;
                 confirmDeleteBtn.innerText = 'Delete';
@@ -2399,18 +2628,15 @@
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
-            // Always redirect to force-logout for complete cleanup
             window.location.replace('/force-logout');
         }
     }
 
     function initEventListeners() {
-        document.getElementById('alertOkBtn')?.addEventListener('click', () => {
-            document.getElementById('alertModal').classList.remove('active');
-        });
-
+        // Alert Modal listeners
+        document.getElementById('alertOkBtn')?.addEventListener('click', closeAlertModal);
         document.getElementById('alertModal')?.addEventListener('click', function(e) {
-            if (e.target === this) this.classList.remove('active');
+            if (e.target === this) closeAlertModal();
         });
 
         document.getElementById('closeDetailModalBtn')?.addEventListener('click', closeDetailModal);
@@ -2479,14 +2705,14 @@
             const newPassword = document.getElementById('profilePassword').value.trim();
 
             if (!name || !email) {
-                showAlert('Name and email are required.', 'error');
+                showAlertModal('Name and email are required.', 'error');
                 return;
             }
 
             const payload = { name, email };
             if (newPassword) {
                 if (!currentPassword) {
-                    showAlert('Current password is required to change password.', 'error');
+                    showAlertModal('Current password is required to change password.', 'error');
                     return;
                 }
                 payload.current_password = currentPassword;
@@ -2500,7 +2726,11 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    showAlert('Profile updated successfully.', 'success');
+                    await logAuditEvent('update_profile', 'user_profile', 'self', {
+                        name: name,
+                        email: email
+                    });
+                    showAlertModal('Profile updated successfully.', 'success');
                     const user = getUser();
                     if (user) {
                         user.name = name;
@@ -2510,10 +2740,10 @@
                     }
                     document.getElementById('profileModal').style.display = 'none';
                 } else {
-                    showAlert(data.error || 'Failed to update profile. Please try again.', 'error');
+                    showAlertModal(data.error || 'Failed to update profile. Please try again.', 'error');
                 }
             } catch (err) {
-                showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
             }
         });
 
@@ -2602,16 +2832,19 @@
                 });
                 const data = await res.json();
                 if (res.ok) {
-                    showAlert(action === 'approve' ? 'Request approved.' : 'Request denied.', 'success');
+                    await logAuditEvent(action === 'approve' ? 'approve_request' : 'deny_request', 'request', id, {
+                        admin_notes: notes || null
+                    });
+                    showAlertModal(action === 'approve' ? 'Request approved.' : 'Request denied.', 'success');
                     document.getElementById('adminModal').style.display = 'none';
                     loadPendingRequests();
                     loadTransactions();
                     loadPendingReturns();
                 } else {
-                    showAlert(data.error || 'Action failed. Please try again.', 'error');
+                    showAlertModal(data.error || 'Action failed. Please try again.', 'error');
                 }
             } catch (err) {
-                showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
             }
         });
 
@@ -2741,7 +2974,7 @@
             const is_lost = document.getElementById('editKeyLost').checked;
 
             if (!code || !brand) {
-                showAlert('Code and brand are required.', 'error');
+                showAlertModal('Code and brand are required.', 'error');
                 return;
             }
 
@@ -2772,15 +3005,19 @@
                 const res = await authenticatedFetch(url, { method, body: JSON.stringify(payload) });
                 const data = await res.json();
                 if (res.ok) {
-                    showAlert(id ? 'Key updated.' : 'Key created.', 'success');
+                    await logAuditEvent(id ? 'update_key' : 'create_key', 'key', data.id || id, {
+                        key_code: code,
+                        brand: brand
+                    });
+                    showAlertModal(id ? 'Key updated successfully.' : 'Key created successfully.', 'success');
                     document.getElementById('keyEditModal').style.display = 'none';
                     loadInventory();
                     if (document.getElementById('keyManageModal').style.display === 'flex') fetchManageKeys();
                 } else {
-                    showAlert(data.error || 'Save failed. Please try again.', 'error');
+                    showAlertModal(data.error || 'Save failed. Please try again.', 'error');
                 }
             } catch (err) {
-                showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
             }
         });
 
@@ -2847,7 +3084,7 @@
             const is_active = document.getElementById('editTemplateActive').checked;
             const finalKey = key || keyDisplay;
             if (!finalKey || !subject || !body_html) {
-                showAlert('Key, subject, and body are required.', 'error');
+                showAlertModal('Key, subject, and body are required.', 'error');
                 return;
             }
             const isNew = !key;
@@ -2856,16 +3093,20 @@
             try {
                 const res = await authenticatedFetch(url, { method, body: JSON.stringify({ subject, body_html, is_active }) });
                 if (res.ok) {
-                    showAlert(isNew ? 'Template created.' : 'Template updated.', 'success');
+                    await logAuditEvent(isNew ? 'create_email_template' : 'update_email_template', 'email_template', finalKey, {
+                        subject: subject,
+                        is_active: is_active
+                    });
+                    showAlertModal(isNew ? 'Template created successfully.' : 'Template updated successfully.', 'success');
                     document.getElementById('templateEditModal').style.display = 'none';
                     loadTemplates();
                     if (document.getElementById('templateManageModal').style.display === 'flex') openTemplateManageModal();
                 } else {
                     const data = await res.json();
-                    showAlert(data.error || 'Save failed. Please try again.', 'error');
+                    showAlertModal(data.error || 'Save failed. Please try again.', 'error');
                 }
             } catch (err) {
-                showAlert(err.message || 'Network error. Please check your connection.', 'error');
+                showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
             }
         });
 
@@ -2899,10 +3140,13 @@
                         body: JSON.stringify({ enabled: update.enabled, config: update.config })
                     });
                 }
-                showAlert('All settings saved.', 'success');
+                await logAuditEvent('update_notification_settings', 'settings', 'all', {
+                    updates: updates
+                });
+                showAlertModal('All settings saved successfully.', 'success');
                 loadSettings();
             } catch (err) {
-                showAlert(err.message || 'Failed to save settings. Please check your network.', 'error');
+                showAlertModal(err.message || 'Failed to save settings. Please check your network.', 'error');
             }
         });
 
@@ -2923,7 +3167,7 @@
             const select = document.getElementById('adminRecipientSelect');
             const userId = parseInt(select.value);
             if (!userId) {
-                showAlert('Please select an admin user.', 'error');
+                showAlertModal('Please select an admin user.', 'error');
                 return;
             }
             try {
@@ -2932,15 +3176,18 @@
                     body: JSON.stringify({ user_id: userId, enabled: true })
                 });
                 if (res.ok) {
-                    showAlert('Admin added to notification recipients.', 'success');
+                    await logAuditEvent('add_admin_recipient', 'admin_recipient', userId, {
+                        user_id: userId
+                    });
+                    showAlertModal('Admin added to notification recipients.', 'success');
                     document.getElementById('addAdminRecipientModal').style.display = 'none';
                     loadAdminRecipients();
                 } else {
                     const data = await res.json();
-                    showAlert(data.error || 'Failed to add recipient.', 'error');
+                    showAlertModal(data.error || 'Failed to add recipient.', 'error');
                 }
             } catch (err) {
-                showAlert(err.message || 'Network error.', 'error');
+                showAlertModal(err.message || 'Network error.', 'error');
             }
         });
 
@@ -2977,7 +3224,7 @@
             const status = document.getElementById('editLostStatus').value;
 
             if (!reason) {
-                showAlert('Reason for loss is required.', 'error');
+                showAlertModal('Reason for loss is required.', 'error');
                 return;
             }
 
@@ -2991,16 +3238,20 @@
                     })
                 });
                 if (res.ok) {
-                    showAlert('Lost key updated successfully.', 'success');
+                    await logAuditEvent('update_lost_key', 'lost_key', id, {
+                        reason: reason,
+                        status: status
+                    });
+                    showAlertModal('Lost key updated successfully.', 'success');
                     document.getElementById('lostKeyEditModal').style.display = 'none';
                     loadLostKeysManagement();
                     loadLostKeys();
                 } else {
                     const data = await res.json();
-                    showAlert(data.error || 'Update failed.', 'error');
+                    showAlertModal(data.error || 'Update failed.', 'error');
                 }
             } catch (err) {
-                showAlert(err.message || 'Network error.', 'error');
+                showAlertModal(err.message || 'Network error.', 'error');
             }
         });
 
@@ -3025,18 +3276,18 @@
         document.getElementById('confirmAddRoleBtn')?.addEventListener('click', () => {
             const name = document.getElementById('newRoleName').value.trim();
             if (!name) {
-                showAlert('Please enter a role name.', 'error');
+                showAlertModal('Please enter a role name.', 'error');
                 return;
             }
             if (permissionsData.roleMappings[name]) {
-                showAlert('Role already exists.', 'error');
+                showAlertModal('Role already exists.', 'error');
                 return;
             }
             permissionsData.roleMappings[name] = [];
             permissionsData.roles = Object.keys(permissionsData.roleMappings);
             renderPermissions();
             document.getElementById('addRoleModal').style.display = 'none';
-            showAlert(`Role "${name}" added.`, 'success');
+            showAlertModal(`Role "${name}" added.`, 'success');
         });
 
         document.getElementById('savePermissionsBtn')?.addEventListener('click', async function() {
@@ -3054,10 +3305,13 @@
                         body: JSON.stringify({ role_name: roleName, permission_ids: permIds })
                     });
                 }
-                showAlert('Permissions saved.', 'success');
+                await logAuditEvent('update_permissions', 'permissions', 'all', {
+                    updates: updates
+                });
+                showAlertModal('Permissions saved successfully.', 'success');
                 await loadPermissions();
             } catch (err) {
-                showAlert(err.message || 'Failed to save permissions. Please check your network.', 'error');
+                showAlertModal(err.message || 'Failed to save permissions. Please check your network.', 'error');
             }
         });
 

@@ -126,6 +126,8 @@
         const lockoutWarningText = document.getElementById('lockoutWarningText');
         const toggleBtn = document.querySelector('.toggle-password');
         const toggleIcon = toggleBtn?.querySelector('i');
+        
+        // Registration Modal
         const registerModal = document.getElementById('registerModal');
         const openRegisterBtn = document.getElementById('openRegisterModalBtn');
         const closeRegisterBtn = document.getElementById('closeRegisterModalBtn');
@@ -137,6 +139,18 @@
         const regEmailError = document.getElementById('regEmailError');
         const registerAlert = document.getElementById('registerAlert');
         const registerBtn = document.getElementById('registerBtn');
+        
+        // Forgot Password Modal
+        const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+        const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
+        const closeForgotPasswordModalBtn = document.getElementById('closeForgotPasswordModalBtn');
+        const cancelResetBtn = document.getElementById('cancelResetBtn');
+        const forgotPasswordForm = document.getElementById('forgotPasswordForm');
+        const resetEmail = document.getElementById('resetEmail');
+        const resetEmailError = document.getElementById('resetEmailError');
+        const resetAlert = document.getElementById('resetAlert');
+        const resetBtn = document.getElementById('resetBtn');
+
         const infoTrigger = document.getElementById('infoTrigger');
         const tooltipPopup = document.getElementById('tooltipPopup');
 
@@ -173,6 +187,19 @@
             }
         }
 
+        function showResetAlert(msg, type) {
+            if (resetAlert) {
+                resetAlert.textContent = msg;
+                resetAlert.className = 'modal-alert visible ' + type;
+            }
+        }
+
+        function hideResetAlert() {
+            if (resetAlert) {
+                resetAlert.className = 'modal-alert';
+            }
+        }
+
         if (usernameInput) {
             usernameInput.addEventListener('input', () => {
                 usernameError?.classList.remove('visible');
@@ -196,6 +223,20 @@
             });
         }
 
+        // Tooltip toggle
+        if (infoTrigger && tooltipPopup) {
+            infoTrigger.addEventListener('click', function(e) {
+                e.stopPropagation();
+                tooltipPopup.classList.toggle('show');
+            });
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.info-trigger-wrapper')) {
+                    tooltipPopup?.classList.remove('show');
+                }
+            });
+        }
+
+        // ===== LOGIN FORM =====
         if (loginForm) {
             loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -313,7 +354,8 @@
             });
         }
 
-        function openModal() {
+        // ===== REGISTRATION MODAL =====
+        function openRegisterModal() {
             registerModal?.classList.add('active');
             if (regName) regName.value = '';
             if (regEmail) regEmail.value = '';
@@ -324,40 +366,29 @@
                 registerBtn.disabled = false;
                 registerBtn.innerHTML = 'Submit request';
             }
+            tooltipPopup?.classList.remove('show');
         }
 
-        function closeModal() {
+        function closeRegisterModal() {
             registerModal?.classList.remove('active');
             tooltipPopup?.classList.remove('show');
         }
 
         if (openRegisterBtn) {
-            openRegisterBtn.addEventListener('click', openModal);
+            openRegisterBtn.addEventListener('click', openRegisterModal);
         }
 
         if (closeRegisterBtn) {
-            closeRegisterBtn.addEventListener('click', closeModal);
+            closeRegisterBtn.addEventListener('click', closeRegisterModal);
         }
 
         if (cancelRegisterBtn) {
-            cancelRegisterBtn.addEventListener('click', closeModal);
+            cancelRegisterBtn.addEventListener('click', closeRegisterModal);
         }
 
         if (registerModal) {
             registerModal.addEventListener('click', function(e) {
-                if (e.target === this) closeModal();
-            });
-        }
-
-        if (infoTrigger) {
-            infoTrigger.addEventListener('click', function(e) {
-                e.stopPropagation();
-                tooltipPopup?.classList.toggle('show');
-            });
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('.info-trigger')) {
-                    tooltipPopup?.classList.remove('show');
-                }
+                if (e.target === this) closeRegisterModal();
             });
         }
 
@@ -439,7 +470,7 @@
                             registerBtn.innerHTML = '✓ Done';
                         }
                         setTimeout(() => {
-                            closeModal();
+                            closeRegisterModal();
                             if (registerBtn) {
                                 registerBtn.disabled = false;
                                 registerBtn.innerHTML = originalText;
@@ -458,6 +489,124 @@
                     if (registerBtn) {
                         registerBtn.disabled = false;
                         registerBtn.innerHTML = originalText;
+                    }
+                }
+            });
+        }
+
+        // ===== FORGOT PASSWORD MODAL =====
+        function openForgotPasswordModal() {
+            forgotPasswordModal?.classList.add('active');
+            if (resetEmail) resetEmail.value = '';
+            hideResetAlert();
+            resetEmailError?.classList.remove('visible');
+            if (resetBtn) {
+                resetBtn.disabled = false;
+                resetBtn.innerHTML = 'Send Reset Link';
+            }
+        }
+
+        function closeForgotPasswordModal() {
+            forgotPasswordModal?.classList.remove('active');
+        }
+
+        if (forgotPasswordBtn) {
+            forgotPasswordBtn.addEventListener('click', openForgotPasswordModal);
+        }
+
+        if (closeForgotPasswordModalBtn) {
+            closeForgotPasswordModalBtn.addEventListener('click', closeForgotPasswordModal);
+        }
+
+        if (cancelResetBtn) {
+            cancelResetBtn.addEventListener('click', closeForgotPasswordModal);
+        }
+
+        if (forgotPasswordModal) {
+            forgotPasswordModal.addEventListener('click', function(e) {
+                if (e.target === this) closeForgotPasswordModal();
+            });
+        }
+
+        if (resetEmail) {
+            resetEmail.addEventListener('input', () => {
+                resetEmailError?.classList.remove('visible');
+                hideResetAlert();
+            });
+        }
+
+        if (forgotPasswordForm) {
+            forgotPasswordForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+
+                resetEmailError?.classList.remove('visible');
+                hideResetAlert();
+
+                const email = resetEmail?.value.trim() || '';
+
+                if (!email || !email.includes('@')) {
+                    if (resetEmailError) {
+                        resetEmailError.textContent = 'Valid email is required';
+                        resetEmailError.classList.add('visible');
+                    }
+                    return;
+                }
+
+                const originalText = resetBtn?.innerHTML || 'Send Reset Link';
+                if (resetBtn) {
+                    resetBtn.disabled = true;
+                    resetBtn.innerHTML = '<div class="spinner"></div> Sending...';
+                }
+
+                try {
+                    const csrf = await getCsrfToken();
+                    if (!csrf) {
+                        showResetAlert('Failed to get CSRF token. Please refresh and try again.', 'error');
+                        if (resetBtn) {
+                            resetBtn.disabled = false;
+                            resetBtn.innerHTML = originalText;
+                        }
+                        return;
+                    }
+
+                    const response = await fetch('/api/auth/forgot-password', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrf,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ email }),
+                        credentials: 'include'
+                    });
+
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        showResetAlert('✅ Password reset link sent to your email.', 'success');
+                        if (resetBtn) {
+                            resetBtn.innerHTML = '✓ Sent';
+                        }
+                        setTimeout(() => {
+                            closeForgotPasswordModal();
+                            if (resetBtn) {
+                                resetBtn.disabled = false;
+                                resetBtn.innerHTML = originalText;
+                            }
+                        }, 2500);
+                    } else {
+                        showResetAlert(data.error || 'Failed to send reset link. Please try again.', 'error');
+                        if (resetBtn) {
+                            resetBtn.disabled = false;
+                            resetBtn.innerHTML = originalText;
+                        }
+                    }
+                } catch (err) {
+                    console.error('Forgot password error:', err);
+                    showResetAlert('Network error. Please check your connection.', 'error');
+                    if (resetBtn) {
+                        resetBtn.disabled = false;
+                        resetBtn.innerHTML = originalText;
                     }
                 }
             });

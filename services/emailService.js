@@ -6,7 +6,6 @@ const { Pool } = require('pg');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-// ---------- Cache logo as base64 ----------
 let cachedLogoBase64 = null;
 
 function getLogoBase64() {
@@ -17,19 +16,18 @@ function getLogoBase64() {
             const imageBuffer = fs.readFileSync(logoPath);
             const base64 = imageBuffer.toString('base64');
             cachedLogoBase64 = `data:image/png;base64,${base64}`;
-            console.log('✅ Logo embedded as base64 for emails');
+            console.log('Logo embedded as base64 for emails');
         } else {
-            console.warn('⚠️ Logo not found at public/boi.png – emails will show no logo');
+            console.warn('Logo not found at public/boi.png – emails will show no logo');
             cachedLogoBase64 = '';
         }
     } catch (err) {
-        console.error('❌ Failed to read logo:', err);
+        console.error('Failed to read logo:', err);
         cachedLogoBase64 = '';
     }
     return cachedLogoBase64;
 }
 
-// ---------- Professional HTML wrapper ----------
 function getEmailHtml(content, subject) {
     const logoBase64 = getLogoBase64();
     const baseUrl = process.env.APP_URL || 'http://localhost:3000';
@@ -84,7 +82,6 @@ function getEmailHtml(content, subject) {
 </html>`;
 }
 
-// ---------- Transporter ----------
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -92,10 +89,6 @@ const transporter = nodemailer.createTransport({
         pass: process.env.EMAIL_PASS
     }
 });
-
-// ============================================================
-//  DATABASE HELPERS FOR TEMPLATES & SETTINGS
-// ============================================================
 
 async function loadTemplate(templateKey, data = {}) {
     const result = await pool.query(
@@ -106,7 +99,6 @@ async function loadTemplate(templateKey, data = {}) {
         throw new Error(`Template "${templateKey}" not found or inactive`);
     }
     let { subject, body_html } = result.rows[0];
-    // Replace placeholders {{key}}
     for (const [key, value] of Object.entries(data)) {
         const regex = new RegExp(`{{${key}}}`, 'g');
         subject = subject.replace(regex, String(value));
@@ -120,7 +112,7 @@ async function isNotificationEnabled(settingKey) {
         'SELECT enabled FROM notification_settings WHERE setting_key = $1',
         [settingKey]
     );
-    if (result.rowCount === 0) return true; // default enabled
+    if (result.rowCount === 0) return true;
     return result.rows[0].enabled;
 }
 
@@ -133,11 +125,6 @@ async function getNotificationConfig(settingKey) {
     return result.rows[0].config || {};
 }
 
-// ============================================================
-//  EMAIL SENDING FUNCTIONS (refactored)
-// ============================================================
-
-// ----- OTP email -----
 async function sendOtpEmail(toEmail, otp) {
     if (!(await isNotificationEnabled('send_otp'))) return;
     const { subject, body_html } = await loadTemplate('otp', { otp });
@@ -150,41 +137,71 @@ async function sendOtpEmail(toEmail, otp) {
     });
 }
 
-// ----- Password reset email -----
-async function sendPasswordResetEmail(toEmail, resetLink) {
+async function sendPasswordResetEmail(toEmail, resetLink, name = 'User') {
     if (!(await isNotificationEnabled('send_password_reset'))) return;
-    const { subject, body_html } = await loadTemplate('password_reset', { reset_link: resetLink });
-    const html = getEmailHtml(body_html, subject);
-    await transporter.sendMail({
-        from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
-        to: toEmail,
-        subject,
-        html
-    });
+    try {
+        // Try IMDA template first, fallback to legacy
+        let templateKey = 'password_reset_imda';
+        let template;
+        try {
+            template = await loadTemplate(templateKey, { 
+                name: name,
+                reset_link: resetLink,
+                app_url: process.env.APP_URL || 'http://localhost:3000'
+            });
+        } catch (err) {
+            // Fallback to legacy template
+            templateKey = 'password_reset';
+            template = await loadTemplate(templateKey, { 
+                reset_link: resetLink,
+                app_url: process.env.APP_URL || 'http://localhost:3000'
+            });
+        }
+        const html = getEmailHtml(template.body_html, template.subject);
+        await transporter.sendMail({
+            from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
+            to: toEmail,
+            subject: template.subject,
+            html
+        });
+    } catch (err) {
+        console.error('Failed to send password reset email:', err);
+        throw err;
+    }
 }
 
-// ----- Welcome / account creation email -----
-async function sendPasswordEmail(toEmail, username, plainPassword) {
+async function sendWelcomeEmail(toEmail, username, plainPassword, changePasswordLink) {
     if (!(await isNotificationEnabled('send_welcome_email'))) return;
-    const { subject, body_html } = await loadTemplate('welcome', { name: username, password: plainPassword });
-    const html = getEmailHtml(body_html, subject);
-    await transporter.sendMail({
-        from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
-        to: toEmail,
-        subject,
-        html
-    });
+    try {
+        // Use the updated welcome template with all IMDA compliance
+        const { subject, body_html } = await loadTemplate('welcome', { 
+            name: username,
+            username: username,
+            password: plainPassword,
+            change_password_link: changePasswordLink || `${process.env.APP_URL}/change-password`,
+            app_url: process.env.APP_URL || 'http://localhost:3000'
+        });
+        const html = getEmailHtml(body_html, subject);
+        await transporter.sendMail({
+            from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
+            to: toEmail,
+            subject,
+            html
+        });
+    } catch (err) {
+        console.error('Failed to send welcome email:', err);
+        throw err;
+    }
 }
 
-// ----- Request submitted (to requester) -----
 async function sendRequestSubmittedEmail(toEmail, requesterName, items, plannedReturn) {
     if (!(await isNotificationEnabled('send_request_submitted'))) return;
-    // Build a human‑readable list of keys
     const keys = items.map(i => `${i.quantity} × ${i.code}`).join(', ');
     const { subject, body_html } = await loadTemplate('request_submitted', {
         name: requesterName,
         keys,
-        planned_return: plannedReturn
+        planned_return: plannedReturn,
+        app_url: process.env.APP_URL || 'http://localhost:3000'
     });
     const html = getEmailHtml(body_html, subject);
     await transporter.sendMail({
@@ -195,14 +212,14 @@ async function sendRequestSubmittedEmail(toEmail, requesterName, items, plannedR
     });
 }
 
-// ----- Request approved (to requester) -----
 async function sendRequestApprovedEmail(toEmail, requesterName, items, plannedReturn) {
     if (!(await isNotificationEnabled('send_request_approved'))) return;
     const keys = items.map(i => `${i.quantity} × ${i.code}`).join(', ');
     const { subject, body_html } = await loadTemplate('request_approved', {
         name: requesterName,
         keys,
-        planned_return: plannedReturn
+        planned_return: plannedReturn,
+        app_url: process.env.APP_URL || 'http://localhost:3000'
     });
     const html = getEmailHtml(body_html, subject);
     await transporter.sendMail({
@@ -213,11 +230,7 @@ async function sendRequestApprovedEmail(toEmail, requesterName, items, plannedRe
     });
 }
 
-// ----- Reminder emails (called from reminderService) -----
 async function sendReminderEmail(toEmail, subject, body) {
-    // No setting check here – called by reminderService which already checks
-    // We'll keep the signature as before, but we can fetch the template
-    // For flexibility, we'll accept plain body and subject.
     const html = getEmailHtml(body, subject);
     await transporter.sendMail({
         from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
@@ -227,14 +240,14 @@ async function sendReminderEmail(toEmail, subject, body) {
     });
 }
 
-// ----- Admin alert: new registration request -----
 async function sendAdminRegistrationAlert(adminEmail, userDetails) {
     if (!(await isNotificationEnabled('send_admin_new_registration'))) return;
     const { name, email, username } = userDetails;
     const { subject, body_html } = await loadTemplate('admin_new_registration', {
         name,
         email,
-        username: username || '—'
+        username: username || '—',
+        app_url: process.env.APP_URL || 'http://localhost:3000'
     });
     const html = getEmailHtml(body_html, subject);
     await transporter.sendMail({
@@ -245,7 +258,6 @@ async function sendAdminRegistrationAlert(adminEmail, userDetails) {
     });
 }
 
-// ----- Admin alert: new key request -----
 async function sendAdminNewRequestAlert(adminEmail, requestDetails) {
     if (!(await isNotificationEnabled('send_admin_new_key_request'))) return;
     const { requester_name, requester_email, items, planned_return, created_at } = requestDetails;
@@ -255,7 +267,8 @@ async function sendAdminNewRequestAlert(adminEmail, requestDetails) {
         email: requester_email,
         keys,
         planned_return,
-        created_at
+        created_at,
+        app_url: process.env.APP_URL || 'http://localhost:3000'
     });
     const html = getEmailHtml(body_html, subject);
     await transporter.sendMail({
@@ -266,12 +279,10 @@ async function sendAdminNewRequestAlert(adminEmail, requestDetails) {
     });
 }
 
-// ----- Admin daily summary (due/overdue returns) -----
 async function sendAdminReturnReminder(adminEmail, dueTransactions) {
     if (!(await isNotificationEnabled('send_reminders'))) return;
     const config = await getNotificationConfig('send_reminders');
     if (!config.admin_summary_enabled) return;
-    // Build a summary table
     let rows = '';
     for (const t of dueTransactions) {
         rows += `<tr>
@@ -289,8 +300,6 @@ async function sendAdminReturnReminder(adminEmail, dueTransactions) {
         <p>Please follow up with the users.</p>
     `;
     const { subject, body_html } = await loadTemplate('admin_daily_summary', { summary: summaryBody });
-    // The template body_html should contain a placeholder {{summary}}.
-    // We'll replace it manually.
     const finalBody = body_html.replace('{{summary}}', summaryBody);
     const html = getEmailHtml(finalBody, subject);
     await transporter.sendMail({
@@ -301,23 +310,49 @@ async function sendAdminReturnReminder(adminEmail, dueTransactions) {
     });
 }
 
-// ----- Account locked email -----
-async function sendAccountLockedEmail(toEmail, username, attempts) {
+async function sendAccountLockedEmail(toEmail, username, attempts, resetLink) {
     if (!(await isNotificationEnabled('send_account_locked'))) return;
-    const { subject, body_html } = await loadTemplate('account_locked', { name: username, attempts });
-    const html = getEmailHtml(body_html, subject);
-    await transporter.sendMail({
-        from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
-        to: toEmail,
-        subject,
-        html
-    });
+    try {
+        // Try IMDA template first
+        let templateKey = 'account_locked_imda';
+        let template;
+        try {
+            template = await loadTemplate(templateKey, { 
+                name: username,
+                attempts: attempts,
+                reset_link: resetLink || `${process.env.APP_URL}/forgot-password`,
+                app_url: process.env.APP_URL || 'http://localhost:3000'
+            });
+        } catch (err) {
+            // Fallback to legacy
+            templateKey = 'account_locked';
+            template = await loadTemplate(templateKey, { 
+                name: username,
+                attempts: attempts,
+                app_url: process.env.APP_URL || 'http://localhost:3000'
+            });
+        }
+        const html = getEmailHtml(template.body_html, template.subject);
+        await transporter.sendMail({
+            from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
+            to: toEmail,
+            subject: template.subject,
+            html
+        });
+    } catch (err) {
+        console.error('Failed to send account locked email:', err);
+        throw err;
+    }
 }
 
-// ----- Fine created email -----
 async function sendFineCreatedEmail(toEmail, username, keyCode, amount) {
     if (!(await isNotificationEnabled('send_fine_created'))) return;
-    const { subject, body_html } = await loadTemplate('fine_created', { name: username, key_code: keyCode, amount });
+    const { subject, body_html } = await loadTemplate('fine_created', { 
+        name: username, 
+        key_code: keyCode, 
+        amount: amount,
+        app_url: process.env.APP_URL || 'http://localhost:3000'
+    });
     const html = getEmailHtml(body_html, subject);
     await transporter.sendMail({
         from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
@@ -327,10 +362,14 @@ async function sendFineCreatedEmail(toEmail, username, keyCode, amount) {
     });
 }
 
-// ----- Fine paid email -----
 async function sendFinePaidEmail(toEmail, username, keyCode, amount) {
     if (!(await isNotificationEnabled('send_fine_paid'))) return;
-    const { subject, body_html } = await loadTemplate('fine_paid', { name: username, key_code: keyCode, amount });
+    const { subject, body_html } = await loadTemplate('fine_paid', { 
+        name: username, 
+        key_code: keyCode, 
+        amount: amount,
+        app_url: process.env.APP_URL || 'http://localhost:3000'
+    });
     const html = getEmailHtml(body_html, subject);
     await transporter.sendMail({
         from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
@@ -340,9 +379,7 @@ async function sendFinePaidEmail(toEmail, username, keyCode, amount) {
     });
 }
 
-// ----- Generic confirmation (for backward compatibility) -----
 async function sendConfirmationEmail(toEmail, subject, body) {
-    // This is a legacy function – we'll just use a simple HTML wrapper
     const html = getEmailHtml(body, subject);
     await transporter.sendMail({
         from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
@@ -352,18 +389,14 @@ async function sendConfirmationEmail(toEmail, subject, body) {
     });
 }
 
-// ----- OTP generator -----
 function generateOtp() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// ============================================================
-//  EXPORTS
-// ============================================================
 module.exports = {
     sendOtpEmail,
     sendPasswordResetEmail,
-    sendPasswordEmail,
+    sendWelcomeEmail,
     sendRequestSubmittedEmail,
     sendRequestApprovedEmail,
     sendReminderEmail,
@@ -375,7 +408,6 @@ module.exports = {
     sendFinePaidEmail,
     sendConfirmationEmail,
     generateOtp,
-    // Expose helpers for admin UI (optional)
     loadTemplate,
     isNotificationEnabled,
     getNotificationConfig

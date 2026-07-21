@@ -280,11 +280,27 @@
             border-left: 4px solid var(--warning-text);
             color: var(--warning-text);
         }
-        .register-link {
-            display: block;
-            text-align: center;
+        .links-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             margin-top: 1.2rem;
-            font-size: 0.85rem;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .forgot-link {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-decoration: none;
+            transition: color 0.15s ease;
+            cursor: pointer;
+        }
+        .forgot-link:hover {
+            color: var(--accent);
+            text-decoration: underline;
+        }
+        .register-link {
+            font-size: 0.8rem;
             color: var(--text-muted);
         }
         .register-link a {
@@ -394,6 +410,10 @@
         .modal-header .close-btn:hover {
             color: var(--text-primary);
         }
+        .info-trigger-wrapper {
+            position: relative;
+            display: inline-block;
+        }
         .info-trigger {
             display: inline-flex;
             align-items: center;
@@ -409,8 +429,6 @@
             font-weight: 700;
             cursor: pointer;
             transition: all 0.2s ease;
-            position: relative;
-            margin-left: 6px;
             flex-shrink: 0;
         }
         .info-trigger:hover {
@@ -423,14 +441,15 @@
         }
         .tooltip-popup {
             position: absolute;
-            bottom: calc(100% + 12px);
-            right: 0;
+            top: calc(100% + 12px);
+            left: 50%;
+            transform: translateX(-50%);
             background: #ffffff;
             border: 1px solid var(--border-light);
             border-radius: var(--radius-md);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
             padding: 1rem 1.2rem;
-            width: 300px;
+            width: 320px;
             max-width: 85vw;
             font-size: 0.8rem;
             line-height: 1.6;
@@ -439,17 +458,17 @@
             display: none;
             text-align: left;
         }
-        .tooltip-popup::after {
+        .tooltip-popup::before {
             content: '';
             position: absolute;
-            bottom: -8px;
-            right: 12px;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%) rotate(45deg);
             width: 14px;
             height: 14px;
             background: #ffffff;
-            border-right: 1px solid var(--border-light);
-            border-bottom: 1px solid var(--border-light);
-            transform: rotate(45deg);
+            border-top: 1px solid var(--border-light);
+            border-left: 1px solid var(--border-light);
         }
         .tooltip-popup.show {
             display: block;
@@ -587,24 +606,23 @@
                 width: 100%;
             }
             .tooltip-popup {
-                right: -10px;
-                width: 260px;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 280px;
                 max-width: 80vw;
-            }
-            .tooltip-popup::after {
-                right: 18px;
             }
             .loading-container {
                 padding: 2rem 1.5rem;
             }
+            .links-row {
+                flex-direction: column;
+                gap: 0.5rem;
+                align-items: center;
+            }
         }
         @media (max-width: 400px) {
             .tooltip-popup {
-                right: -30px;
-                width: 220px;
-            }
-            .tooltip-popup::after {
-                right: 38px;
+                width: 240px;
             }
         }
     </style>
@@ -675,8 +693,11 @@
                         <span id="lockoutText">Account locked</span>
                     </div>
 
-                    <div class="register-link">
-                        Don't have an account? <a id="openRegisterModalBtn">Request one</a>
+                    <div class="links-row">
+                        <span class="register-link">
+                            Don't have an account? <a id="openRegisterModalBtn">Request one</a>
+                        </span>
+                        <a id="forgotPasswordBtn" class="forgot-link">Forgot password?</a>
                     </div>
                 </form>
             </div>
@@ -694,15 +715,17 @@
             <div class="modal-header">
                 <h3>
                     <i class="fas fa-user-plus" aria-hidden="true"></i> Request Account
-                    <button class="info-trigger" id="infoTrigger" type="button" aria-label="More information about account registration">
-                        <i class="fas fa-question" aria-hidden="true"></i>
+                    <span class="info-trigger-wrapper">
+                        <button class="info-trigger" id="infoTrigger" type="button" aria-label="More information about account registration">
+                            <i class="fas fa-question" aria-hidden="true"></i>
+                        </button>
                         <div class="tooltip-popup" id="tooltipPopup" role="tooltip">
                             <strong>How it works:</strong><br />
                             Submit your name and email. An administrator will review your request.
                             Upon approval, you will receive an email with a secure, system‑generated password
                             and a username for login. You will be prompted to set a new password on first sign‑in.
                         </div>
-                    </button>
+                    </span>
                 </h3>
                 <button class="close-btn" id="closeRegisterModalBtn" aria-label="Close registration modal">&times;</button>
             </div>
@@ -724,6 +747,36 @@
                     <div class="modal-actions">
                         <button type="button" class="btn-secondary" id="cancelRegisterBtn">Cancel</button>
                         <button type="submit" class="btn-primary" id="registerBtn">Submit request</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div id="forgotPasswordModal" class="modal-overlay">
+        <div class="modal-container">
+            <div class="modal-header">
+                <h3>
+                    <i class="fas fa-key" aria-hidden="true"></i> Reset Password
+                </h3>
+                <button class="close-btn" id="closeForgotPasswordModalBtn" aria-label="Close reset password modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="font-size:0.9rem;color:var(--text-secondary);margin-bottom:1.5rem;line-height:1.6;">
+                    Enter your email address and we'll send you a link to reset your password.
+                </p>
+                <form id="forgotPasswordForm" novalidate>
+                    <div class="input-group">
+                        <label for="resetEmail">Email address <span class="required-star" aria-hidden="true">*</span></label>
+                        <input type="email" id="resetEmail" placeholder="you@example.com" required />
+                        <div class="field-error" id="resetEmailError">Valid email is required</div>
+                    </div>
+
+                    <div id="resetAlert" class="modal-alert"></div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" id="cancelResetBtn">Cancel</button>
+                        <button type="submit" class="btn-primary" id="resetBtn">Send Reset Link</button>
                     </div>
                 </form>
             </div>

@@ -87,6 +87,322 @@
         .access-denied .btn-back:hover {
             background: #0F1A2E;
         }
+        .action-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        .action-buttons .btn {
+            padding: 0.4rem 0.75rem;
+            font-size: 0.75rem;
+            border-radius: 6px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+            min-height: 32px;
+            line-height: 1.2;
+        }
+        .action-buttons .btn i {
+            font-size: 0.7rem;
+        }
+        .action-buttons .btn-primary {
+            background: #3B82F6;
+            color: white;
+        }
+        .action-buttons .btn-primary:hover {
+            background: #2563EB;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+        }
+        .action-buttons .btn-success {
+            background: #10B981;
+            color: white;
+        }
+        .action-buttons .btn-success:hover {
+            background: #059669;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+        .action-buttons .btn-danger {
+            background: #EF4444;
+            color: white;
+        }
+        .action-buttons .btn-danger:hover {
+            background: #DC2626;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+        }
+        .action-buttons .btn-warning {
+            background: #F59E0B;
+            color: white;
+        }
+        .action-buttons .btn-warning:hover {
+            background: #D97706;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+        }
+        .action-buttons .btn-secondary {
+            background: #6B7280;
+            color: white;
+        }
+        .action-buttons .btn-secondary:hover {
+            background: #4B5563;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+        }
+        .action-buttons .btn-sm {
+            padding: 0.3rem 0.6rem;
+            font-size: 0.7rem;
+            min-height: 28px;
+        }
+        .action-buttons .btn-xs {
+            padding: 0.2rem 0.5rem;
+            font-size: 0.65rem;
+            min-height: 24px;
+        }
+        @media (max-width: 640px) {
+            .action-buttons {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 4px;
+            }
+            .action-buttons .btn {
+                justify-content: center;
+                width: 100%;
+                padding: 0.5rem 0.75rem;
+                font-size: 0.8rem;
+                min-height: 36px;
+            }
+            .action-buttons .btn-sm {
+                min-height: 32px;
+                font-size: 0.75rem;
+            }
+            .action-buttons .btn-xs {
+                min-height: 28px;
+                font-size: 0.7rem;
+            }
+        }
+        @media (max-width: 480px) {
+            .action-buttons .btn {
+                font-size: 0.7rem;
+                padding: 0.4rem 0.6rem;
+                min-height: 32px;
+            }
+            .action-buttons .btn i {
+                font-size: 0.6rem;
+            }
+        }
+        td .action-buttons {
+            justify-content: center;
+        }
+        td .action-buttons .btn {
+            min-width: 60px;
+        }
+        .lost-keys-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            align-items: center;
+            justify-content: flex-end;
+        }
+        .lost-keys-actions .btn-action {
+            padding: 0.3rem 0.6rem;
+            font-size: 0.7rem;
+            border-radius: 6px;
+            border: none;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            white-space: nowrap;
+            min-height: 28px;
+            line-height: 1.2;
+        }
+        .lost-keys-actions .btn-action i {
+            font-size: 0.65rem;
+        }
+        .lost-keys-actions .btn-view {
+            background: #E2E8F0;
+            color: #1E293B;
+        }
+        .lost-keys-actions .btn-view:hover {
+            background: #CBD5E1;
+            transform: translateY(-1px);
+        }
+        .lost-keys-actions .btn-edit {
+            background: #F59E0B;
+            color: white;
+        }
+        .lost-keys-actions .btn-edit:hover {
+            background: #D97706;
+            transform: translateY(-1px);
+        }
+        .lost-keys-actions .btn-primary {
+            background: #3B82F6;
+            color: white;
+        }
+        .lost-keys-actions .btn-primary:hover {
+            background: #2563EB;
+            transform: translateY(-1px);
+        }
+        .lost-keys-actions .btn-success {
+            background: #10B981;
+            color: white;
+        }
+        .lost-keys-actions .btn-success:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+        .lost-keys-actions .btn-warning {
+            background: #F59E0B;
+            color: white;
+        }
+        .lost-keys-actions .btn-warning:hover {
+            background: #D97706;
+            transform: translateY(-1px);
+        }
+        .lost-keys-actions .btn-danger {
+            background: #EF4444;
+            color: white;
+        }
+        .lost-keys-actions .btn-danger:hover {
+            background: #DC2626;
+            transform: translateY(-1px);
+        }
+        @media (max-width: 640px) {
+            .lost-keys-actions {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 4px;
+            }
+            .lost-keys-actions .btn-action {
+                justify-content: center;
+                width: 100%;
+                padding: 0.4rem 0.6rem;
+                font-size: 0.75rem;
+                min-height: 32px;
+            }
+        }
+        .alert-modal .modal-container {
+            max-width: 420px;
+        }
+        .alert-modal .modal-body {
+            text-align: center;
+            padding: 2rem 1.5rem;
+        }
+        .alert-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            margin: 0 auto 12px;
+        }
+        .alert-icon.success {
+            background: #D1FAE5;
+            color: #065F46;
+        }
+        .alert-icon.error {
+            background: #FEE2E2;
+            color: #991B1B;
+        }
+        .alert-icon.warning {
+            background: #FEF3C7;
+            color: #92400E;
+        }
+        .alert-icon.info {
+            background: #DBEAFE;
+            color: #1E40AF;
+        }
+        .alert-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #0F172A;
+            margin-bottom: 4px;
+        }
+        .alert-message {
+            font-size: 0.9rem;
+            color: #64748B;
+            margin-bottom: 1.25rem;
+            line-height: 1.5;
+        }
+        .alert-btn {
+            padding: 0.6rem 2rem;
+            background: #1E2A3E;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+            min-width: 100px;
+        }
+        .alert-btn:hover {
+            background: #0F1A2E;
+        }
+        .acm-avatar-initials {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            flex-shrink: 0;
+        }
+        .status-badge {
+            padding: 0.15rem 0.6rem;
+            border-radius: 40px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            display: inline-block;
+            white-space: nowrap;
+        }
+        .status-badge.borrowed {
+            background: #DBEAFE;
+            color: #1E40AF;
+        }
+        .status-badge.returned {
+            background: #D1FAE5;
+            color: #065F46;
+        }
+        .status-badge.lost {
+            background: #FEE2E2;
+            color: #991B1B;
+        }
+        .status-badge.overdue {
+            background: #FEF3C7;
+            color: #92400E;
+        }
+        .status-badge.pending {
+            background: #FEF3C7;
+            color: #92400E;
+        }
+        @media (max-width: 640px) {
+            .status-badge {
+                font-size: 0.6rem;
+                padding: 0.1rem 0.4rem;
+            }
+            .acm-avatar-initials {
+                width: 28px;
+                height: 28px;
+                font-size: 0.65rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -523,12 +839,13 @@
             </div>
         </div>
 
-        <div id="successModal" class="modal-overlay success-modal">
+        <div id="alertModal" class="modal-overlay alert-modal">
             <div class="modal-container">
-                <div class="modal-body" style="padding:2rem 1.5rem;">
-                    <div class="icon-circle"><i class="fas fa-check"></i></div>
-                    <h3 id="successTitle" style="font-size:1.1rem;font-weight:600;margin-bottom:4px;">Success</h3>
-                    <p id="successMessage" style="color:var(--text-secondary);font-size:0.9rem;">Operation completed.</p>
+                <div class="modal-body">
+                    <div class="alert-icon" id="alertIcon"><i class="fas fa-check-circle"></i></div>
+                    <div class="alert-title" id="alertTitle">Success</div>
+                    <div class="alert-message" id="alertMessage">Operation completed.</div>
+                    <button class="alert-btn" id="alertOkBtn">OK</button>
                 </div>
             </div>
         </div>
@@ -712,17 +1029,6 @@
                             <button id="manageUserNextBtn" class="btn btn-refresh">Next</button>
                         </div>
                     </div>
-                </div>
-            </div>
-        </div>
-
-        <div id="alertModal" class="modal-overlay alert-modal">
-            <div class="modal-container">
-                <div class="modal-body">
-                    <div class="alert-icon" id="alertIcon"><i class="fas fa-check-circle"></i></div>
-                    <div class="alert-title" id="alertTitle">Success</div>
-                    <div class="alert-message" id="alertMessage">Operation completed.</div>
-                    <button class="alert-btn" id="alertOkBtn">OK</button>
                 </div>
             </div>
         </div>

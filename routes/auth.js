@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const rateLimit = require('express-rate-limit');
-const { sendOtpEmail, generateOtp, sendPasswordEmail, sendAdminRegistrationAlert } = require('../services/emailService');
+const { sendOtpEmail, generateOtp, sendWelcomeEmail, sendAdminRegistrationAlert } = require('../services/emailService');
 const { logAuthEvent, logUpdate } = require('../lib/audit');
 const validate = require('../middleware/validate');
 const { loginSchema } = require('../lib/validationSchemas');
@@ -41,14 +41,11 @@ function getCookieDomain() {
   const nodeEnv = process.env.NODE_ENV || 'development';
   const domain = process.env.COOKIE_DOMAIN;
   
-  // For development or localhost, don't set a domain
   if (nodeEnv === 'development' || nodeEnv === 'localhost') {
     return undefined;
   }
   
-  // For staging or production, use the domain if provided
   if (domain) {
-    // Ensure domain starts with a dot for subdomain support
     if (!domain.startsWith('.') && domain !== 'localhost') {
       return '.' + domain;
     }
@@ -70,7 +67,6 @@ function setAuthCookie(res, token) {
     path: '/',
   };
   
-  // Only add domain if it's set and not localhost
   if (domain && domain !== 'localhost' && !domain.includes('localhost')) {
     cookieOptions.domain = domain;
   }
@@ -82,7 +78,6 @@ function clearAuthCookie(res) {
   const isProduction = process.env.NODE_ENV === 'production';
   const domain = getCookieDomain();
   
-  // Base clear options
   const clearOptions = {
     httpOnly: true,
     secure: isProduction,
@@ -90,17 +85,14 @@ function clearAuthCookie(res) {
     path: '/',
   };
   
-  // Clear without domain (default)
   res.clearCookie('token', clearOptions);
   res.clearCookie('kms.sid', clearOptions);
   
-  // Clear with domain if set
   if (domain && domain !== 'localhost' && !domain.includes('localhost')) {
     const domainOptions = { ...clearOptions, domain: domain };
     res.clearCookie('token', domainOptions);
     res.clearCookie('kms.sid', domainOptions);
     
-    // Also try with the domain without the leading dot
     const domainWithoutDot = domain.startsWith('.') ? domain.substring(1) : domain;
     if (domainWithoutDot !== domain) {
       const noDotOptions = { ...clearOptions, domain: domainWithoutDot };
@@ -109,7 +101,6 @@ function clearAuthCookie(res) {
     }
   }
   
-  // Try clearing with the hostname from the request
   try {
     const hostname = process.env.HOSTNAME || process.env.COOKIE_DOMAIN;
     if (hostname && hostname !== 'localhost' && !hostname.includes('localhost')) {
@@ -183,8 +174,88 @@ function validateSession(token, res) {
   return session.email;
 }
 
+// ===== CHECK REGISTRATION STATUS =====
+router.post('/check-registration-status', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    
+    const db = req.db;
+    
+    // Check for pending requests
+    const result = await db.query(
+      `SELECT id, status FROM pending_users 
+       WHERE email = $1 AND status = 'pending'`,
+      [email]
+    );
+    
+    // Also check if user already exists
+    const userCheck = await db.query(
+      'SELECT id FROM users WHERE email = $1',
+      [email]
+    );
+    
+    res.json({ 
+      hasPending: result.rowCount > 0,
+      requestId: result.rowCount > 0 ? result.rows[0].id : null,
+      isRegistered: userCheck.rowCount > 0
+    });
+  } catch (error) {
+    console.error('Check registration error:', error);
+    res.status(500).json({ error: 'Failed to check registration status' });
+  }
+});
+
+// ===== CLEANUP REGISTRATION REQUESTS =====
+router.post('/admin/cleanup-registrations', requireAuth, authorize('admin'), async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    
+    const db = req.db;
+    
+    // Delete any pending registration requests with this email
+    const result = await db.query(
+      `DELETE FROM pending_users 
+       WHERE email = $1 AND status = 'pending' 
+       RETURNING id`,
+      [email]
+    );
+    
+    // Also delete any rejected requests
+    const rejectedResult = await db.query(
+      `DELETE FROM pending_users 
+       WHERE email = $1 AND status = 'rejected' 
+       RETURNING id`,
+      [email]
+    );
+    
+    logger.info('Cleaned up registration requests', { 
+      email, 
+      pending: result.rowCount,
+      rejected: rejectedResult.rowCount 
+    });
+    
+    res.json({ 
+      success: true, 
+      message: `Cleaned up ${result.rowCount + rejectedResult.rowCount} registration requests`,
+      count: result.rowCount + rejectedResult.rowCount 
+    });
+  } catch (error) {
+    console.error('Cleanup error:', error);
+    res.status(500).json({ error: 'Failed to cleanup registration requests' });
+  }
+});
+
+// ===== REGISTER REQUEST (UPDATED WITH FAST RESPONSE) =====
 router.post('/register-request', async (req, res) => {
   const { name, email, username } = req.body;
+  const db = req.db;
+  
   if (!name || !email) {
     return res.status(400).json({ error: 'Name and email are required.' });
   }
@@ -192,18 +263,26 @@ router.post('/register-request', async (req, res) => {
     return res.status(400).json({ error: 'Invalid email address.' });
   }
 
-  const db = req.db;
   try {
-    const existing = await db.query(
-      `SELECT id FROM users WHERE email = $1
-       UNION
-       SELECT id FROM pending_users WHERE email = $1 AND status != 'rejected'`,
+    // Check if user already exists
+    const userCheck = await db.query(
+      'SELECT id FROM users WHERE email = $1',
       [email]
     );
-    if (existing.rowCount > 0) {
-      return res.status(409).json({ error: 'This email is already registered or pending approval.' });
+    if (userCheck.rowCount > 0) {
+      return res.status(400).json({ error: 'Email already registered. Please login.' });
+    }
+    
+    // Check for pending requests
+    const pendingCheck = await db.query(
+      'SELECT id FROM pending_users WHERE email = $1 AND status = $2',
+      [email, 'pending']
+    );
+    if (pendingCheck.rowCount > 0) {
+      return res.status(400).json({ error: 'You already have a pending request. Please wait for admin approval.' });
     }
 
+    // Generate unique username
     let finalUsername = username ? username.trim() : email.split('@')[0];
     let unique = false;
     let attempts = 0;
@@ -226,26 +305,41 @@ router.post('/register-request', async (req, res) => {
       return res.status(400).json({ error: 'Could not generate a unique username. Please provide one.' });
     }
 
-    await db.query(
-      `INSERT INTO pending_users (name, email, username, status)
-       VALUES ($1, $2, $3, 'pending')`,
+    // Create pending user
+    const result = await db.query(
+      `INSERT INTO pending_users (name, email, username, status, created_at, updated_at)
+       VALUES ($1, $2, $3, 'pending', NOW(), NOW()) 
+       RETURNING id`,
       [name, email, candidate]
     );
+    
+    const requestId = result.rows[0].id;
 
+    // Send email asynchronously (don't wait for it)
     try {
-      const adminEmail = process.env.ADMIN_EMAIL || 'admin@example.com';
-      await sendAdminRegistrationAlert(adminEmail, { name, email, username: candidate });
+      const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
+      if (adminEmail) {
+        // Non-blocking email send
+        sendAdminRegistrationAlert(adminEmail, { name, email, username: candidate })
+          .catch(err => console.error('Failed to send admin alert:', err));
+      }
     } catch (emailErr) {
-      logger.error('Failed to send admin registration alert:', emailErr);
+      console.error('Failed to send admin registration alert:', emailErr);
     }
 
-    res.status(201).json({ message: 'Registration request submitted. You will receive an email once approved.' });
+    // Return success immediately
+    res.status(201).json({ 
+      success: true,
+      message: 'Registration request submitted. You will receive an email once approved.',
+      requestId: requestId
+    });
   } catch (err) {
     logger.error('Registration request error:', err);
     res.status(500).json({ error: 'Internal server error.' });
   }
 });
 
+// ===== GET PENDING REQUESTS =====
 router.get('/admin/pending-requests', requireAuth, authorize('admin'), async (req, res) => {
   const db = req.db;
   try {
@@ -262,6 +356,7 @@ router.get('/admin/pending-requests', requireAuth, authorize('admin'), async (re
   }
 });
 
+// ===== APPROVE REQUEST (UPDATED WITH WELCOME EMAIL) =====
 router.post('/admin/pending-requests/:id/approve', requireAuth, authorize('admin'), async (req, res) => {
   const { id } = req.params;
   const db = req.db;
@@ -321,10 +416,12 @@ router.post('/admin/pending-requests/:id/approve', requireAuth, authorize('admin
 
     await db.query('COMMIT');
 
+    // Send welcome email asynchronously (don't wait)
     try {
-      await sendPasswordEmail(pending.email, pending.name, plainPassword);
+      const changePasswordLink = `${process.env.APP_URL || 'http://localhost:3000'}/change-password`;
+      await sendWelcomeEmail(pending.email, pending.name, plainPassword, changePasswordLink);
     } catch (emailErr) {
-      logger.error('Failed to send password email:', emailErr);
+      logger.error('Failed to send welcome email:', emailErr);
     }
 
     await logAuthEvent({
@@ -335,7 +432,16 @@ router.post('/admin/pending-requests/:id/approve', requireAuth, authorize('admin
       extraDetails: { approvedUserId: newUserId, email: pending.email, name: pending.name }
     });
 
-    res.json({ message: 'User approved. Password sent to email.' });
+    res.json({ 
+      success: true,
+      message: 'User approved. Welcome email sent with credentials.',
+      user: {
+        id: newUserId,
+        name: pending.name,
+        email: pending.email,
+        username: pending.username
+      }
+    });
   } catch (err) {
     await db.query('ROLLBACK');
     logger.error('Approval error:', err);
@@ -343,6 +449,7 @@ router.post('/admin/pending-requests/:id/approve', requireAuth, authorize('admin
   }
 });
 
+// ===== REJECT REQUEST =====
 router.post('/admin/pending-requests/:id/reject', requireAuth, authorize('admin'), async (req, res) => {
   const { id } = req.params;
   const { reason } = req.body;
@@ -380,6 +487,7 @@ router.post('/admin/pending-requests/:id/reject', requireAuth, authorize('admin'
   }
 });
 
+// ===== LOGIN =====
 router.post('/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
   const clientIp = req.ip || req.connection.remoteAddress;
@@ -417,7 +525,6 @@ router.post('/login', loginLimiter, async (req, res) => {
     logger.info('User found', { 
       username: user.username, 
       hasHash: !!user.password_hash,
-      hashPrefix: user.password_hash ? user.password_hash.substring(0, 20) : 'none'
     });
 
     if (user.locked_until && new Date() < user.locked_until) {
@@ -552,6 +659,7 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 });
 
+// ===== CHANGE PASSWORD =====
 router.post('/change-password', requireAuth, async (req, res) => {
   const { current_password, new_password } = req.body;
   const userId = req.user?.id || req.session.userId;
@@ -614,6 +722,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
   }
 });
 
+// ===== ADMIN CREATE USER =====
 router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) => {
   const { username, email, role = 'user', status = 'active' } = req.body;
   const adminId = req.user?.id || req.session.userId;
@@ -661,7 +770,12 @@ router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) =>
     );
     const newUserId = insertResult.rows[0].id;
 
-    await sendPasswordEmail(email, username, plainPassword);
+    try {
+      const changePasswordLink = `${process.env.APP_URL || 'http://localhost:3000'}/change-password`;
+      await sendWelcomeEmail(email, username, plainPassword, changePasswordLink);
+    } catch (emailErr) {
+      logger.error('Failed to send welcome email:', emailErr);
+    }
 
     await db.query('COMMIT');
 
@@ -673,7 +787,7 @@ router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) =>
       extraDetails: { newUserId, username, email, role }
     });
 
-    res.status(201).json({ message: 'User created. Password sent to email.' });
+    res.status(201).json({ message: 'User created. Welcome email sent.' });
   } catch (err) {
     await db.query('ROLLBACK');
     logger.error('User creation error', { error: err.message });
@@ -681,23 +795,20 @@ router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) =>
   }
 });
 
+// ===== LOGOUT =====
 router.post('/logout', async (req, res) => {
   const userId = req.user?.id || req.session.userId;
   const username = req.user?.username || req.session.username;
   
   logger.info('Logout', { userId, username });
 
-  // Clear both token and session cookies with all variations
   clearAuthCookie(res);
 
-  // Destroy the session
   req.session.destroy(async (err) => {
     if (err) {
       logger.error('Logout failed', { error: err.message, userId, username });
-      // Still attempt to clear cookies even if session destroy fails
       clearAuthCookie(res);
       
-      // Send response with cache headers even on error
       res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
@@ -717,7 +828,6 @@ router.post('/logout', async (req, res) => {
       extraDetails: {}
     });
     
-    // Clear any response headers that might cause caching
     res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
@@ -731,6 +841,7 @@ router.post('/logout', async (req, res) => {
   });
 });
 
+// ===== SESSION CHECK =====
 router.get('/session', requireAuth, (req, res) => {
   res.json({
     loggedIn: true,
@@ -740,6 +851,7 @@ router.get('/session', requireAuth, (req, res) => {
   });
 });
 
+// ===== VALIDATE PASSWORD TOKEN =====
 router.post('/validate-password-token', async (req, res) => {
   const { token } = req.body;
   if (!token) {
@@ -758,6 +870,7 @@ router.post('/validate-password-token', async (req, res) => {
   }
 });
 
+// ===== SET PASSWORD FROM TOKEN =====
 router.post('/set-password-from-token', async (req, res) => {
   const { token, new_password } = req.body;
 
@@ -814,6 +927,7 @@ router.post('/set-password-from-token', async (req, res) => {
   }
 });
 
+// ===== CHECK SESSION =====
 router.get('/check-session', async (req, res) => {
   try {
     const token = req.cookies?.token;
@@ -826,7 +940,8 @@ router.get('/check-session', async (req, res) => {
             id: decoded.id,
             username: decoded.username,
             role: decoded.role,
-            email: decoded.email
+            email: decoded.email,
+            name: decoded.name
           }
         });
       }
@@ -843,14 +958,12 @@ router.get('/check-session', async (req, res) => {
       });
     }
     
-    // Clear any stale cookies if session is invalid
     if (req.cookies?.token) {
       clearAuthCookie(res);
     }
     
     res.json({ authenticated: false });
   } catch (err) {
-    // If token verification fails, clear the cookie
     if (req.cookies?.token) {
       clearAuthCookie(res);
     }

@@ -13,8 +13,7 @@ package-lock.json
 .env.development
 .env.staging
 .env.production
-.env.test
-
+.env.example
 # Build outputs
 public/assets/
 build-info.json

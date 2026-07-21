@@ -406,6 +406,7 @@
             });
         }
 
+        // ===== REGISTRATION FORM SUBMIT (UPDATED WITH STATUS CHECK) =====
         if (registerForm) {
             registerForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
@@ -437,7 +438,7 @@
                 const originalText = registerBtn?.innerHTML || 'Submit request';
                 if (registerBtn) {
                     registerBtn.disabled = true;
-                    registerBtn.innerHTML = '<div class="spinner"></div> Submitting...';
+                    registerBtn.innerHTML = '<div class="spinner"></div> Checking...';
                 }
 
                 try {
@@ -449,6 +450,44 @@
                             registerBtn.innerHTML = originalText;
                         }
                         return;
+                    }
+
+                    // First, check if there's already a pending request or registered user
+                    const checkResponse = await fetch('/api/auth/check-registration-status', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-Token': csrf,
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ email }),
+                        credentials: 'include'
+                    });
+
+                    const checkData = await checkResponse.json();
+
+                    if (checkResponse.ok) {
+                        if (checkData.isRegistered) {
+                            showRegisterAlert('This email is already registered. Please login instead.', 'error');
+                            if (registerBtn) {
+                                registerBtn.disabled = false;
+                                registerBtn.innerHTML = originalText;
+                            }
+                            return;
+                        }
+                        if (checkData.hasPending) {
+                            showRegisterAlert('You already have a pending request. Please wait for admin approval.', 'warning');
+                            if (registerBtn) {
+                                registerBtn.disabled = false;
+                                registerBtn.innerHTML = originalText;
+                            }
+                            return;
+                        }
+                    }
+
+                    // If no pending request, submit the registration
+                    if (registerBtn) {
+                        registerBtn.innerHTML = '<div class="spinner"></div> Submitting...';
                     }
 
                     const response = await fetch('/api/auth/register-request', {

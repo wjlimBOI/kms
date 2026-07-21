@@ -51,12 +51,24 @@ const pool = new Pool({
   connectionTimeoutMillis: 2000,
 });
 
+// Test database connection
+pool.connect((err, client, release) => {
+  if (err) {
+    logger.error('❌ Database connection failed:', err.message);
+    process.exit(1);
+  } else {
+    logger.info('✅ Database connected successfully');
+    release();
+  }
+});
+
 const app = express();
 const IS_DEVELOPMENT = process.env.NODE_ENV !== 'production';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 app.set('trust proxy', IS_PRODUCTION ? 1 : false);
 
+// Cache control middleware
 app.use((req, res, next) => {
   const path = req.path;
   
@@ -68,7 +80,7 @@ app.use((req, res, next) => {
     return next();
   }
   
-  const htmlPaths = ['/', '/dashboard', '/admin', '/login', '/change-password', '/privacy-policy'];
+  const htmlPaths = ['/', '/dashboard', '/admin', '/login', '/change-password', '/privacy-policy', '/reset-password', '/forgot-password'];
   const isHtml = htmlPaths.includes(path) || path.endsWith('.html');
   if (isHtml) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -91,6 +103,7 @@ app.use((req, res, next) => {
   next();
 });
 
+// Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -137,6 +150,7 @@ app.use((req, res, next) => {
   next();
 });
 
+// Compression
 app.use(compression({
   level: 6,
   threshold: 1024,
@@ -146,10 +160,12 @@ app.use(compression({
   }
 }));
 
+// Body parsing
 app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Static files with build hash
 app.use('/assets/v' + BUILD_HASH, express.static(path.join(__dirname, 'public', 'assets', 'v' + BUILD_HASH), {
   maxAge: IS_PRODUCTION ? '1y' : '1h',
   etag: true,
@@ -194,6 +210,7 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
+// CORS
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(',')
   : ['http://localhost:3000', 'http://localhost:3001'];
@@ -212,6 +229,7 @@ app.use('/api', cors({
   maxAge: 86400,
 }));
 
+// Session
 const sessionStore = new pgSession({
   pool,
   tableName: 'session',
@@ -235,6 +253,7 @@ app.use(session({
   rolling: true,
 }));
 
+// CSRF
 app.use((req, res, next) => {
   if (!req.session.csrfToken) {
     generateCsrfTokenForSession(req);
@@ -261,6 +280,7 @@ app.use((req, res, next) => {
   next();
 });
 
+// Request logging in development
 if (IS_DEVELOPMENT) {
   app.use((req, res, next) => {
     const start = Date.now();
@@ -274,6 +294,7 @@ if (IS_DEVELOPMENT) {
   });
 }
 
+// ===== API ROUTES =====
 app.use('/api/auth', authRoutes);
 app.use('/api/keys', keysRoutes);
 app.use('/api/requests', requestsPublic);
@@ -287,6 +308,7 @@ app.use('/api/admin/email', requireAuth, emailSettingsRoutes);
 app.use('/api/audit', requireAuth, auditRoutes);
 app.use('/api/permissions', requireAuth, permissionsRoutes);
 
+// ===== HELPER: SEND HTML =====
 const sendHtml = (res, filePath, extraHeaders = {}) => {
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.setHeader('Pragma', 'no-cache');
@@ -298,6 +320,7 @@ const sendHtml = (res, filePath, extraHeaders = {}) => {
   res.sendFile(path.join(__dirname, 'public', filePath));
 };
 
+// ===== PAGE ROUTES =====
 app.get('/login', (req, res) => {
   if (req.session?.userId) {
     const role = req.session?.role || 'user';
@@ -318,6 +341,14 @@ app.get('/login', (req, res) => {
     'X-Build-Hash': BUILD_HASH,
     'Cache-Control': 'no-store, no-cache, must-revalidate, private'
   });
+});
+
+app.get('/forgot-password', (req, res) => {
+  sendHtml(res, 'forgot-password.html', { 'X-Build-Hash': BUILD_HASH });
+});
+
+app.get('/reset-password', (req, res) => {
+  sendHtml(res, 'reset-password.html', { 'X-Build-Hash': BUILD_HASH });
 });
 
 app.get('/', requireAuth, (req, res) => {
@@ -343,6 +374,7 @@ app.get('/privacy-policy', (req, res) => {
   sendHtml(res, 'privacy-policy.html');
 });
 
+// ===== FORCE LOGOUT =====
 app.get('/force-logout', (req, res) => {
   const isProduction = process.env.NODE_ENV === 'production';
   const domain = process.env.COOKIE_DOMAIN || undefined;
@@ -478,6 +510,7 @@ app.get('/force-logout', (req, res) => {
   `);
 });
 
+// ===== ASSET ROUTES =====
 app.get(/^\/assets\/v([^\/]+)\/(.*)$/, (req, res) => {
   const requestedHash = req.params[0];
   const filePath = req.params[1];
@@ -495,6 +528,7 @@ app.get(/^\/assets\/v([^\/]+)\/(.*)$/, (req, res) => {
   });
 });
 
+// ===== HEALTH CHECK =====
 app.get('/health', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.status(200).json({
@@ -505,6 +539,7 @@ app.get('/health', (req, res) => {
   });
 });
 
+// ===== 404 HANDLER =====
 app.use((req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'API endpoint not found' });
@@ -518,6 +553,7 @@ app.use((req, res) => {
   sendHtml(res, 'index.html');
 });
 
+// ===== ERROR HANDLER =====
 app.use((err, req, res, next) => {
   logger.error('Unhandled error:', err);
   if (req.path.startsWith('/api/')) {
@@ -530,15 +566,19 @@ app.use((err, req, res, next) => {
   }
 });
 
+// ===== START CRON JOBS =====
 startReminderCron(pool);
 
+// ===== START SERVER =====
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => {
   logger.info(`🚀 KMS server running on port ${PORT}`);
   logger.info(`📦 Build hash: ${BUILD_HASH}`);
   logger.info(`🔧 Environment: ${process.env.NODE_ENV || 'development'}`);
+  logger.info(`🌐 URL: ${process.env.APP_URL || `http://localhost:${PORT}`}`);
 });
 
+// ===== GRACEFUL SHUTDOWN =====
 const shutdown = (signal) => {
   logger.info(`${signal} received – closing server...`);
   server.close(() => {
@@ -558,6 +598,7 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGQUIT', () => shutdown('SIGQUIT'));
 
+// ===== UNHANDLED REJECTIONS =====
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('Unhandled Rejection:', reason);
   if (!IS_PRODUCTION) process.exit(1);

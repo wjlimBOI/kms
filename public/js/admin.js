@@ -502,6 +502,57 @@
         }
     }
 
+    // ===== TEMPLATE PREVIEW FUNCTION =====
+    async function previewTemplate(templateKey) {
+        try {
+            const res = await authenticatedFetch(`/api/admin/email/templates/${templateKey}`);
+            const template = await res.json();
+            
+            const modal = document.createElement('div');
+            modal.className = 'modal-overlay active';
+            modal.id = 'templatePreviewModal';
+            modal.style.display = 'flex';
+            modal.style.zIndex = '100001';
+            
+            modal.innerHTML = `
+                <div class="modal-container" style="max-width:800px;max-height:90vh;">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-eye"></i> Template Preview: ${escapeHtml(template.template_key)}</h3>
+                        <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+                    </div>
+                    <div class="modal-body" style="padding:0;overflow:hidden;">
+                        <div style="padding:1rem 1.5rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+                            <p style="margin:0;font-size:0.85rem;color:#64748b;">
+                                <strong>Subject:</strong> ${escapeHtml(template.subject)}
+                            </p>
+                            <p style="margin:0.25rem 0 0;font-size:0.8rem;color:#64748b;">
+                                <strong>Status:</strong> ${template.is_active ? '✅ Active' : '❌ Inactive'}
+                            </p>
+                        </div>
+                        <div style="padding:1.5rem;max-height:60vh;overflow-y:auto;background:#f4f7fc;">
+                            ${template.body_html}
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Close</button>
+                        <button class="btn btn-primary" onclick="this.closest('.modal-overlay').remove()">OK</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    this.remove();
+                }
+            });
+            
+        } catch (err) {
+            showAlertModal('Failed to preview template: ' + err.message, 'error');
+        }
+    }
+
     let allTransactions = [];
     let filteredTransactions = [];
     let txPage = 1, txRows = 10, txTotal = 0;
@@ -1441,6 +1492,7 @@
         loadAdminRecipients();
     }
 
+    // ===== UPDATED LOAD TEMPLATES WITH PREVIEW BUTTON =====
     async function loadTemplates() {
         const container = document.getElementById('templatesContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading templates...</div>';
@@ -1451,20 +1503,57 @@
                 container.innerHTML = '<div class="text-center py-8 text-slate-400">No templates found.</div>';
                 return;
             }
-            let html = `<table class="table-clean template-list"><thead><tr><th class="text-left">Key</th><th class="text-left">Subject</th><th>Active</th></tr></thead><tbody>`;
+            let html = `<table class="table-clean template-list"><thead><tr>
+                <th class="text-left">Key</th>
+                <th class="text-left">Subject</th>
+                <th style="text-align:center;">Active</th>
+                <th style="text-align:right;">Actions</th>
+            </tr></thead><tbody>`;
             for (const t of templates) {
-                html += `<tr class="template-row clickable" data-key="${escapeHtml(t.template_key)}">
+                html += `<tr class="template-row" data-key="${escapeHtml(t.template_key)}">
                     <td class="text-left"><code>${escapeHtml(t.template_key)}</code></td>
                     <td class="text-left">${escapeHtml(t.subject)}</td>
-                    <td>${t.is_active ? '✅' : '❌'}</td>
+                    <td style="text-align:center;">${t.is_active ? '✅' : '❌'}</td>
+                    <td style="text-align:right;">
+                        <div class="action-buttons" style="justify-content:flex-end;">
+                            <button class="btn btn-secondary btn-sm preview-template-btn" data-key="${escapeHtml(t.template_key)}" title="Preview Template">
+                                <i class="fas fa-eye"></i> Preview
+                            </button>
+                            <button class="btn btn-secondary btn-sm edit-template-btn" data-key="${escapeHtml(t.template_key)}" title="Edit Template">
+                                <i class="fas fa-edit"></i> Edit
+                            </button>
+                        </div>
+                    </td>
                 </tr>`;
             }
             html += `</tbody></table>`;
             container.innerHTML = html;
-            container.querySelectorAll('.template-row.clickable').forEach(row => {
-                row.addEventListener('click', function() {
+            
+            // Preview button handlers
+            container.querySelectorAll('.preview-template-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const key = this.dataset.key;
+                    previewTemplate(key);
+                });
+            });
+            
+            // Edit button handlers
+            container.querySelectorAll('.edit-template-btn').forEach(btn => {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
                     const key = this.dataset.key;
                     openTemplateEditModal(key);
+                });
+            });
+            
+            // Row click for edit
+            container.querySelectorAll('.template-row').forEach(row => {
+                row.addEventListener('click', function(e) {
+                    if (!e.target.closest('.action-buttons')) {
+                        const key = this.dataset.key;
+                        openTemplateEditModal(key);
+                    }
                 });
                 row.style.cursor = 'pointer';
             });
@@ -1629,9 +1718,9 @@
                 <th class="text-left">Key Code</th>
                 <th class="text-left">Brand</th>
                 <th class="text-left">Borrower</th>
-                <th>Lost Date</th>
-                <th>Status</th>
-                <th class="text-right">Actions</th>
+                <th style="text-align:center;">Lost Date</th>
+                <th style="text-align:center;">Status</th>
+                <th style="text-align:right;">Actions</th>
             </tr></thead><tbody>`;
             for (const item of data) {
                 const statusClass = item.resolved_at ? 'returned' : 'lost';
@@ -1640,9 +1729,9 @@
                     <td class="text-left"><code>${escapeHtml(item.key_code)}</code></td>
                     <td class="text-left">${escapeHtml(item.brand)}</td>
                     <td class="text-left">${escapeHtml(item.borrower_name || item.borrower_email)}</td>
-                    <td>${formatDate(item.lost_at)}</td>
-                    <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-                    <td class="text-right">
+                    <td style="text-align:center;">${formatDate(item.lost_at)}</td>
+                    <td style="text-align:center;"><span class="status-badge ${statusClass}">${statusLabel}</span></td>
+                    <td style="text-align:right;">
                         <div class="actions-dropdown">
                             <button class="dropdown-toggle" data-id="${item.id}">
                                 Actions <i class="fas fa-chevron-down"></i>
@@ -1865,8 +1954,8 @@
             let html = `<table class="table-clean"><thead><tr>
                 <th class="text-left">Name</th>
                 <th class="text-left">Email</th>
-                <th>Status</th>
-                <th class="text-right">Actions</th>
+                <th style="text-align:center;">Status</th>
+                <th style="text-align:right;">Actions</th>
             </tr></thead><tbody>`;
             for (const r of recipients) {
                 const statusBadge = r.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
@@ -1874,8 +1963,8 @@
                 html += `<tr>
                     <td class="text-left">${escapeHtml(r.name)}</td>
                     <td class="text-left">${escapeHtml(r.email)}</td>
-                    <td><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
-                    <td class="text-right">
+                    <td style="text-align:center;"><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
+                    <td style="text-align:right;">
                         <div class="action-buttons" style="justify-content:flex-end;">
                             <button class="btn btn-secondary btn-sm toggle-admin-recipient" data-user-id="${r.id}" data-enabled="${r.enabled}">
                                 <i class="fas ${r.enabled ? 'fa-pause' : 'fa-play'}"></i> ${r.enabled ? 'Disable' : 'Enable'}
@@ -2196,18 +2285,18 @@
             let html = `<table class="table-clean"><thead><tr>
                 <th class="text-left">Name</th>
                 <th class="text-left">Email</th>
-                <th>Username</th>
-                <th>Requested</th>
-                <th>Actions</th>
+                <th style="text-align:center;">Username</th>
+                <th style="text-align:center;">Requested</th>
+                <th style="text-align:right;">Actions</th>
             </tr></thead><tbody>`;
             for (const req of requests) {
                 html += `<tr>
                     <td class="text-left">${escapeHtml(req.name)}</td>
                     <td class="text-left">${escapeHtml(req.email)}</td>
-                    <td>${escapeHtml(req.username || '—')}</td>
-                    <td>${formatDate(req.created_at)}</td>
-                    <td>
-                        <div class="action-buttons">
+                    <td style="text-align:center;">${escapeHtml(req.username || '—')}</td>
+                    <td style="text-align:center;">${formatDate(req.created_at)}</td>
+                    <td style="text-align:right;">
+                        <div class="action-buttons" style="justify-content:flex-end;">
                             <button class="btn btn-success approveRequestBtn" data-id="${req.id}"><i class="fas fa-check"></i> Approve</button>
                             <button class="btn btn-danger rejectRequestBtn" data-id="${req.id}"><i class="fas fa-times"></i> Reject</button>
                         </div>
@@ -2348,18 +2437,18 @@
                 const avatarColor = getAvatarColor(user.name);
                 html += `
                     <tr class="hover:bg-slate-50 transition">
-                        <td class="text-left">
-                            <div class="flex items-center gap-3">
-                                <div class="acm-avatar-initials" style="background-color:${avatarColor};">${escapeHtml(initials)}</div>
+                        <td style="text-align:center;">
+                            <div class="flex items-center justify-center gap-3">
+                                <div class="acm-avatar-initials" style="background-color:${avatarColor};display:inline-flex;">${escapeHtml(initials)}</div>
                                 <div>
                                     <div class="text-sm font-medium text-slate-800">${escapeHtml(user.name)}</div>
                                     <div class="text-sm text-slate-500">${escapeHtml(user.email)}</div>
                                 </div>
                             </div>
                         </td>
-                        <td>${escapeHtml(user.role)}</td>
-                        <td><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
-                        <td>${formatLastActive(user.lastActive)}</td>
+                        <td style="text-align:center;">${escapeHtml(user.role)}</td>
+                        <td style="text-align:center;"><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
+                        <td style="text-align:center;">${formatLastActive(user.lastActive)}</td>
                     </tr>
                 `;
             }
@@ -2438,19 +2527,19 @@
                 const avatarColor = getAvatarColor(user.name);
                 html += `
                     <tr class="hover:bg-slate-50 transition">
-                        <td class="text-left">
-                            <div class="flex items-center gap-3">
-                                <div class="acm-avatar-initials" style="background-color:${avatarColor};">${escapeHtml(initials)}</div>
+                        <td style="text-align:center;">
+                            <div class="flex items-center justify-center gap-3">
+                                <div class="acm-avatar-initials" style="background-color:${avatarColor};display:inline-flex;">${escapeHtml(initials)}</div>
                                 <div>
                                     <div class="text-sm font-medium text-slate-800">${escapeHtml(user.name)}</div>
                                     <div class="text-sm text-slate-500">${escapeHtml(user.email)}</div>
                                 </div>
                             </div>
                         </td>
-                        <td>${escapeHtml(user.role)}</td>
-                        <td><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
-                        <td>${formatLastActive(user.lastActive)}</td>
-                        <td class="actions-cell">
+                        <td style="text-align:center;">${escapeHtml(user.role)}</td>
+                        <td style="text-align:center;"><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
+                        <td style="text-align:center;">${formatLastActive(user.lastActive)}</td>
+                        <td style="text-align:center;">
                             <div class="actions-dropdown">
                                 <button class="dropdown-toggle manageActionDots" data-user-id="${user.id}">
                                     Actions <i class="fas fa-chevron-down"></i>

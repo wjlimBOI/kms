@@ -241,7 +241,6 @@
         setTimeout(() => toast.remove(), 3000);
     }
 
-    // Alert Modal functions
     function showAlertModal(message, type = 'success', title = null) {
         const modal = document.getElementById('alertModal');
         const icon = document.getElementById('alertIcon');
@@ -482,7 +481,6 @@
         }
     }
 
-    // Helper function to log audit events
     async function logAuditEvent(action, targetType, targetId, details = {}, oldData = null, newData = null) {
         try {
             const user = getUser();
@@ -525,6 +523,7 @@
     let currentRequestId = null;
     let pendingLostTransaction = null;
 
+    // ===== TRANSACTIONS =====
     async function loadTransactions() {
         const giver = document.getElementById('filterGiver')?.value.trim() || '';
         const receiver = document.getElementById('filterReceiver')?.value.trim() || '';
@@ -625,6 +624,7 @@
         document.getElementById('reminderNextDue').innerText = next ? `Next due: ${formatDateShort(next.planned_return)}` : 'Next due: --';
     }
 
+    // ===== PENDING REQUESTS =====
     async function loadPendingRequests() {
         try {
             const res = await authenticatedFetch('/api/admin/requests/pending');
@@ -676,6 +676,7 @@
         });
     }
 
+    // ===== PENDING RETURNS =====
     async function loadPendingReturns() {
         try {
             const res = await authenticatedFetch('/api/return/pending');
@@ -733,6 +734,7 @@
         });
     }
 
+    // ===== LOST KEYS =====
     async function loadLostKeys() {
         try {
             const res = await authenticatedFetch('/api/admin/lost-keys');
@@ -762,75 +764,85 @@
                 <td>${formatDate(item.lost_at)}</td>
                 <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
                 <td>
-                    <div class="lost-keys-actions">
-                        ${!item.resolved_at ? `
-                            <button class="btn-action btn-view" data-tx-id="${item.id}" title="View Details">
+                    <div class="actions-dropdown">
+                        <button class="dropdown-toggle" data-tx-id="${item.id}">
+                            Actions <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="dropdown-menu" data-tx-id="${item.id}">
+                            <button class="dropdown-item btn-view" data-tx-id="${item.id}" title="View Details">
                                 <i class="fas fa-eye"></i> View
                             </button>
-                            <button class="btn-action btn-edit" data-tx-id="${item.id}" title="Edit">
+                            <button class="dropdown-item btn-edit" data-tx-id="${item.id}" title="Edit">
                                 <i class="fas fa-edit"></i> Edit
                             </button>
-                            ${!item.fine_id ? `
-                                <button class="btn-action btn-primary" data-tx-id="${item.id}" data-action="create-fine" title="Create Fee">
-                                    <i class="fas fa-plus-circle"></i> Fee
+                            ${!item.fine_id && !item.resolved_at ? `
+                                <button class="dropdown-item btn-primary" data-tx-id="${item.id}" data-action="create-fine" title="Create Fee">
+                                    <i class="fas fa-plus-circle"></i> Create Fee
                                 </button>
                             ` : ''}
-                            <button class="btn-action btn-success" data-tx-id="${item.id}" data-action="close-ticket" title="Close Ticket">
-                                <i class="fas fa-check-circle"></i> Close
+                            ${!item.resolved_at ? `
+                                <button class="dropdown-item btn-success" data-tx-id="${item.id}" data-action="close-ticket" title="Close Ticket">
+                                    <i class="fas fa-check-circle"></i> Close Ticket
+                                </button>
+                            ` : ''}
+                            <button class="dropdown-item btn-warning" data-tx-id="${item.id}" data-action="make-available" title="Make Available">
+                                <i class="fas fa-check"></i> Make Available
                             </button>
-                            <button class="btn-action btn-warning" data-tx-id="${item.id}" data-action="make-available" title="Make Available">
-                                <i class="fas fa-check"></i> Available
-                            </button>
-                        ` : `
-                            <button class="btn-action btn-view" data-tx-id="${item.id}" title="View Details">
-                                <i class="fas fa-eye"></i> View
-                            </button>
-                        `}
-                        ${item.fine_id && item.fine_status === 'pending' ? `
-                            <button class="btn-action btn-success" data-tx-id="${item.id}" data-action="mark-paid" data-fine-id="${item.fine_id}" title="Mark Paid">
-                                <i class="fas fa-dollar-sign"></i> Paid
-                            </button>
-                            <button class="btn-action btn-warning" data-tx-id="${item.id}" data-action="waive" data-fine-id="${item.fine_id}" title="Waive">
-                                <i class="fas fa-handshake"></i> Waive
-                            </button>
-                        ` : ''}
+                            ${item.fine_id && item.fine_status === 'pending' ? `
+                                <div class="dropdown-divider"></div>
+                                <button class="dropdown-item btn-success" data-tx-id="${item.id}" data-action="mark-paid" data-fine-id="${item.fine_id}" title="Mark Paid">
+                                    <i class="fas fa-dollar-sign"></i> Mark Paid
+                                </button>
+                                <button class="dropdown-item btn-warning" data-tx-id="${item.id}" data-action="waive" data-fine-id="${item.fine_id}" title="Waive">
+                                    <i class="fas fa-handshake"></i> Waive Fee
+                                </button>
+                            ` : ''}
+                        </div>
                     </div>
                 </td>
             </tr>`;
         }
         const html = `<table class="table-clean"><thead><tr><th>Key</th><th>Brand</th><th>Borrower</th><th>Lost Date</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
         showDetailModal('Lost Keys', html);
-        const modalContent = document.getElementById('detailModalContent');
-        if (!_lostKeysListenerAttached) {
-            modalContent.addEventListener('click', function(e) {
-                const row = e.target.closest('.lost-key-row');
-                if (row && !e.target.closest('.lost-keys-actions')) {
-                    const txId = parseInt(row.dataset.txId);
-                    const item = window._lostKeysData.find(d => d.id === txId);
-                    if (item) showLostKeyDetailFromItem(item);
-                    else showAlertModal('Key details not found. Please refresh and try again.', 'warning');
-                }
+        
+        // Initialize dropdowns
+        document.querySelectorAll('#detailModalContent .actions-dropdown').forEach(dropdown => {
+            const toggle = dropdown.querySelector('.dropdown-toggle');
+            const menu = dropdown.querySelector('.dropdown-menu');
+            
+            toggle.addEventListener('click', function(e) {
+                e.stopPropagation();
+                // Close all other dropdowns
+                document.querySelectorAll('#detailModalContent .dropdown-menu').forEach(m => {
+                    if (m !== menu) m.classList.remove('show');
+                });
+                menu.classList.toggle('show');
             });
-            modalContent.addEventListener('click', lostKeysActionHandler);
-            _lostKeysListenerAttached = true;
-        }
+            
+            // Handle dropdown item clicks
+            menu.querySelectorAll('.dropdown-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const txId = parseInt(this.dataset.txId);
+                    const action = this.dataset.action || 'view';
+                    const lostItem = window._lostKeysData?.find(d => d.id === txId);
+                    if (lostItem) {
+                        menu.classList.remove('show');
+                        executeLostKeyAction(action, lostItem);
+                    }
+                });
+            });
+        });
+        
+        // Close dropdowns when clicking outside
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.actions-dropdown')) {
+                document.querySelectorAll('#detailModalContent .dropdown-menu').forEach(m => m.classList.remove('show'));
+            }
+        });
     }
 
-    function lostKeysActionHandler(e) {
-        const btn = e.target.closest('.lost-keys-actions .btn-action');
-        if (!btn) return;
-        e.stopPropagation();
-        const action = btn.dataset.action || 'view';
-        const txId = parseInt(btn.dataset.txId);
-        const item = window._lostKeysData?.find(d => d.id === txId);
-        if (!item) {
-            showAlertModal('Key details not found. Please refresh.', 'warning');
-            return;
-        }
-        executeLostKeyAction(action, item);
-    }
-
-    async function executeLostKeyAction(action, item) {
+    function executeLostKeyAction(action, item) {
         const keyCode = item.key_code || 'unknown';
         switch (action) {
             case 'view':
@@ -841,121 +853,131 @@
                 break;
             case 'create-fine':
                 if (!confirm(`Create a $50 fee for lost key ${keyCode}?`)) return;
-                try {
-                    const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/create-fine`, { method: 'POST' });
-                    const data = await res.json();
-                    if (res.ok) {
-                        await logAuditEvent('create_fine', 'lost_key', item.id, {
-                            key_code: keyCode,
-                            amount: 50,
-                            borrower: item.borrower_name || item.borrower_email
-                        });
-                        showAlertModal('Fee created successfully.', 'success');
-                        closeDetailModal();
-                        await loadLostKeys();
-                        await loadTransactions();
-                        await loadLostKeysManagement();
-                    } else {
-                        showAlertModal(data.error || 'Failed to create fee. Please try again.', 'error');
+                (async () => {
+                    try {
+                        const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/create-fine`, { method: 'POST' });
+                        const data = await res.json();
+                        if (res.ok) {
+                            await logAuditEvent('create_fine', 'lost_key', item.id, {
+                                key_code: keyCode,
+                                amount: 50,
+                                borrower: item.borrower_name || item.borrower_email
+                            });
+                            showAlertModal('Fee created successfully.', 'success');
+                            closeDetailModal();
+                            await loadLostKeys();
+                            await loadTransactions();
+                            await loadLostKeysManagement();
+                        } else {
+                            showAlertModal(data.error || 'Failed to create fee. Please try again.', 'error');
+                        }
+                    } catch (err) {
+                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                     }
-                } catch (err) {
-                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
-                }
+                })();
                 break;
             case 'mark-paid':
                 if (!confirm(`Mark fee for ${keyCode} as paid?`)) return;
-                try {
-                    const res = await authenticatedFetch(`/api/admin/fines/${item.fine_id}/paid`, { method: 'POST' });
-                    if (res.ok) {
-                        await logAuditEvent('mark_fine_paid', 'lost_key', item.id, {
-                            key_code: keyCode,
-                            fine_id: item.fine_id
-                        });
-                        showAlertModal('Fee marked paid.', 'success');
-                        closeDetailModal();
-                        await loadLostKeys();
-                        await loadTransactions();
-                        await loadLostKeysManagement();
-                    } else {
-                        const data = await res.json();
-                        showAlertModal(data.error || 'Action failed. Please try again.', 'error');
+                (async () => {
+                    try {
+                        const res = await authenticatedFetch(`/api/admin/fines/${item.fine_id}/paid`, { method: 'POST' });
+                        if (res.ok) {
+                            await logAuditEvent('mark_fine_paid', 'lost_key', item.id, {
+                                key_code: keyCode,
+                                fine_id: item.fine_id
+                            });
+                            showAlertModal('Fee marked paid.', 'success');
+                            closeDetailModal();
+                            await loadLostKeys();
+                            await loadTransactions();
+                            await loadLostKeysManagement();
+                        } else {
+                            const data = await res.json();
+                            showAlertModal(data.error || 'Action failed. Please try again.', 'error');
+                        }
+                    } catch (err) {
+                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                     }
-                } catch (err) {
-                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
-                }
+                })();
                 break;
             case 'waive':
                 if (!confirm(`Waive fee for ${keyCode}?`)) return;
-                try {
-                    const res = await authenticatedFetch(`/api/admin/fines/${item.fine_id}/waived`, { method: 'POST' });
-                    if (res.ok) {
-                        await logAuditEvent('waive_fine', 'lost_key', item.id, {
-                            key_code: keyCode,
-                            fine_id: item.fine_id
-                        });
-                        showAlertModal('Fee waived.', 'success');
-                        closeDetailModal();
-                        await loadLostKeys();
-                        await loadTransactions();
-                        await loadLostKeysManagement();
-                    } else {
-                        const data = await res.json();
-                        showAlertModal(data.error || 'Action failed. Please try again.', 'error');
+                (async () => {
+                    try {
+                        const res = await authenticatedFetch(`/api/admin/fines/${item.fine_id}/waived`, { method: 'POST' });
+                        if (res.ok) {
+                            await logAuditEvent('waive_fine', 'lost_key', item.id, {
+                                key_code: keyCode,
+                                fine_id: item.fine_id
+                            });
+                            showAlertModal('Fee waived.', 'success');
+                            closeDetailModal();
+                            await loadLostKeys();
+                            await loadTransactions();
+                            await loadLostKeysManagement();
+                        } else {
+                            const data = await res.json();
+                            showAlertModal(data.error || 'Action failed. Please try again.', 'error');
+                        }
+                    } catch (err) {
+                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                     }
-                } catch (err) {
-                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
-                }
+                })();
                 break;
             case 'close-ticket':
                 if (!confirm(`Close lost ticket for key ${keyCode}? This will mark the issue as resolved.`)) return;
                 const notes = prompt('Resolution notes (optional):');
-                try {
-                    const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/close`, {
-                        method: 'POST',
-                        body: JSON.stringify({ resolution_notes: notes || null })
-                    });
-                    if (res.ok) {
-                        await logAuditEvent('close_lost_ticket', 'lost_key', item.id, {
-                            key_code: keyCode,
-                            resolution_notes: notes || null
+                (async () => {
+                    try {
+                        const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/close`, {
+                            method: 'POST',
+                            body: JSON.stringify({ resolution_notes: notes || null })
                         });
-                        showAlertModal('Ticket closed successfully.', 'success');
-                        closeDetailModal();
-                        await loadLostKeys();
-                        await loadTransactions();
-                        await loadInventory();
-                        await loadLostKeysManagement();
-                    } else {
-                        const data = await res.json();
-                        showAlertModal(data.error || 'Failed to close ticket. Please try again.', 'error');
+                        if (res.ok) {
+                            await logAuditEvent('close_lost_ticket', 'lost_key', item.id, {
+                                key_code: keyCode,
+                                resolution_notes: notes || null
+                            });
+                            showAlertModal('Ticket closed successfully.', 'success');
+                            closeDetailModal();
+                            await loadLostKeys();
+                            await loadTransactions();
+                            await loadInventory();
+                            await loadLostKeysManagement();
+                        } else {
+                            const data = await res.json();
+                            showAlertModal(data.error || 'Failed to close ticket. Please try again.', 'error');
+                        }
+                    } catch (err) {
+                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                     }
-                } catch (err) {
-                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
-                }
+                })();
                 break;
             case 'make-available':
                 if (!confirm(`Mark key ${keyCode} as available again? This will make it available for borrowing.`)) return;
-                try {
-                    const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/make-available`, {
-                        method: 'POST'
-                    });
-                    if (res.ok) {
-                        await logAuditEvent('make_key_available', 'lost_key', item.id, {
-                            key_code: keyCode
+                (async () => {
+                    try {
+                        const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/make-available`, {
+                            method: 'POST'
                         });
-                        showAlertModal(`Key ${keyCode} is now available.`, 'success');
-                        closeDetailModal();
-                        await loadLostKeys();
-                        await loadTransactions();
-                        await loadInventory();
-                        await loadLostKeysManagement();
-                    } else {
-                        const data = await res.json();
-                        showAlertModal(data.error || 'Failed to make key available. Please try again.', 'error');
+                        if (res.ok) {
+                            await logAuditEvent('make_key_available', 'lost_key', item.id, {
+                                key_code: keyCode
+                            });
+                            showAlertModal(`Key ${keyCode} is now available.`, 'success');
+                            closeDetailModal();
+                            await loadLostKeys();
+                            await loadTransactions();
+                            await loadInventory();
+                            await loadLostKeysManagement();
+                        } else {
+                            const data = await res.json();
+                            showAlertModal(data.error || 'Failed to make key available. Please try again.', 'error');
+                        }
+                    } catch (err) {
+                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                     }
-                } catch (err) {
-                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
-                }
+                })();
                 break;
         }
     }
@@ -1015,6 +1037,7 @@
         }
     }
 
+    // ===== ACTIVE BORROWS =====
     function showActiveBorrowsModal() {
         const data = window._activeBorrowsData || [];
         if (!data.length) {
@@ -1088,6 +1111,7 @@
         showDetailModal('Return Reminders', html);
     }
 
+    // ===== AUDIT =====
     async function loadAuditHealth() {
         try {
             const res = await authenticatedFetch('/api/admin/audit-health');
@@ -1114,6 +1138,7 @@
         }
     }
 
+    // ===== INVENTORY =====
     async function loadInventory() {
         const container = document.getElementById('inventoryTableBody');
         container.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400"><div class="skeleton h-8 w-full"></div></td></tr>';
@@ -1251,6 +1276,7 @@
         }
     }
 
+    // ===== KEY MANAGEMENT =====
     async function openKeyManageModal() {
         const modal = document.getElementById('keyManageModal');
         modal.style.display = 'flex';
@@ -1399,6 +1425,7 @@
         modal.style.display = 'flex';
     }
 
+    // ===== EMAIL PERMISSIONS =====
     async function checkEmailPermissions() {
         try {
             const res = await authenticatedFetch('/api/user/permissions');
@@ -1541,6 +1568,7 @@
         }
     }
 
+    // ===== SETTINGS =====
     async function loadSettings() {
         const container = document.getElementById('settingsContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading settings...</div>';
@@ -1600,6 +1628,7 @@
         }
     }
 
+    // ===== LOST KEYS MANAGEMENT =====
     async function loadLostKeysManagement() {
         const container = document.getElementById('lostKeysManagementContainer');
         if (!container) return;
@@ -1629,21 +1658,26 @@
                     <td>${formatDate(item.lost_at)}</td>
                     <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
                     <td class="text-right">
-                        <div class="lost-keys-actions" style="justify-content:flex-end;">
-                            <button class="btn-action btn-view view-lost-key-btn" data-id="${item.id}">
-                                <i class="fas fa-eye"></i> View
+                        <div class="actions-dropdown">
+                            <button class="dropdown-toggle" data-id="${item.id}">
+                                Actions <i class="fas fa-chevron-down"></i>
                             </button>
-                            ${!item.resolved_at ? `
-                                <button class="btn-action btn-edit edit-lost-key-btn" data-id="${item.id}">
-                                    <i class="fas fa-edit"></i> Edit
+                            <div class="dropdown-menu" data-id="${item.id}">
+                                <button class="dropdown-item btn-view view-lost-key-btn" data-id="${item.id}">
+                                    <i class="fas fa-eye"></i> View
                                 </button>
-                                <button class="btn-action btn-success close-lost-ticket-btn" data-id="${item.id}" data-key="${escapeHtml(item.key_code)}">
-                                    <i class="fas fa-check-circle"></i> Close
+                                ${!item.resolved_at ? `
+                                    <button class="dropdown-item btn-edit edit-lost-key-btn" data-id="${item.id}">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                    <button class="dropdown-item btn-success close-lost-ticket-btn" data-id="${item.id}" data-key="${escapeHtml(item.key_code)}">
+                                        <i class="fas fa-check-circle"></i> Close Ticket
+                                    </button>
+                                ` : ''}
+                                <button class="dropdown-item btn-warning make-available-btn" data-id="${item.id}" data-key="${escapeHtml(item.key_code)}">
+                                    <i class="fas fa-check"></i> Make Available
                                 </button>
-                                <button class="btn-action btn-warning make-available-btn" data-id="${item.id}" data-key="${escapeHtml(item.key_code)}">
-                                    <i class="fas fa-check"></i> Available
-                                </button>
-                            ` : ''}
+                            </div>
                         </div>
                     </td>
                 </tr>`;
@@ -1651,78 +1685,103 @@
             html += `</tbody></table>`;
             container.innerHTML = html;
 
-            document.querySelectorAll('.view-lost-key-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const id = parseInt(this.dataset.id);
-                    showLostKeyDetail(id);
+            // Initialize dropdowns
+            container.querySelectorAll('.actions-dropdown').forEach(dropdown => {
+                const toggle = dropdown.querySelector('.dropdown-toggle');
+                const menu = dropdown.querySelector('.dropdown-menu');
+                
+                toggle.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    container.querySelectorAll('.dropdown-menu').forEach(m => {
+                        if (m !== menu) m.classList.remove('show');
+                    });
+                    menu.classList.toggle('show');
                 });
-            });
-
-            document.querySelectorAll('.edit-lost-key-btn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const id = parseInt(this.dataset.id);
-                    openLostKeyEditModal(id);
-                });
-            });
-
-            document.querySelectorAll('.close-lost-ticket-btn').forEach(btn => {
-                btn.addEventListener('click', async function() {
-                    const id = parseInt(this.dataset.id);
-                    const key = this.dataset.key;
-                    if (!confirm(`Close lost ticket for key ${key}? This will mark the issue as resolved.`)) return;
-                    const notes = prompt('Resolution notes (optional):');
-                    try {
-                        const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/close`, {
-                            method: 'POST',
-                            body: JSON.stringify({ resolution_notes: notes || null })
-                        });
-                        if (res.ok) {
-                            await logAuditEvent('close_lost_ticket', 'lost_key', id, {
-                                key_code: key,
-                                resolution_notes: notes || null
-                            });
-                            showAlertModal('Ticket closed successfully.', 'success');
-                            loadLostKeysManagement();
-                            loadLostKeys();
-                        } else {
-                            const data = await res.json();
-                            showAlertModal(data.error || 'Failed to close ticket.', 'error');
+                
+                menu.querySelectorAll('.dropdown-item').forEach(item => {
+                    item.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const id = parseInt(this.dataset.id);
+                        const action = this.classList.contains('view-lost-key-btn') ? 'view' :
+                            this.classList.contains('edit-lost-key-btn') ? 'edit' :
+                            this.classList.contains('close-lost-ticket-btn') ? 'close-ticket' :
+                            this.classList.contains('make-available-btn') ? 'make-available' : null;
+                        if (action) {
+                            menu.classList.remove('show');
+                            const lostItem = data.find(d => d.id === id);
+                            if (lostItem) {
+                                if (action === 'view') {
+                                    showLostKeyDetail(id);
+                                } else if (action === 'edit') {
+                                    openLostKeyEditModal(id);
+                                } else if (action === 'close-ticket') {
+                                    handleCloseTicket(id, this.dataset.key);
+                                } else if (action === 'make-available') {
+                                    handleMakeAvailable(id, this.dataset.key);
+                                }
+                            }
                         }
-                    } catch (err) {
-                        showAlertModal(err.message || 'Network error.', 'error');
-                    }
+                    });
                 });
             });
-
-            document.querySelectorAll('.make-available-btn').forEach(btn => {
-                btn.addEventListener('click', async function() {
-                    const id = parseInt(this.dataset.id);
-                    const key = this.dataset.key;
-                    if (!confirm(`Mark key ${key} as available again?`)) return;
-                    try {
-                        const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/make-available`, {
-                            method: 'POST'
-                        });
-                        if (res.ok) {
-                            await logAuditEvent('make_key_available', 'lost_key', id, {
-                                key_code: key
-                            });
-                            showAlertModal(`Key ${key} is now available.`, 'success');
-                            loadLostKeysManagement();
-                            loadLostKeys();
-                            loadInventory();
-                        } else {
-                            const data = await res.json();
-                            showAlertModal(data.error || 'Failed to make key available.', 'error');
-                        }
-                    } catch (err) {
-                        showAlertModal(err.message || 'Network error.', 'error');
-                    }
-                });
+            
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.actions-dropdown')) {
+                    container.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
+                }
             });
         } catch (err) {
             container.innerHTML = `<div class="text-center py-8 text-rose-600">Failed to load lost keys: ${escapeHtml(err.message)}</div>`;
             showAlertModal(err.message || 'Failed to load lost keys.', 'error');
+        }
+    }
+
+    async function handleCloseTicket(id, key) {
+        if (!confirm(`Close lost ticket for key ${key}? This will mark the issue as resolved.`)) return;
+        const notes = prompt('Resolution notes (optional):');
+        try {
+            const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/close`, {
+                method: 'POST',
+                body: JSON.stringify({ resolution_notes: notes || null })
+            });
+            if (res.ok) {
+                await logAuditEvent('close_lost_ticket', 'lost_key', id, {
+                    key_code: key,
+                    resolution_notes: notes || null
+                });
+                showAlertModal('Ticket closed successfully.', 'success');
+                loadLostKeysManagement();
+                loadLostKeys();
+            } else {
+                const data = await res.json();
+                showAlertModal(data.error || 'Failed to close ticket.', 'error');
+            }
+        } catch (err) {
+            showAlertModal(err.message || 'Network error.', 'error');
+        }
+    }
+
+    async function handleMakeAvailable(id, key) {
+        if (!confirm(`Mark key ${key} as available again?`)) return;
+        try {
+            const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/make-available`, {
+                method: 'POST'
+            });
+            if (res.ok) {
+                await logAuditEvent('make_key_available', 'lost_key', id, {
+                    key_code: key
+                });
+                showAlertModal(`Key ${key} is now available.`, 'success');
+                loadLostKeysManagement();
+                loadLostKeys();
+                loadInventory();
+            } else {
+                const data = await res.json();
+                showAlertModal(data.error || 'Failed to make key available.', 'error');
+            }
+        } catch (err) {
+            showAlertModal(err.message || 'Network error.', 'error');
         }
     }
 
@@ -1809,6 +1868,7 @@
         }
     }
 
+    // ===== ADMIN RECIPIENTS =====
     async function loadAdminRecipients() {
         const container = document.getElementById('adminRecipientsContainer');
         if (!container) return;
@@ -1927,6 +1987,7 @@
         }
     }
 
+    // ===== SECURITY TAB =====
     async function loadSecurityTab() {
         if (securityLoaded) return;
         securityLoaded = true;
@@ -2141,6 +2202,7 @@
         }
     }
 
+    // ===== PENDING REGISTRATIONS =====
     async function loadPendingRegistrations() {
         const container = document.getElementById('pendingRequestsContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading requests...</div>';
@@ -2231,6 +2293,7 @@
         }
     }
 
+    // ===== USER MANAGEMENT =====
     function initUserManagement() {
         const tbody = document.getElementById('acmUserTableBody');
         const searchInput = document.getElementById('acmSearchInput');
@@ -2409,15 +2472,26 @@
                         <td><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
                         <td>${formatLastActive(user.lastActive)}</td>
                         <td class="actions-cell">
-                            <div class="action-buttons" style="justify-content:flex-end;">
-                                <button class="btn btn-secondary btn-sm manageActionDots" data-user-id="${user.id}">
-                                    <i class="fas fa-ellipsis-v"></i> Actions
+                            <div class="actions-dropdown">
+                                <button class="dropdown-toggle manageActionDots" data-user-id="${user.id}">
+                                    Actions <i class="fas fa-chevron-down"></i>
                                 </button>
-                                <div class="manage-action-menu" data-user-id="${user.id}">
-                                    <button class="manageEditUserBtn menu-item" data-user-id="${user.id}"><i class="fas fa-edit"></i> Edit</button>
-                                    <button class="manageSuspendUserBtn menu-item" data-user-id="${user.id}" data-status="${user.status}"><i class="fas fa-ban"></i> ${user.status === 'suspended' ? 'Unsuspend' : 'Suspend'}</button>
-                                    ${user.status === 'locked' ? `<button class="manageUnlockUserBtn menu-item" data-user-id="${user.id}"><i class="fas fa-unlock"></i> Unlock</button>` : ''}
-                                    <button class="manageDeleteUserBtn menu-item text-rose-600" data-user-id="${user.id}"><i class="fas fa-trash"></i> Delete</button>
+                                <div class="dropdown-menu" data-user-id="${user.id}">
+                                    <button class="dropdown-item manageEditUserBtn" data-user-id="${user.id}">
+                                        <i class="fas fa-edit"></i> Edit
+                                    </button>
+                                    <button class="dropdown-item manageSuspendUserBtn" data-user-id="${user.id}" data-status="${user.status}">
+                                        <i class="fas fa-ban"></i> ${user.status === 'suspended' ? 'Unsuspend' : 'Suspend'}
+                                    </button>
+                                    ${user.status === 'locked' ? `
+                                        <button class="dropdown-item manageUnlockUserBtn" data-user-id="${user.id}">
+                                            <i class="fas fa-unlock"></i> Unlock
+                                        </button>
+                                    ` : ''}
+                                    <div class="dropdown-divider"></div>
+                                    <button class="dropdown-item manageDeleteUserBtn text-rose-600" data-user-id="${user.id}">
+                                        <i class="fas fa-trash"></i> Delete
+                                    </button>
                                 </div>
                             </div>
                         </td>
@@ -2429,20 +2503,26 @@
         }
 
         function attachManageEvents() {
+            // Toggle dropdown
             document.querySelectorAll('.manageActionDots').forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    const menu = document.querySelector(`.manage-action-menu[data-user-id="${this.dataset.userId}"]`);
-                    document.querySelectorAll('.manage-action-menu').forEach(m => m.classList.remove('show'));
-                    if (menu) menu.classList.toggle('show');
+                    const menu = this.closest('.actions-dropdown').querySelector('.dropdown-menu');
+                    document.querySelectorAll('.manage-action-menu, .dropdown-menu').forEach(m => {
+                        if (m !== menu) m.classList.remove('show');
+                    });
+                    menu.classList.toggle('show');
                 });
             });
+
+            // Close dropdowns when clicking outside
             document.addEventListener('click', function(e) {
-                if (!e.target.closest('.manageActionDots') && !e.target.closest('.manage-action-menu')) {
-                    document.querySelectorAll('.manage-action-menu').forEach(menu => menu.classList.remove('show'));
+                if (!e.target.closest('.actions-dropdown')) {
+                    document.querySelectorAll('.manage-action-menu, .dropdown-menu').forEach(m => m.classList.remove('show'));
                 }
             });
 
+            // Edit User
             document.querySelectorAll('.manageEditUserBtn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const userId = parseInt(this.dataset.userId);
@@ -2456,9 +2536,11 @@
                     modalTitle.innerText = 'Edit User';
                     userModal.classList.add('active');
                     manageModal.style.display = 'none';
-                    document.querySelectorAll('.manage-action-menu').forEach(m => m.classList.remove('show'));
+                    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
                 });
             });
+
+            // Suspend/Unsuspend User
             document.querySelectorAll('.manageSuspendUserBtn').forEach(btn => {
                 btn.addEventListener('click', async function() {
                     const userId = parseInt(this.dataset.userId);
@@ -2477,9 +2559,11 @@
                     } catch (err) {
                         showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                     }
-                    document.querySelectorAll('.manage-action-menu').forEach(m => m.classList.remove('show'));
+                    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
                 });
             });
+
+            // Unlock User
             document.querySelectorAll('.manageUnlockUserBtn').forEach(btn => {
                 btn.addEventListener('click', async function() {
                     const userId = parseInt(this.dataset.userId);
@@ -2497,9 +2581,11 @@
                     } catch (err) {
                         showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                     }
-                    document.querySelectorAll('.manage-action-menu').forEach(m => m.classList.remove('show'));
+                    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
                 });
             });
+
+            // Delete User
             document.querySelectorAll('.manageDeleteUserBtn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const userId = parseInt(this.dataset.userId);
@@ -2509,7 +2595,7 @@
                         document.getElementById('acmDeleteUserMessage').innerHTML = `Are you sure you want to delete <strong>${escapeHtml(user.name)}</strong>? This action cannot be undone.`;
                         deleteConfirmModal.classList.add('active');
                     }
-                    document.querySelectorAll('.manage-action-menu').forEach(m => m.classList.remove('show'));
+                    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
                 });
             });
         }
@@ -2608,6 +2694,7 @@
         deleteConfirmModal?.addEventListener('click', (e) => { if (e.target === deleteConfirmModal) closeDeleteModal(); });
     }
 
+    // ===== LOGOUT =====
     async function handleLogout() {
         if (isRedirecting) return;
         isRedirecting = true;
@@ -2632,6 +2719,7 @@
         }
     }
 
+    // ===== EVENT LISTENERS =====
     function initEventListeners() {
         // Alert Modal listeners
         document.getElementById('alertOkBtn')?.addEventListener('click', closeAlertModal);
@@ -3341,6 +3429,7 @@
         });
     }
 
+    // ===== INIT =====
     async function init() {
         const isAuthenticated = await checkAuth();
         if (isAuthenticated) {

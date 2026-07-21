@@ -6,6 +6,10 @@ const { Pool } = require('pg');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
+// Template cache for better performance
+const templateCache = {};
+const TEMPLATE_CACHE_TTL = 60000; // 1 minute cache
+
 let cachedLogoBase64 = null;
 
 function getLogoBase64() {
@@ -16,13 +20,13 @@ function getLogoBase64() {
             const imageBuffer = fs.readFileSync(logoPath);
             const base64 = imageBuffer.toString('base64');
             cachedLogoBase64 = `data:image/png;base64,${base64}`;
-            console.log('Logo embedded as base64 for emails');
+            console.log('✅ Logo embedded as base64 for emails');
         } else {
-            console.warn('Logo not found at public/boi.png – emails will show no logo');
+            console.warn('⚠️ Logo not found at public/boi.png – emails will show no logo');
             cachedLogoBase64 = '';
         }
     } catch (err) {
-        console.error('Failed to read logo:', err);
+        console.error('❌ Failed to read logo:', err);
         cachedLogoBase64 = '';
     }
     return cachedLogoBase64;
@@ -90,21 +94,77 @@ const transporter = nodemailer.createTransport({
     }
 });
 
+// ============================================================
+//  TEMPLATE MANAGEMENT WITH CACHING
+// ============================================================
+
 async function loadTemplate(templateKey, data = {}) {
+    // Check cache first
+    const cacheKey = templateKey;
+    const cached = templateCache[cacheKey];
+    if (cached && (Date.now() - cached.timestamp) < TEMPLATE_CACHE_TTL) {
+        // Use cached template
+        let { subject, body_html } = cached.template;
+        for (const [key, value] of Object.entries(data)) {
+            const regex = new RegExp(`{{${key}}}`, 'g');
+            subject = subject.replace(regex, String(value));
+            body_html = body_html.replace(regex, String(value));
+        }
+        return { subject, body_html };
+    }
+
+    // Fetch from database
     const result = await pool.query(
-        'SELECT subject, body_html FROM email_templates WHERE template_key = $1 AND is_active = true',
+        'SELECT subject, body_html, updated_at FROM email_templates WHERE template_key = $1 AND is_active = true',
         [templateKey]
     );
     if (result.rowCount === 0) {
         throw new Error(`Template "${templateKey}" not found or inactive`);
     }
     let { subject, body_html } = result.rows[0];
+    
+    // Update cache
+    templateCache[cacheKey] = {
+        template: { subject, body_html },
+        timestamp: Date.now(),
+        version: result.rows[0].updated_at
+    };
+    
+    // Replace placeholders
     for (const [key, value] of Object.entries(data)) {
         const regex = new RegExp(`{{${key}}}`, 'g');
         subject = subject.replace(regex, String(value));
         body_html = body_html.replace(regex, String(value));
     }
     return { subject, body_html };
+}
+
+async function clearTemplateCache(templateKey = null) {
+    if (templateKey) {
+        delete templateCache[templateKey];
+        console.log(`Template cache cleared for: ${templateKey}`);
+    } else {
+        for (const key in templateCache) {
+            delete templateCache[key];
+        }
+        console.log('All template caches cleared');
+    }
+}
+
+async function updateTemplate(templateKey, subject, body_html, is_active = true) {
+    const result = await pool.query(
+        `UPDATE email_templates 
+         SET subject = $1, body_html = $2, is_active = $3, updated_at = NOW() 
+         WHERE template_key = $4 
+         RETURNING *`,
+        [subject, body_html, is_active, templateKey]
+    );
+    if (result.rowCount === 0) {
+        throw new Error(`Template "${templateKey}" not found`);
+    }
+    // Clear cache for this template
+    await clearTemplateCache(templateKey);
+    return result.rows[0];
 }
 
 async function isNotificationEnabled(settingKey) {
@@ -124,6 +184,10 @@ async function getNotificationConfig(settingKey) {
     if (result.rowCount === 0) return {};
     return result.rows[0].config || {};
 }
+
+// ============================================================
+//  EMAIL SENDING FUNCTIONS
+// ============================================================
 
 async function sendOtpEmail(toEmail, otp) {
     if (!(await isNotificationEnabled('send_otp'))) return;
@@ -153,6 +217,7 @@ async function sendPasswordResetEmail(toEmail, resetLink, name = 'User') {
             // Fallback to legacy template
             templateKey = 'password_reset';
             template = await loadTemplate(templateKey, { 
+                name: name,
                 reset_link: resetLink,
                 app_url: process.env.APP_URL || 'http://localhost:3000'
             });
@@ -164,8 +229,9 @@ async function sendPasswordResetEmail(toEmail, resetLink, name = 'User') {
             subject: template.subject,
             html
         });
+        console.log(`✅ Password reset email sent to ${toEmail}`);
     } catch (err) {
-        console.error('Failed to send password reset email:', err);
+        console.error('❌ Failed to send password reset email:', err);
         throw err;
     }
 }
@@ -173,7 +239,6 @@ async function sendPasswordResetEmail(toEmail, resetLink, name = 'User') {
 async function sendWelcomeEmail(toEmail, username, plainPassword, changePasswordLink) {
     if (!(await isNotificationEnabled('send_welcome_email'))) return;
     try {
-        // Use the updated welcome template with all IMDA compliance
         const { subject, body_html } = await loadTemplate('welcome', { 
             name: username,
             username: username,
@@ -188,8 +253,9 @@ async function sendWelcomeEmail(toEmail, username, plainPassword, changePassword
             subject,
             html
         });
+        console.log(`✅ Welcome email sent to ${toEmail}`);
     } catch (err) {
-        console.error('Failed to send welcome email:', err);
+        console.error('❌ Failed to send welcome email:', err);
         throw err;
     }
 }
@@ -339,8 +405,9 @@ async function sendAccountLockedEmail(toEmail, username, attempts, resetLink) {
             subject: template.subject,
             html
         });
+        console.log(`✅ Account locked email sent to ${toEmail}`);
     } catch (err) {
-        console.error('Failed to send account locked email:', err);
+        console.error('❌ Failed to send account locked email:', err);
         throw err;
     }
 }
@@ -393,6 +460,9 @@ function generateOtp() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+// ============================================================
+//  EXPORTS
+// ============================================================
 module.exports = {
     sendOtpEmail,
     sendPasswordResetEmail,
@@ -410,5 +480,7 @@ module.exports = {
     generateOtp,
     loadTemplate,
     isNotificationEnabled,
-    getNotificationConfig
+    getNotificationConfig,
+    clearTemplateCache,
+    updateTemplate
 };

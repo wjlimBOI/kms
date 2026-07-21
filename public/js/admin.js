@@ -523,7 +523,6 @@
     let currentRequestId = null;
     let pendingLostTransaction = null;
 
-    // ===== TRANSACTIONS =====
     async function loadTransactions() {
         const giver = document.getElementById('filterGiver')?.value.trim() || '';
         const receiver = document.getElementById('filterReceiver')?.value.trim() || '';
@@ -624,7 +623,6 @@
         document.getElementById('reminderNextDue').innerText = next ? `Next due: ${formatDateShort(next.planned_return)}` : 'Next due: --';
     }
 
-    // ===== PENDING REQUESTS =====
     async function loadPendingRequests() {
         try {
             const res = await authenticatedFetch('/api/admin/requests/pending');
@@ -676,7 +674,6 @@
         });
     }
 
-    // ===== PENDING RETURNS =====
     async function loadPendingReturns() {
         try {
             const res = await authenticatedFetch('/api/return/pending');
@@ -734,7 +731,6 @@
         });
     }
 
-    // ===== LOST KEYS =====
     async function loadLostKeys() {
         try {
             const res = await authenticatedFetch('/api/admin/lost-keys');
@@ -805,21 +801,18 @@
         const html = `<table class="table-clean"><thead><tr><th>Key</th><th>Brand</th><th>Borrower</th><th>Lost Date</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
         showDetailModal('Lost Keys', html);
         
-        // Initialize dropdowns
         document.querySelectorAll('#detailModalContent .actions-dropdown').forEach(dropdown => {
             const toggle = dropdown.querySelector('.dropdown-toggle');
             const menu = dropdown.querySelector('.dropdown-menu');
             
             toggle.addEventListener('click', function(e) {
                 e.stopPropagation();
-                // Close all other dropdowns
                 document.querySelectorAll('#detailModalContent .dropdown-menu').forEach(m => {
                     if (m !== menu) m.classList.remove('show');
                 });
                 menu.classList.toggle('show');
             });
             
-            // Handle dropdown item clicks
             menu.querySelectorAll('.dropdown-item').forEach(item => {
                 item.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -834,7 +827,6 @@
             });
         });
         
-        // Close dropdowns when clicking outside
         document.addEventListener('click', function(e) {
             if (!e.target.closest('.actions-dropdown')) {
                 document.querySelectorAll('#detailModalContent .dropdown-menu').forEach(m => m.classList.remove('show'));
@@ -1037,7 +1029,6 @@
         }
     }
 
-    // ===== ACTIVE BORROWS =====
     function showActiveBorrowsModal() {
         const data = window._activeBorrowsData || [];
         if (!data.length) {
@@ -1111,7 +1102,6 @@
         showDetailModal('Return Reminders', html);
     }
 
-    // ===== AUDIT =====
     async function loadAuditHealth() {
         try {
             const res = await authenticatedFetch('/api/admin/audit-health');
@@ -1138,7 +1128,6 @@
         }
     }
 
-    // ===== INVENTORY =====
     async function loadInventory() {
         const container = document.getElementById('inventoryTableBody');
         container.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400"><div class="skeleton h-8 w-full"></div></td></tr>';
@@ -1276,7 +1265,6 @@
         }
     }
 
-    // ===== KEY MANAGEMENT =====
     async function openKeyManageModal() {
         const modal = document.getElementById('keyManageModal');
         modal.style.display = 'flex';
@@ -1425,7 +1413,6 @@
         modal.style.display = 'flex';
     }
 
-    // ===== EMAIL PERMISSIONS =====
     async function checkEmailPermissions() {
         try {
             const res = await authenticatedFetch('/api/user/permissions');
@@ -1568,7 +1555,6 @@
         }
     }
 
-    // ===== SETTINGS =====
     async function loadSettings() {
         const container = document.getElementById('settingsContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading settings...</div>';
@@ -1628,7 +1614,6 @@
         }
     }
 
-    // ===== LOST KEYS MANAGEMENT =====
     async function loadLostKeysManagement() {
         const container = document.getElementById('lostKeysManagementContainer');
         if (!container) return;
@@ -1685,7 +1670,6 @@
             html += `</tbody></table>`;
             container.innerHTML = html;
 
-            // Initialize dropdowns
             container.querySelectorAll('.actions-dropdown').forEach(dropdown => {
                 const toggle = dropdown.querySelector('.dropdown-toggle');
                 const menu = dropdown.querySelector('.dropdown-menu');
@@ -1725,7 +1709,6 @@
                 });
             });
             
-            // Close dropdowns when clicking outside
             document.addEventListener('click', function(e) {
                 if (!e.target.closest('.actions-dropdown')) {
                     container.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
@@ -1868,7 +1851,6 @@
         }
     }
 
-    // ===== ADMIN RECIPIENTS =====
     async function loadAdminRecipients() {
         const container = document.getElementById('adminRecipientsContainer');
         if (!container) return;
@@ -1987,7 +1969,6 @@
         }
     }
 
-    // ===== SECURITY TAB =====
     async function loadSecurityTab() {
         if (securityLoaded) return;
         securityLoaded = true;
@@ -2202,7 +2183,6 @@
         }
     }
 
-    // ===== PENDING REGISTRATIONS =====
     async function loadPendingRegistrations() {
         const container = document.getElementById('pendingRequestsContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading requests...</div>';
@@ -2293,7 +2273,6 @@
         }
     }
 
-    // ===== USER MANAGEMENT =====
     function initUserManagement() {
         const tbody = document.getElementById('acmUserTableBody');
         const searchInput = document.getElementById('acmSearchInput');
@@ -2503,7 +2482,6 @@
         }
 
         function attachManageEvents() {
-            // Toggle dropdown
             document.querySelectorAll('.manageActionDots').forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -2515,14 +2493,12 @@
                 });
             });
 
-            // Close dropdowns when clicking outside
             document.addEventListener('click', function(e) {
                 if (!e.target.closest('.actions-dropdown')) {
                     document.querySelectorAll('.manage-action-menu, .dropdown-menu').forEach(m => m.classList.remove('show'));
                 }
             });
 
-            // Edit User
             document.querySelectorAll('.manageEditUserBtn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const userId = parseInt(this.dataset.userId);
@@ -2540,7 +2516,6 @@
                 });
             });
 
-            // Suspend/Unsuspend User
             document.querySelectorAll('.manageSuspendUserBtn').forEach(btn => {
                 btn.addEventListener('click', async function() {
                     const userId = parseInt(this.dataset.userId);
@@ -2563,7 +2538,6 @@
                 });
             });
 
-            // Unlock User
             document.querySelectorAll('.manageUnlockUserBtn').forEach(btn => {
                 btn.addEventListener('click', async function() {
                     const userId = parseInt(this.dataset.userId);
@@ -2585,7 +2559,6 @@
                 });
             });
 
-            // Delete User
             document.querySelectorAll('.manageDeleteUserBtn').forEach(btn => {
                 btn.addEventListener('click', function() {
                     const userId = parseInt(this.dataset.userId);
@@ -2694,7 +2667,6 @@
         deleteConfirmModal?.addEventListener('click', (e) => { if (e.target === deleteConfirmModal) closeDeleteModal(); });
     }
 
-    // ===== LOGOUT =====
     async function handleLogout() {
         if (isRedirecting) return;
         isRedirecting = true;
@@ -2719,9 +2691,7 @@
         }
     }
 
-    // ===== EVENT LISTENERS =====
     function initEventListeners() {
-        // Alert Modal listeners
         document.getElementById('alertOkBtn')?.addEventListener('click', closeAlertModal);
         document.getElementById('alertModal')?.addEventListener('click', function(e) {
             if (e.target === this) closeAlertModal();
@@ -3429,7 +3399,6 @@
         });
     }
 
-    // ===== INIT =====
     async function init() {
         const isAuthenticated = await checkAuth();
         if (isAuthenticated) {

@@ -57,11 +57,9 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 app.set('trust proxy', IS_PRODUCTION ? 1 : false);
 
-// Enhanced cache control middleware
 app.use((req, res, next) => {
   const path = req.path;
   
-  // API routes - no cache
   if (path.startsWith('/api/')) {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     res.setHeader('Pragma', 'no-cache');
@@ -70,7 +68,6 @@ app.use((req, res, next) => {
     return next();
   }
   
-  // HTML pages - no cache
   const htmlPaths = ['/', '/dashboard', '/admin', '/login', '/change-password', '/privacy-policy'];
   const isHtml = htmlPaths.includes(path) || path.endsWith('.html');
   if (isHtml) {
@@ -83,7 +80,6 @@ app.use((req, res, next) => {
     return next();
   }
   
-  // Static assets - cache with versioning
   if (path.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
     const maxAge = IS_PRODUCTION ? '1y' : '1h';
     res.setHeader('Cache-Control', `public, max-age=${IS_PRODUCTION ? 31536000 : 3600}, immutable`);
@@ -154,7 +150,6 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Static assets with versioning
 app.use('/assets/v' + BUILD_HASH, express.static(path.join(__dirname, 'public', 'assets', 'v' + BUILD_HASH), {
   maxAge: IS_PRODUCTION ? '1y' : '1h',
   etag: true,
@@ -183,9 +178,8 @@ app.use('/images', express.static(path.join(__dirname, 'public', 'images'), {
   immutable: IS_PRODUCTION,
 }));
 
-// Public files with HTML cache control
 app.use(express.static(path.join(__dirname, 'public'), {
-  maxAge: 0, // No caching for HTML
+  maxAge: 0,
   etag: true,
   lastModified: true,
   index: false,
@@ -305,20 +299,16 @@ const sendHtml = (res, filePath, extraHeaders = {}) => {
 };
 
 app.get('/login', (req, res) => {
-  // Check if user is already authenticated via session
   if (req.session?.userId) {
     const role = req.session?.role || 'user';
     return res.redirect(role === 'admin' ? '/admin' : '/');
   }
   
-  // Check if user has a valid token cookie but no session
   if (req.cookies?.token) {
-    // Clear the invalid token cookie to prevent redirect loops
     clearAuthCookies(res);
     return res.redirect('/login?t=' + Date.now());
   }
   
-  // Add cache-busting headers for login page
   res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
@@ -353,6 +343,141 @@ app.get('/privacy-policy', (req, res) => {
   sendHtml(res, 'privacy-policy.html');
 });
 
+app.get('/force-logout', (req, res) => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const domain = process.env.COOKIE_DOMAIN || undefined;
+  
+  const clearOptions = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: 'lax',
+    path: '/',
+  };
+  
+  res.clearCookie('token', clearOptions);
+  res.clearCookie('kms.sid', clearOptions);
+  
+  if (domain) {
+    const domainOptions = { ...clearOptions, domain: domain };
+    res.clearCookie('token', domainOptions);
+    res.clearCookie('kms.sid', domainOptions);
+    
+    const domainWithoutDot = domain.startsWith('.') ? domain.substring(1) : domain;
+    const noDotOptions = { ...clearOptions, domain: domainWithoutDot };
+    res.clearCookie('token', noDotOptions);
+    res.clearCookie('kms.sid', noDotOptions);
+  }
+  
+  try {
+    const hostname = req.hostname || process.env.HOSTNAME;
+    if (hostname && hostname !== 'localhost' && !hostname.includes('localhost')) {
+      const hostOptions = { ...clearOptions, domain: hostname };
+      res.clearCookie('token', hostOptions);
+      res.clearCookie('kms.sid', hostOptions);
+    }
+  } catch (err) {
+    // Silently ignore
+  }
+  
+  if (req.session) {
+    req.session.destroy(() => {});
+  }
+  
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('Surrogate-Control', 'no-store');
+  
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+      <meta http-equiv="Pragma" content="no-cache">
+      <meta http-equiv="Expires" content="0">
+      <meta http-equiv="Surrogate-Control" content="no-store">
+      <meta http-equiv="refresh" content="0; url=/login?t=${Date.now()}&cleared=1">
+      <title>Logging out...</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+          background: #f1f5f9;
+          margin: 0;
+          padding: 20px;
+        }
+        .container {
+          text-align: center;
+          background: white;
+          padding: 48px 40px;
+          border-radius: 16px;
+          box-shadow: 0 4px 24px rgba(0,0,0,0.06);
+          max-width: 400px;
+          width: 100%;
+        }
+        .spinner {
+          width: 48px;
+          height: 48px;
+          border: 4px solid #e2e8f0;
+          border-radius: 50%;
+          border-top-color: #1e293b;
+          animation: spin 0.8s linear infinite;
+          margin: 0 auto 20px;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        h2 {
+          color: #0f172a;
+          font-weight: 600;
+          font-size: 1.2rem;
+          margin: 0 0 6px 0;
+        }
+        p {
+          color: #64748b;
+          font-size: 0.9rem;
+          margin: 0;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="spinner"></div>
+        <h2>Logging you out...</h2>
+        <p>Please wait while we clear your session.</p>
+      </div>
+      <script>
+        (function() {
+          try { localStorage.clear(); } catch(e) {}
+          try { sessionStorage.clear(); } catch(e) {}
+          try {
+            document.cookie.split(";").forEach(function(c) {
+              var cookieName = c.replace(/^ +/, "").split("=")[0];
+              document.cookie = cookieName + "=;expires=" + new Date().toUTCString() + ";path=/";
+              document.cookie = cookieName + "=;expires=" + new Date().toUTCString() + ";path=/;domain=" + window.location.hostname;
+              document.cookie = cookieName + "=;expires=" + new Date().toUTCString() + ";path=/;domain=." + window.location.hostname;
+            });
+          } catch(e) {}
+          try {
+            if ('caches' in window) {
+              caches.keys().then(function(keys) {
+                keys.forEach(function(key) { caches.delete(key); });
+              });
+            }
+          } catch(e) {}
+          window.location.replace('/login?t=' + Date.now() + '&cleared=1');
+        })();
+      </script>
+    </body>
+    </html>
+  `);
+});
+
 app.get(/^\/assets\/v([^\/]+)\/(.*)$/, (req, res) => {
   const requestedHash = req.params[0];
   const filePath = req.params[1];
@@ -380,7 +505,6 @@ app.get('/health', (req, res) => {
   });
 });
 
-// 404 handler with cache prevention
 app.use((req, res) => {
   if (req.path.startsWith('/api/')) {
     return res.status(404).json({ error: 'API endpoint not found' });
@@ -388,14 +512,12 @@ app.use((req, res) => {
   if (req.path.match(/\.(css|js|png|jpg|jpeg|gif|svg|ico|woff|woff2|ttf|eot)$/)) {
     return res.status(404).send('Asset not found');
   }
-  // Only redirect to login for non-asset, non-API paths
   if (req.path !== '/login' && !req.path.startsWith('/assets')) {
     return res.redirect('/login');
   }
   sendHtml(res, 'index.html');
 });
 
-// Error handler with cache prevention
 app.use((err, req, res, next) => {
   logger.error('Unhandled error:', err);
   if (req.path.startsWith('/api/')) {

@@ -365,22 +365,17 @@
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'application/json',
+                        'Cache-Control': 'no-cache, no-store'
                     },
                     credentials: 'include'
                 }).catch(() => {});
             }
+        } catch (error) {
+            console.error('Logout error:', error);
         } finally {
-            localStorage.removeItem('kms_token');
-            localStorage.removeItem('kms_user');
-            sessionStorage.clear();
-            
-            document.cookie.split(";").forEach(function(c) {
-                document.cookie = c.replace(/^ +/, "")
-                    .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-            });
-            
-            window.location.href = '/login?t=' + Date.now();
+            // Always redirect to force-logout for complete cleanup
+            window.location.replace('/force-logout');
         }
     }
 

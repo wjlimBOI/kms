@@ -115,6 +115,23 @@
             background: #FEF3C7;
             color: #92400E;
         }
+        .status-badge.locked {
+            background: #FEF3C7;
+            color: #92400E;
+        }
+        /* ACM Avatar Initials */
+        .acm-avatar-initials {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: #ffffff;
+            flex-shrink: 0;
+        }
         @media (max-width: 640px) {
             .status-badge {
                 font-size: 0.6rem;
@@ -422,7 +439,14 @@
                             </div>
                             <div class="overflow-x-auto">
                                 <table class="table-clean">
-                                    <thead><tr><th class="text-left">User</th><th>Role</th><th>Status</th><th>Last Active</th></tr></thead>
+                                    <thead>
+                                        <tr>
+                                            <th style="text-align:center;width:35%;">User</th>
+                                            <th style="text-align:center;width:15%;">Role</th>
+                                            <th style="text-align:center;width:15%;">Status</th>
+                                            <th style="text-align:center;width:35%;">Last Active</th>
+                                        </tr>
+                                    </thead>
                                     <tbody id="acmUserTableBody"><tr><td colspan="4" class="text-center py-8 text-slate-400">Loading users...</td></tr></tbody>
                                 </table>
                             </div>
@@ -535,6 +559,7 @@
             </div>
         </div>
 
+        <!-- Detail Modal -->
         <div id="detailModal" class="modal-overlay">
             <div class="modal-container">
                 <div class="modal-header"><h3 id="detailModalTitle">Details</h3><button id="closeDetailModalBtn" class="close-btn">&times;</button></div>
@@ -543,6 +568,7 @@
             </div>
         </div>
 
+        <!-- Admin Modal -->
         <div id="adminModal" class="modal-overlay">
             <div class="modal-container">
                 <div class="modal-header"><h3 id="modalTitle">Approve request</h3><button id="closeAdminModalBtn" class="close-btn">&times;</button></div>
@@ -557,6 +583,7 @@
             </div>
         </div>
 
+        <!-- Alert Modal -->
         <div id="alertModal" class="modal-overlay alert-modal">
             <div class="modal-container">
                 <div class="modal-body">
@@ -568,6 +595,7 @@
             </div>
         </div>
 
+        <!-- Add Role Modal -->
         <div id="addRoleModal" class="modal-overlay">
             <div class="modal-container" style="max-width:420px;">
                 <div class="modal-header"><h3>Add New Role</h3><button id="closeAddRoleModalBtn" class="close-btn">&times;</button></div>
@@ -583,6 +611,7 @@
             </div>
         </div>
 
+        <!-- ACM User Modal -->
         <div id="acmUserModal" class="modal-overlay">
             <div class="modal-container" style="max-width:460px;">
                 <div class="modal-header"><h3 id="acmModalTitle">Add New User</h3><button id="acmCloseModalBtn" class="close-btn">&times;</button></div>
@@ -608,6 +637,7 @@
             </div>
         </div>
 
+        <!-- ACM Delete Confirm Modal -->
         <div id="acmDeleteConfirmModal" class="modal-overlay">
             <div class="modal-container" style="max-width:400px;">
                 <div class="modal-body" style="text-align:center;padding:2rem 1.5rem;">
@@ -622,6 +652,7 @@
             </div>
         </div>
 
+        <!-- Lost Key Edit Modal -->
         <div id="lostKeyEditModal" class="modal-overlay">
             <div class="modal-container" style="max-width:600px;">
                 <div class="modal-header">
@@ -669,6 +700,7 @@
             </div>
         </div>
 
+        <!-- Lost Key Detail Modal -->
         <div id="lostKeyDetailModal" class="modal-overlay">
             <div class="modal-container" style="max-width:780px;">
                 <div class="modal-header">
@@ -684,6 +716,7 @@
             </div>
         </div>
 
+        <!-- Profile Modal -->
         <div id="profileModal" class="modal-overlay">
             <div class="modal-container" style="max-width:480px;">
                 <div class="modal-header">
@@ -703,6 +736,7 @@
             </div>
         </div>
 
+        <!-- User Management Modal -->
         <div id="userManagementModal" class="modal-overlay">
             <div class="modal-container" style="max-width:960px;">
                 <div class="modal-header">
@@ -735,7 +769,7 @@
                     <div class="overflow-x-auto">
                         <table class="table-clean user-table">
                             <thead>
-                                <tr><th class="text-left">User</th><th>Role</th><th>Status</th><th>Last Active</th><th class="text-right">Actions</th></tr>
+                                <tr><th style="text-align:center;">User</th><th style="text-align:center;">Role</th><th style="text-align:center;">Status</th><th style="text-align:center;">Last Active</th><th style="text-align:center;">Actions</th></tr>
                             </thead>
                             <tbody id="manageUserTableBody"><tr><td colspan="5" class="text-center py-8 text-slate-400">Loading users...</td></tr></tbody>
                         </table>
@@ -751,6 +785,7 @@
             </div>
         </div>
 
+        <!-- Template Manage Modal -->
         <div id="templateManageModal" class="modal-overlay">
             <div class="modal-container" style="max-width:960px;">
                 <div class="modal-header">
@@ -769,6 +804,7 @@
             </div>
         </div>
 
+        <!-- Template Edit Modal -->
         <div id="templateEditModal" class="modal-overlay">
             <div class="modal-container" style="max-width:760px;">
                 <div class="modal-header">
@@ -803,6 +839,7 @@
             </div>
         </div>
 
+        <!-- Key Edit Modal -->
         <div id="keyEditModal" class="modal-overlay">
             <div class="modal-container" style="max-width:600px;">
                 <div class="modal-header">
@@ -852,6 +889,7 @@
             </div>
         </div>
 
+        <!-- Key Detail Modal -->
         <div id="keyDetailModal" class="modal-overlay">
             <div class="modal-container" style="max-width:780px;">
                 <div class="modal-header">
@@ -867,6 +905,7 @@
             </div>
         </div>
 
+        <!-- Key Manage Modal -->
         <div id="keyManageModal" class="modal-overlay">
             <div class="modal-container" style="max-width:960px;">
                 <div class="modal-header">
@@ -906,6 +945,7 @@
             </div>
         </div>
 
+        <!-- Add Admin Recipient Modal -->
         <div id="addAdminRecipientModal" class="modal-overlay">
             <div class="modal-container" style="max-width:460px;">
                 <div class="modal-header">

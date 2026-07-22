@@ -1021,6 +1021,49 @@ select { appearance: auto; }
     margin: 4px 0; 
 }
 
+/* ===== CONFIRM & PROMPT MODALS ===== */
+#execConfirmModal,
+#execPromptModal {
+    z-index: 1010;
+}
+
+#acmDeleteConfirmModal,
+#alertModal,
+#successModal {
+    z-index: 1010;
+}
+
+.exec-confirm-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--accent-gold-light);
+    color: var(--accent-gold);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.4rem;
+    margin: 0 auto 1rem;
+}
+
+.exec-confirm-icon.danger {
+    background: #fee2e2;
+    color: #dc2626;
+}
+
+.exec-confirm-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 0.4rem;
+}
+
+.exec-confirm-message {
+    font-size: 0.88rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
 /* ===== DROPDOWN MENUS (Legacy - keep for backward compatibility) ===== */
 .actions-dropdown {
     position: relative;
@@ -1229,6 +1272,22 @@ select { appearance: auto; }
 
 #userManagementModal .modal-body { 
     overflow-x: hidden; 
+    max-height: calc(85vh - 80px);
+    overflow-y: auto;
+}
+
+/* Key Manage and Template Manage - responsive stacking */
+@media (max-width: 640px) {
+    #keyManageModal .search-bar,
+    #templateManageModal .header-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    #keyManageModal .search-bar > *,
+    #templateManageModal .header-actions > * {
+        width: 100%;
+        max-width: none;
+    }
 }
 
 @keyframes fadeScaleUp {
@@ -1811,6 +1870,21 @@ select { appearance: auto; }
     box-shadow: 0 0 0 2px rgba(212,168,67,0.2);
 }
 
+/* ===== USER MANAGEMENT RESPONSIVE ===== */
+@media (max-width: 900px) {
+    #userManagementModal .user-table th:nth-child(4),
+    #userManagementModal .user-table td:nth-child(4) { 
+        display: none; 
+    }
+}
+
+@media (max-width: 640px) {
+    #userManagementModal .user-table th:nth-child(2),
+    #userManagementModal .user-table td:nth-child(2) { 
+        display: none; 
+    }
+}
+
 /* ===== RESPONSIVE ===== */
 @media (max-width: 1024px) { 
     .bento-grid { grid-template-columns: repeat(2, 1fr); } 
@@ -1864,21 +1938,7 @@ select { appearance: auto; }
     .mobile-menu { top: var(--header-height-mobile); }
 }
 
-@media (max-width: 900px) {
-    /* User Management responsive - hide Last Active on medium screens */
-    #userManagementModal .user-table th:nth-child(4),
-    #userManagementModal .user-table td:nth-child(4) { 
-        display: none; 
-    }
-}
-
 @media (max-width: 640px) {
-    /* User Management responsive - hide Role on small screens */
-    #userManagementModal .user-table th:nth-child(2),
-    #userManagementModal .user-table td:nth-child(2) { 
-        display: none; 
-    }
-    
     .bento-grid { 
         grid-template-columns: 1fr; 
         gap: 0.75rem; 
@@ -2041,6 +2101,18 @@ select { appearance: auto; }
     #lostKeysManagementContainer .table-clean td:last-child {
         min-width: 100px;
     }
+    
+    /* Key Manage and Template Manage - responsive stacking */
+    #keyManageModal .search-bar,
+    #templateManageModal .header-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    #keyManageModal .search-bar > *,
+    #templateManageModal .header-actions > * {
+        width: 100%;
+        max-width: none;
+    }
 }
 
 @media (max-width: 480px) {
@@ -2099,6 +2171,13 @@ select { appearance: auto; }
         font-size: 0.8rem;
         padding: 10px 14px;
         min-height: 40px;
+    }
+    #execConfirmModal .modal-container,
+    #execPromptModal .modal-container {
+        width: 94%;
+    }
+    #execConfirmModal .modal-body {
+        padding: 1.5rem 1.25rem 1.25rem;
     }
 }
 

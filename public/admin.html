@@ -593,6 +593,39 @@
             </div>
         </div>
 
+        <!-- Generic Confirm Modal (replaces window.confirm) -->
+        <div id="execConfirmModal" class="modal-overlay">
+            <div class="modal-container" style="max-width:420px;">
+                <div class="modal-body" style="text-align:center;padding:2rem 1.75rem 1.5rem;">
+                    <div class="exec-confirm-icon" id="execConfirmIcon"><i class="fas fa-question"></i></div>
+                    <h3 class="exec-confirm-title" id="execConfirmTitle">Please confirm</h3>
+                    <p class="exec-confirm-message" id="execConfirmMessage">Are you sure?</p>
+                    <div class="flex gap-3 justify-center mt-5">
+                        <button class="btn btn-secondary" id="execConfirmCancelBtn">Cancel</button>
+                        <button class="btn btn-critical" id="execConfirmOkBtn">Confirm</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Generic Prompt Modal (replaces window.prompt) -->
+        <div id="execPromptModal" class="modal-overlay">
+            <div class="modal-container" style="max-width:460px;">
+                <div class="modal-header">
+                    <h3 id="execPromptTitle">Add a note</h3>
+                    <button class="close-btn" id="execPromptCloseBtn">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-sm text-slate-500 mb-3" id="execPromptMessage"></p>
+                    <textarea id="execPromptInput" rows="3" placeholder="" maxlength="500"></textarea>
+                </div>
+                <div class="modal-footer" style="gap:8px;">
+                    <button class="btn btn-secondary" id="execPromptCancelBtn">Cancel</button>
+                    <button class="btn btn-primary" id="execPromptOkBtn">Submit</button>
+                </div>
+            </div>
+        </div>
+
         <!-- Add Role Modal -->
         <div id="addRoleModal" class="modal-overlay">
             <div class="modal-container" style="max-width:420px;">

@@ -121,6 +121,86 @@
         return menu;
     }
 
+    // ===== CONFIRM & PROMPT MODAL HELPERS =====
+    function showConfirm(message, { title = 'Please confirm', danger = true, okLabel = 'Confirm' } = {}) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('execConfirmModal');
+            const icon = document.getElementById('execConfirmIcon');
+            const okBtn = document.getElementById('execConfirmOkBtn');
+            const cancelBtn = document.getElementById('execConfirmCancelBtn');
+
+            document.getElementById('execConfirmTitle').textContent = title;
+            document.getElementById('execConfirmMessage').textContent = message;
+            icon.className = 'exec-confirm-icon' + (danger ? ' danger' : '');
+            icon.innerHTML = danger ? '<i class="fas fa-exclamation-triangle"></i>' : '<i class="fas fa-question"></i>';
+            okBtn.textContent = okLabel;
+            okBtn.className = 'btn ' + (danger ? 'btn-critical' : 'btn-primary');
+
+            modal.classList.add('active');
+            modal.style.display = 'flex';
+
+            const cleanup = (result) => {
+                modal.classList.remove('active');
+                modal.style.display = 'none';
+                okBtn.removeEventListener('click', onOk);
+                cancelBtn.removeEventListener('click', onCancel);
+                modal.removeEventListener('click', onOverlay);
+                resolve(result);
+            };
+            const onOk = () => cleanup(true);
+            const onCancel = () => cleanup(false);
+            const onOverlay = (e) => { if (e.target === modal) cleanup(false); };
+
+            okBtn.addEventListener('click', onOk);
+            cancelBtn.addEventListener('click', onCancel);
+            modal.addEventListener('click', onOverlay);
+        });
+    }
+
+    function showPromptModal(message, { title = 'Add a note', placeholder = 'Optional notes...', required = false } = {}) {
+        return new Promise((resolve) => {
+            const modal = document.getElementById('execPromptModal');
+            const input = document.getElementById('execPromptInput');
+            const okBtn = document.getElementById('execPromptOkBtn');
+            const cancelBtn = document.getElementById('execPromptCancelBtn');
+            const closeBtn = document.getElementById('execPromptCloseBtn');
+
+            document.getElementById('execPromptTitle').textContent = title;
+            document.getElementById('execPromptMessage').textContent = message;
+            input.value = '';
+            input.placeholder = placeholder;
+            input.style.borderColor = '';
+            modal.classList.add('active');
+            modal.style.display = 'flex';
+            setTimeout(() => input.focus(), 50);
+
+            const cleanup = (result) => {
+                modal.classList.remove('active');
+                modal.style.display = 'none';
+                okBtn.removeEventListener('click', onOk);
+                cancelBtn.removeEventListener('click', onCancel);
+                closeBtn.removeEventListener('click', onCancel);
+                modal.removeEventListener('click', onOverlay);
+                resolve(result);
+            };
+            const onOk = () => {
+                const val = input.value.trim();
+                if (required && !val) {
+                    input.style.borderColor = '#dc2626';
+                    return;
+                }
+                cleanup(val || null);
+            };
+            const onCancel = () => cleanup(undefined);
+            const onOverlay = (e) => { if (e.target === modal) cleanup(undefined); };
+
+            okBtn.addEventListener('click', onOk);
+            cancelBtn.addEventListener('click', onCancel);
+            closeBtn.addEventListener('click', onCancel);
+            modal.addEventListener('click', onOverlay);
+        });
+    }
+
     function formatDate(iso) {
         if (!iso) return '—';
         return new Date(iso).toLocaleString('en-SG', {
@@ -436,7 +516,9 @@
         filterRows.forEach(el => el.remove());
 
         const styles = document.querySelector('style')?.innerHTML || '';
-        const printWin = window.open('', '_blank', 'width=1200,height=800');
+        const width = Math.min(1200, screen.width - 40);
+        const height = Math.min(800, screen.height - 80);
+        const printWin = window.open('', '_blank', `width=${width},height=${height}`);
         printWin.document.write(`
             <!DOCTYPE html>
             <html>
@@ -893,6 +975,7 @@
         }
     }
 
+    // ===== FIXED: showLostKeysModal with portal menu =====
     function showLostKeysModal() {
         const data = window._lostKeysData || [];
         if (!data.length) {
@@ -910,81 +993,60 @@
                 <td>${formatDate(item.lost_at)}</td>
                 <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
                 <td>
-                    <div class="actions-dropdown">
-                        <button class="dropdown-toggle" data-tx-id="${item.id}">
-                            Actions <i class="fas fa-chevron-down"></i>
-                        </button>
-                        <div class="dropdown-menu" data-tx-id="${item.id}">
-                            <button class="dropdown-item btn-view" data-tx-id="${item.id}" title="View Details">
-                                <i class="fas fa-eye"></i> View
-                            </button>
-                            <button class="dropdown-item btn-edit" data-tx-id="${item.id}" title="Edit">
-                                <i class="fas fa-edit"></i> Edit
-                            </button>
-                            ${!item.fine_id && !item.resolved_at ? `
-                                <button class="dropdown-item btn-primary" data-tx-id="${item.id}" data-action="create-fine" title="Create Fee">
-                                    <i class="fas fa-plus-circle"></i> Create Fee
-                                </button>
-                            ` : ''}
-                            ${!item.resolved_at ? `
-                                <button class="dropdown-item btn-success" data-tx-id="${item.id}" data-action="close-ticket" title="Close Ticket">
-                                    <i class="fas fa-check-circle"></i> Close Ticket
-                                </button>
-                            ` : ''}
-                            <button class="dropdown-item btn-warning" data-tx-id="${item.id}" data-action="make-available" title="Make Available">
-                                <i class="fas fa-check"></i> Make Available
-                            </button>
-                            ${item.fine_id && item.fine_status === 'pending' ? `
-                                <div class="dropdown-divider"></div>
-                                <button class="dropdown-item btn-success" data-tx-id="${item.id}" data-action="mark-paid" data-fine-id="${item.fine_id}" title="Mark Paid">
-                                    <i class="fas fa-dollar-sign"></i> Mark Paid
-                                </button>
-                                <button class="dropdown-item btn-warning" data-tx-id="${item.id}" data-action="waive" data-fine-id="${item.fine_id}" title="Waive">
-                                    <i class="fas fa-handshake"></i> Waive Fee
-                                </button>
-                            ` : ''}
-                        </div>
-                    </div>
+                    <button class="btn btn-sm btn-ghost lost-actions-btn" data-tx-id="${item.id}">
+                        <i class="fas fa-ellipsis-v"></i>
+                    </button>
                 </td>
             </tr>`;
         }
         const html = `<table class="table-clean"><thead><tr><th>Key</th><th>Brand</th><th>Borrower</th><th>Lost Date</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
         showDetailModal('Lost Keys', html);
         
-        document.querySelectorAll('#detailModalContent .actions-dropdown').forEach(dropdown => {
-            const toggle = dropdown.querySelector('.dropdown-toggle');
-            const menu = dropdown.querySelector('.dropdown-menu');
-            
-            toggle.addEventListener('click', function(e) {
+        // Portal menu for lost key actions
+        document.querySelectorAll('#detailModalContent .lost-actions-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                document.querySelectorAll('#detailModalContent .dropdown-menu').forEach(m => {
-                    if (m !== menu) m.classList.remove('show');
+                const txId = parseInt(this.dataset.txId);
+                const lostItem = window._lostKeysData?.find(d => d.id === txId);
+                if (!lostItem) return;
+                
+                let menuHtml = `
+                    <button class="menu-item" data-action="view"><i class="fas fa-eye"></i> View Details</button>
+                    <button class="menu-item" data-action="edit"><i class="fas fa-edit"></i> Edit</button>
+                    <div class="menu-divider"></div>
+                `;
+                
+                if (!lostItem.fine_id && !lostItem.resolved_at) {
+                    menuHtml += `<button class="menu-item" data-action="create-fine"><i class="fas fa-plus-circle"></i> Create Fee</button>`;
+                }
+                if (!lostItem.resolved_at) {
+                    menuHtml += `<button class="menu-item" data-action="close-ticket"><i class="fas fa-check-circle"></i> Close Ticket</button>`;
+                }
+                menuHtml += `<button class="menu-item" data-action="make-available"><i class="fas fa-check"></i> Make Available</button>`;
+                
+                if (lostItem.fine_id && lostItem.fine_status === 'pending') {
+                    menuHtml += `
+                        <div class="menu-divider"></div>
+                        <button class="menu-item" data-action="mark-paid"><i class="fas fa-dollar-sign"></i> Mark Paid</button>
+                        <button class="menu-item" data-action="waive"><i class="fas fa-handshake"></i> Waive Fee</button>
+                    `;
+                }
+                
+                openPortalMenu(this, menuHtml, (menu) => {
+                    menu.querySelectorAll('.menu-item[data-action]').forEach(item => {
+                        item.addEventListener('click', function() {
+                            const action = this.dataset.action;
+                            menu.remove();
+                            executeLostKeyAction(action, lostItem);
+                        });
+                    });
                 });
-                menu.classList.toggle('show');
             });
-            
-            menu.querySelectorAll('.dropdown-item').forEach(item => {
-                item.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    const txId = parseInt(this.dataset.txId);
-                    const action = this.dataset.action || 'view';
-                    const lostItem = window._lostKeysData?.find(d => d.id === txId);
-                    if (lostItem) {
-                        menu.classList.remove('show');
-                        executeLostKeyAction(action, lostItem);
-                    }
-                });
-            });
-        });
-        
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.actions-dropdown')) {
-                document.querySelectorAll('#detailModalContent .dropdown-menu').forEach(m => m.classList.remove('show'));
-            }
         });
     }
 
-    function executeLostKeyAction(action, item) {
+    // ===== FIXED: executeLostKeyAction with confirm/prompt modals =====
+    async function executeLostKeyAction(action, item) {
         const keyCode = item.key_code || 'unknown';
         switch (action) {
             case 'view':
@@ -993,134 +1055,151 @@
             case 'edit':
                 openLostKeyEditModal(item.id);
                 break;
-            case 'create-fine':
-                if (!confirm(`Create a $50 fee for lost key ${keyCode}?`)) return;
-                (async () => {
-                    try {
-                        const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/create-fine`, { method: 'POST' });
-                        const data = await res.json();
-                        if (res.ok) {
-                            await logAuditEvent('create_fine', 'lost_key', item.id, {
-                                key_code: keyCode,
-                                amount: 50,
-                                borrower: item.borrower_name || item.borrower_email
-                            });
-                            showAlertModal('Fee created successfully.', 'success');
-                            closeDetailModal();
-                            await loadLostKeys();
-                            await loadTransactions();
-                            await loadLostKeysManagement();
-                        } else {
-                            showAlertModal(data.error || 'Failed to create fee. Please try again.', 'error');
-                        }
-                    } catch (err) {
-                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
-                    }
-                })();
-                break;
-            case 'mark-paid':
-                if (!confirm(`Mark fee for ${keyCode} as paid?`)) return;
-                (async () => {
-                    try {
-                        const res = await authenticatedFetch(`/api/admin/fines/${item.fine_id}/paid`, { method: 'POST' });
-                        if (res.ok) {
-                            await logAuditEvent('mark_fine_paid', 'lost_key', item.id, {
-                                key_code: keyCode,
-                                fine_id: item.fine_id
-                            });
-                            showAlertModal('Fee marked paid.', 'success');
-                            closeDetailModal();
-                            await loadLostKeys();
-                            await loadTransactions();
-                            await loadLostKeysManagement();
-                        } else {
-                            const data = await res.json();
-                            showAlertModal(data.error || 'Action failed. Please try again.', 'error');
-                        }
-                    } catch (err) {
-                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
-                    }
-                })();
-                break;
-            case 'waive':
-                if (!confirm(`Waive fee for ${keyCode}?`)) return;
-                (async () => {
-                    try {
-                        const res = await authenticatedFetch(`/api/admin/fines/${item.fine_id}/waived`, { method: 'POST' });
-                        if (res.ok) {
-                            await logAuditEvent('waive_fine', 'lost_key', item.id, {
-                                key_code: keyCode,
-                                fine_id: item.fine_id
-                            });
-                            showAlertModal('Fee waived.', 'success');
-                            closeDetailModal();
-                            await loadLostKeys();
-                            await loadTransactions();
-                            await loadLostKeysManagement();
-                        } else {
-                            const data = await res.json();
-                            showAlertModal(data.error || 'Action failed. Please try again.', 'error');
-                        }
-                    } catch (err) {
-                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
-                    }
-                })();
-                break;
-            case 'close-ticket':
-                if (!confirm(`Close lost ticket for key ${keyCode}? This will mark the issue as resolved.`)) return;
-                const notes = prompt('Resolution notes (optional):');
-                (async () => {
-                    try {
-                        const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/close`, {
-                            method: 'POST',
-                            body: JSON.stringify({ resolution_notes: notes || null })
+            case 'create-fine': {
+                const ok = await showConfirm(`Create a $50 fee for lost key ${keyCode}?`, { 
+                    title: 'Create Fee', 
+                    danger: false, 
+                    okLabel: 'Create Fee' 
+                });
+                if (!ok) return;
+                try {
+                    const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/create-fine`, { method: 'POST' });
+                    const data = await res.json();
+                    if (res.ok) {
+                        await logAuditEvent('create_fine', 'lost_key', item.id, {
+                            key_code: keyCode,
+                            amount: 50,
+                            borrower: item.borrower_name || item.borrower_email
                         });
-                        if (res.ok) {
-                            await logAuditEvent('close_lost_ticket', 'lost_key', item.id, {
-                                key_code: keyCode,
-                                resolution_notes: notes || null
-                            });
-                            showAlertModal('Ticket closed successfully.', 'success');
-                            closeDetailModal();
-                            await loadLostKeys();
-                            await loadTransactions();
-                            await loadInventory();
-                            await loadLostKeysManagement();
-                        } else {
-                            const data = await res.json();
-                            showAlertModal(data.error || 'Failed to close ticket. Please try again.', 'error');
-                        }
-                    } catch (err) {
-                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                        showAlertModal('Fee created successfully.', 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                        await loadLostKeysManagement();
+                    } else {
+                        showAlertModal(data.error || 'Failed to create fee. Please try again.', 'error');
                     }
-                })();
+                } catch (err) {
+                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                }
                 break;
-            case 'make-available':
-                if (!confirm(`Mark key ${keyCode} as available again? This will make it available for borrowing.`)) return;
-                (async () => {
-                    try {
-                        const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/make-available`, {
-                            method: 'POST'
+            }
+            case 'mark-paid': {
+                const ok = await showConfirm(`Mark fee for ${keyCode} as paid?`, { 
+                    title: 'Confirm Payment', 
+                    danger: false, 
+                    okLabel: 'Mark Paid' 
+                });
+                if (!ok) return;
+                try {
+                    const res = await authenticatedFetch(`/api/admin/fines/${item.fine_id}/paid`, { method: 'POST' });
+                    if (res.ok) {
+                        await logAuditEvent('mark_fine_paid', 'lost_key', item.id, {
+                            key_code: keyCode,
+                            fine_id: item.fine_id
                         });
+                        showAlertModal('Fee marked paid.', 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                        await loadLostKeysManagement();
+                    } else {
                         const data = await res.json();
-                        if (res.ok) {
-                            await logAuditEvent('make_key_available', 'lost_key', item.id, {
-                                key_code: keyCode
-                            });
-                            showAlertModal(`Key ${keyCode} is now available.`, 'success');
-                            closeDetailModal();
-                            await loadLostKeys();
-                            await loadTransactions();
-                            await loadInventory();
-                            await loadLostKeysManagement();
-                        } else {
-                            showAlertModal(data.error || 'Failed to make key available. Please try again.', 'error');
-                        }
-                    } catch (err) {
-                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                        showAlertModal(data.error || 'Action failed. Please try again.', 'error');
                     }
-                })();
+                } catch (err) {
+                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                }
                 break;
+            }
+            case 'waive': {
+                const ok = await showConfirm(`Waive fee for ${keyCode}?`, { title: 'Waive Fee' });
+                if (!ok) return;
+                try {
+                    const res = await authenticatedFetch(`/api/admin/fines/${item.fine_id}/waived`, { method: 'POST' });
+                    if (res.ok) {
+                        await logAuditEvent('waive_fine', 'lost_key', item.id, {
+                            key_code: keyCode,
+                            fine_id: item.fine_id
+                        });
+                        showAlertModal('Fee waived.', 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                        await loadLostKeysManagement();
+                    } else {
+                        const data = await res.json();
+                        showAlertModal(data.error || 'Action failed. Please try again.', 'error');
+                    }
+                } catch (err) {
+                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                }
+                break;
+            }
+            case 'close-ticket': {
+                const ok = await showConfirm(`Close lost ticket for key ${keyCode}? This will mark the issue as resolved.`, { 
+                    title: 'Close Ticket', 
+                    danger: false, 
+                    okLabel: 'Close Ticket' 
+                });
+                if (!ok) return;
+                const notes = await showPromptModal('Resolution notes (optional):', { title: 'Close Ticket' });
+                if (notes === undefined) return;
+                try {
+                    const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/close`, {
+                        method: 'POST',
+                        body: JSON.stringify({ resolution_notes: notes || null })
+                    });
+                    if (res.ok) {
+                        await logAuditEvent('close_lost_ticket', 'lost_key', item.id, {
+                            key_code: keyCode,
+                            resolution_notes: notes || null
+                        });
+                        showAlertModal('Ticket closed successfully.', 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                        await loadInventory();
+                        await loadLostKeysManagement();
+                    } else {
+                        const data = await res.json();
+                        showAlertModal(data.error || 'Failed to close ticket. Please try again.', 'error');
+                    }
+                } catch (err) {
+                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                }
+                break;
+            }
+            case 'make-available': {
+                const ok = await showConfirm(`Mark key ${keyCode} as available again? This will make it available for borrowing.`, { 
+                    title: 'Mark Available', 
+                    danger: false, 
+                    okLabel: 'Mark Available' 
+                });
+                if (!ok) return;
+                try {
+                    const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/make-available`, {
+                        method: 'POST'
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                        await logAuditEvent('make_key_available', 'lost_key', item.id, {
+                            key_code: keyCode
+                        });
+                        showAlertModal(`Key ${keyCode} is now available.`, 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                        await loadInventory();
+                        await loadLostKeysManagement();
+                    } else {
+                        showAlertModal(data.error || 'Failed to make key available. Please try again.', 'error');
+                    }
+                } catch (err) {
+                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                }
+                break;
+            }
         }
     }
 
@@ -1557,7 +1636,8 @@
             btn.addEventListener('click', async function() {
                 const id = this.dataset.id;
                 const code = this.dataset.code;
-                if (!confirm(`Delete key ${code}? This action cannot be undone.`)) return;
+                const ok = await showConfirm(`Delete key ${code}? This action cannot be undone.`, { title: 'Delete Key' });
+                if (!ok) return;
                 try {
                     const res = await authenticatedFetch(`/api/admin/keys/${id}`, { method: 'DELETE' });
                     if (res.ok) {
@@ -1762,7 +1842,8 @@
                 btn.addEventListener('click', async function(e) {
                     e.stopPropagation();
                     const key = this.dataset.key;
-                    if (!confirm(`Delete template "${key}"?`)) return;
+                    const ok = await showConfirm(`Delete template "${key}"?`, { title: 'Delete Template' });
+                    if (!ok) return;
                     try {
                         const res = await authenticatedFetch(`/api/admin/email/templates/${key}`, { method: 'DELETE' });
                         if (res.ok) {
@@ -1969,9 +2050,16 @@
         }
     }
 
+    // ===== FIXED: handleCloseTicket with confirm/prompt modals =====
     async function handleCloseTicket(id, key) {
-        if (!confirm(`Close lost ticket for key ${key}? This will mark the issue as resolved.`)) return;
-        const notes = prompt('Resolution notes (optional):');
+        const ok = await showConfirm(`Close lost ticket for key ${key}? This will mark the issue as resolved.`, { 
+            title: 'Close Ticket', 
+            danger: false, 
+            okLabel: 'Close Ticket' 
+        });
+        if (!ok) return;
+        const notes = await showPromptModal('Resolution notes (optional):', { title: 'Close Ticket' });
+        if (notes === undefined) return;
         try {
             const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/close`, {
                 method: 'POST',
@@ -1996,8 +2084,14 @@
         }
     }
 
+    // ===== FIXED: handleMakeAvailable with confirm modal =====
     async function handleMakeAvailable(id, key) {
-        if (!confirm(`Mark key ${key} as available again?`)) return;
+        const ok = await showConfirm(`Mark key ${key} as available again?`, { 
+            title: 'Mark Available', 
+            danger: false, 
+            okLabel: 'Mark Available' 
+        });
+        if (!ok) return;
         try {
             const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/make-available`, {
                 method: 'POST'
@@ -2172,7 +2266,8 @@
                 btn.addEventListener('click', async function() {
                     const userId = parseInt(this.dataset.userId);
                     const name = this.dataset.name;
-                    if (!confirm(`Remove ${name} from notification recipients?`)) return;
+                    const ok = await showConfirm(`Remove ${name} from notification recipients?`, { title: 'Remove Recipient' });
+                    if (!ok) return;
                     try {
                         const res = await authenticatedFetch(`/api/admin/admin-notification-recipients/${userId}`, { method: 'DELETE' });
                         if (res.ok) {
@@ -2355,12 +2450,12 @@
         document.querySelectorAll('.deleteRoleBtn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const role = this.dataset.role;
-                if (confirm(`Delete role "${role}"?`)) {
-                    delete permissionsData.roleMappings[role];
-                    permissionsData.roles = Object.keys(permissionsData.roleMappings);
-                    renderPermissions();
-                    showAlertModal(`Role "${role}" removed.`, 'info');
-                }
+                const ok = await showConfirm(`Delete role "${role}"?`, { title: 'Delete Role' });
+                if (!ok) return;
+                delete permissionsData.roleMappings[role];
+                permissionsData.roles = Object.keys(permissionsData.roleMappings);
+                renderPermissions();
+                showAlertModal(`Role "${role}" removed.`, 'info');
             });
         });
 
@@ -2435,6 +2530,7 @@
         }
     }
 
+    // ===== FIXED: loadPendingRegistrations with confirm/prompt modals =====
     async function loadPendingRegistrations() {
         const container = document.getElementById('pendingRequestsContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading requests...</div>';
@@ -2472,24 +2568,28 @@
             container.querySelectorAll('.approveRequestBtn').forEach(btn => {
                 btn.addEventListener('click', async function() {
                     const id = this.dataset.id;
-                    if (confirm('Approve this registration request? The user will receive a password via email.')) {
-                        try {
-                            const res = await authenticatedFetch(`/api/auth/admin/pending-requests/${id}/approve`, { method: 'POST' });
-                            const data = await res.json();
-                            if (res.ok) {
-                                await logAuditEvent('registration_approved', 'registration_request', id, {
-                                    user_name: data.user?.name || data.name,
-                                    user_email: data.user?.email || data.email,
-                                    approved_by: getUser()?.name || 'Admin'
-                                });
-                                showAlertModal(data.message || 'User approved. Password sent.', 'success');
-                                loadPendingRegistrations();
-                            } else {
-                                showAlertModal(data.error || 'Approval failed. Please try again.', 'error');
-                            }
-                        } catch (err) {
-                            showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                    const ok = await showConfirm('Approve this registration request? The user will receive a password via email.', { 
+                        title: 'Approve Request', 
+                        danger: false, 
+                        okLabel: 'Approve' 
+                    });
+                    if (!ok) return;
+                    try {
+                        const res = await authenticatedFetch(`/api/auth/admin/pending-requests/${id}/approve`, { method: 'POST' });
+                        const data = await res.json();
+                        if (res.ok) {
+                            await logAuditEvent('registration_approved', 'registration_request', id, {
+                                user_name: data.user?.name || data.name,
+                                user_email: data.user?.email || data.email,
+                                approved_by: getUser()?.name || 'Admin'
+                            });
+                            showAlertModal(data.message || 'User approved. Password sent.', 'success');
+                            loadPendingRegistrations();
+                        } else {
+                            showAlertModal(data.error || 'Approval failed. Please try again.', 'error');
                         }
+                    } catch (err) {
+                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                     }
                 });
             });
@@ -2497,27 +2597,31 @@
             container.querySelectorAll('.rejectRequestBtn').forEach(btn => {
                 btn.addEventListener('click', async function() {
                     const id = this.dataset.id;
-                    const reason = prompt('Optional reason for rejection:');
-                    if (confirm('Reject this registration request?')) {
-                        try {
-                            const res = await authenticatedFetch(`/api/auth/admin/pending-requests/${id}/reject`, {
-                                method: 'POST',
-                                body: JSON.stringify({ reason: reason || null })
+                    const reason = await showPromptModal('Optional reason for rejection:', { 
+                        title: 'Reject Request', 
+                        placeholder: 'Reason (optional)' 
+                    });
+                    if (reason === undefined) return;
+                    const ok = await showConfirm('Reject this registration request?', { title: 'Reject Request' });
+                    if (!ok) return;
+                    try {
+                        const res = await authenticatedFetch(`/api/auth/admin/pending-requests/${id}/reject`, {
+                            method: 'POST',
+                            body: JSON.stringify({ reason: reason || null })
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                            await logAuditEvent('registration_rejected', 'registration_request', id, {
+                                reason: reason || 'No reason provided',
+                                rejected_by: getUser()?.name || 'Admin'
                             });
-                            const data = await res.json();
-                            if (res.ok) {
-                                await logAuditEvent('registration_rejected', 'registration_request', id, {
-                                    reason: reason || 'No reason provided',
-                                    rejected_by: getUser()?.name || 'Admin'
-                                });
-                                showAlertModal('Request rejected successfully.', 'success');
-                                loadPendingRegistrations();
-                            } else {
-                                showAlertModal(data.error || 'Rejection failed. Please try again.', 'error');
-                            }
-                        } catch (err) {
-                            showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                            showAlertModal('Request rejected successfully.', 'success');
+                            loadPendingRegistrations();
+                        } else {
+                            showAlertModal(data.error || 'Rejection failed. Please try again.', 'error');
                         }
+                    } catch (err) {
+                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
                     }
                 });
             });
@@ -2752,7 +2856,12 @@
                         
                         menu.querySelector('[data-action="unlock"]')?.addEventListener('click', async () => {
                             menu.remove();
-                            if (!confirm(`Unlock account for ${user.name}?`)) return;
+                            const ok = await showConfirm(`Unlock account for ${user.name}?`, { 
+                                title: 'Unlock Account', 
+                                danger: false, 
+                                okLabel: 'Unlock' 
+                            });
+                            if (!ok) return;
                             try {
                                 await authenticatedFetch(`/api/admin/users/${user.id}/unlock`, { method: 'POST' });
                                 showAlertModal(`User ${user.name} unlocked.`, 'success');

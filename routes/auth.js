@@ -251,6 +251,7 @@ router.post('/admin/cleanup-registrations', requireAuth, authorize('admin'), asy
   }
 });
 
+// ===== FIXED: Register Request with proper duplicate handling =====
 router.post('/register-request', async (req, res) => {
   const { name, email, username } = req.body;
   const db = req.db;
@@ -347,6 +348,7 @@ router.post('/register-request', async (req, res) => {
       requestId: requestId
     });
   } catch (err) {
+    // Handle duplicate key error gracefully
     if (err.code === '23505' && err.constraint === 'pending_users_email_key') {
       try {
         await db.query('DELETE FROM pending_users WHERE email = $1', [email]);
@@ -426,8 +428,8 @@ router.post('/admin/pending-requests/:id/approve', requireAuth, authorize('admin
     await db.query('BEGIN');
 
     const insertResult = await db.query(
-      `INSERT INTO users (username, email, name, password_hash, role, status, must_change_password)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO users (username, email, name, password_hash, role, status, must_change_password, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
        RETURNING id`,
       [pending.username, pending.email, pending.name, hashedPassword, 'user', 'active', true]
     );
@@ -511,6 +513,7 @@ router.post('/admin/pending-requests/:id/reject', requireAuth, authorize('admin'
   }
 });
 
+// ===== FIXED: Login with last_active update =====
 router.post('/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
   const clientIp = req.ip || req.connection.remoteAddress;
@@ -624,6 +627,7 @@ router.post('/login', loginLimiter, async (req, res) => {
       }
     }
 
+    // ===== FIX: Update last_active on successful login =====
     await db.query(
       'UPDATE users SET failed_login_attempts = 0, locked_until = NULL, last_active = NOW() WHERE id = $1',
       [user.id]
@@ -744,6 +748,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
   }
 });
 
+// ===== FIXED: Admin Create User with proper APP_URL =====
 router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) => {
   const { username, email, role = 'user', status = 'active' } = req.body;
   const adminId = req.user?.id || req.session.userId;
@@ -785,8 +790,8 @@ router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) =>
     await db.query('BEGIN');
 
     const insertResult = await db.query(
-      `INSERT INTO users (username, email, password_hash, role, status, must_change_password)
-       VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
+      `INSERT INTO users (username, email, password_hash, role, status, must_change_password, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW()) RETURNING id`,
       [username, email, hashedPassword, role, status, true]
     );
     const newUserId = insertResult.rows[0].id;

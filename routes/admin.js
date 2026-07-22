@@ -96,6 +96,7 @@ router.get('/transactions', requireAuth, authorize('admin'), requireReadOnly, as
     const params = [];
     let idx = 1;
 
+    // Build filter conditions
     const filterConditions = [];
     
     if (giver) {
@@ -134,19 +135,21 @@ router.get('/transactions', requireAuth, authorize('admin'), requireReadOnly, as
         idx++;
     }
 
+    // Apply filters to both queries
     if (filterConditions.length > 0) {
         const whereClause = ' AND ' + filterConditions.join(' AND ');
         query += whereClause;
         countQuery += whereClause;
     }
 
+    // Add pagination
     query += ` ORDER BY t.borrowed_at DESC LIMIT $${idx} OFFSET $${idx + 1}`;
     params.push(parseInt(limit), offset);
 
     try {
         const [dataResult, countResult] = await Promise.all([
             db.query(query, params),
-            db.query(countQuery, params.slice(0, params.length - 2))
+            db.query(countQuery, params.slice(0, params.length - 2)) // Remove limit and offset params
         ]);
         
         const total = parseInt(countResult.rows[0]?.total || 0);
@@ -214,7 +217,6 @@ router.get('/requests/pending', requireAuth, authorize('admin'), requireReadOnly
     await setAuditContext(req);
     const db = req.db;
     try {
-        // Use a single query with JSON aggregation to avoid N+1
         const result = await db.query(`
             SELECT 
                 kr.id, 
@@ -231,11 +233,11 @@ router.get('/requests/pending', requireAuth, authorize('admin'), requireReadOnly
                             'key_id', k.id,
                             'code', k.code,
                             'brand', k.brand,
-                            'quantity', item.quantity
+                            'quantity', ki.quantity
                         )
                     )
-                    FROM jsonb_array_elements(kr.items) AS item
-                    LEFT JOIN keys k ON k.id = (item->>'key_id')::int
+                    FROM jsonb_array_elements(kr.items) AS ki
+                    JOIN keys k ON k.id = (ki->>'key_id')::int
                     ),
                     '[]'::json
                 ) AS key_details
@@ -243,33 +245,10 @@ router.get('/requests/pending', requireAuth, authorize('admin'), requireReadOnly
             WHERE kr.status = 'pending'
             ORDER BY kr.created_at ASC
         `);
-        
-        // Process to ensure key_details is always an array
-        const processed = result.rows.map(row => ({
-            ...row,
-            key_details: row.key_details || []
-        }));
-        
-        res.json(processed);
+        res.json(result.rows);
     } catch (err) {
         console.error('[admin] /requests/pending error:', err);
-        // Fallback: return just the requests without key details to avoid failure
-        try {
-            const result = await db.query(`
-                SELECT id, requester_name, requester_email, reason, intended_draw_date, planned_return, items, created_at
-                FROM key_requests
-                WHERE status = 'pending'
-                ORDER BY created_at ASC
-                LIMIT 50
-            `);
-            res.json(result.rows.map(row => ({
-                ...row,
-                key_details: []
-            })));
-        } catch (fallbackErr) {
-            console.error('[admin] /requests/pending fallback error:', fallbackErr);
-            res.status(500).json({ error: 'Failed to load pending requests: ' + err.message });
-        }
+        res.status(500).json({ error: 'Failed to load pending requests: ' + err.message });
     }
 });
 
@@ -426,7 +405,6 @@ router.get('/lost-keys', requireAuth, authorize('admin'), requireReadOnly, async
             LEFT JOIN fines f ON f.transaction_id = t.id
             WHERE t.status = 'lost'
             ORDER BY t.lost_at DESC
-            LIMIT 100
         `);
         res.json(result.rows);
     } catch (err) {
@@ -1106,6 +1084,7 @@ router.delete('/keys/:id', requireAuth, authorize('admin'), async (req, res) => 
     }
 });
 
+// ===== FIXED: GET /users - Using last_active AS "lastActive" =====
 router.get('/users', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
     const { search, role, status, page = 1, limit = 10 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -1464,6 +1443,7 @@ router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), asyn
     }
 });
 
+// ===== NEW: Reset password endpoint =====
 router.post('/users/:userId/reset-password', requireAuth, authorize('admin'), async (req, res) => {
     if (req.isReadOnly) {
         return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });

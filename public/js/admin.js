@@ -461,34 +461,6 @@
         }
     }
 
-    async function refreshUserProfile() {
-        try {
-            var token = getToken();
-            if (!token) return;
-            var res = await fetch('/api/user/profile', {
-                credentials: 'include',
-                headers: {
-                    'Authorization': 'Bearer ' + token,
-                    'Accept': 'application/json'
-                }
-            });
-            if (res.ok) {
-                var data = await res.json();
-                var user = getUser() || {};
-                user.name = data.name || user.name || 'User';
-                user.email = data.email || user.email;
-                user.role = data.role || user.role || 'user';
-                localStorage.setItem('kms_user', JSON.stringify(user));
-                updateUserDisplay();
-                return true;
-            }
-            return false;
-        } catch (err) {
-            console.error('Failed to refresh user profile:', err);
-            return false;
-        }
-    }
-
     function openProfileModal() {
         var user = getUser();
         if (user) {
@@ -682,22 +654,13 @@
 
     var allTransactions = [];
     var filteredTransactions = [];
-    var txPage = 1,
-        txRows = 10,
-        txTotal = 0;
-
+    var txPage = 1, txRows = 10, txTotal = 0;
     var inventoryData = [];
     var filteredInventory = [];
-    var invPage = 1,
-        invRows = 10,
-        invTotal = 0;
-
+    var invPage = 1, invRows = 10, invTotal = 0;
     var manageKeyData = [];
     var manageKeyFiltered = [];
-    var manageKeyPage = 1,
-        manageKeyRows = 8,
-        manageKeyTotal = 0;
-
+    var manageKeyPage = 1, manageKeyRows = 8, manageKeyTotal = 0;
     var permissionsData = { roles: [], permissions: [], roleMappings: {} };
     var allRolesList = [];
     var emailTabLoaded = false;
@@ -705,8 +668,6 @@
     var currentAction = null;
     var currentRequestId = null;
     var searchTimeout = null;
-
-    // ===== LOAD FUNCTIONS =====
 
     async function loadTransactions() {
         var giver = document.getElementById('filterGiver') ? document.getElementById('filterGiver').value.trim() : '';
@@ -728,9 +689,8 @@
         params.append('page', txPage);
         params.append('limit', txRows);
 
-        var url = '/api/admin/transactions' + (params.toString() ? '?' + params.toString() : '');
         try {
-            var res = await authenticatedFetch(url);
+            var res = await authenticatedFetch('/api/admin/transactions?' + params.toString());
             var data = await res.json();
             allTransactions = data.data || [];
             txTotal = data.pagination ? data.pagination.total : 0;
@@ -833,7 +793,6 @@
         }
     }
 
-    // ===== FIXED: showPendingRequestsModal with 3-dot menu =====
     function showPendingRequestsModal() {
         var data = window._pendingRequestsData || [];
         if (!data.length) {
@@ -2646,8 +2605,6 @@
         }
     }
 
-    // ===== USER MANAGEMENT =====
-
     function initUserManagement() {
         var tbody = document.getElementById('acmUserTableBody');
         var searchInput = document.getElementById('acmSearchInput');
@@ -3098,8 +3055,6 @@
         }
     }
 
-    // ===== EVENT LISTENERS =====
-
     function initEventListeners() {
         document.getElementById('alertOkBtn') && document.getElementById('alertOkBtn').addEventListener('click', closeAlertModal);
         document.getElementById('alertModal') && document.getElementById('alertModal').addEventListener('click', function(e) {
@@ -3213,7 +3168,6 @@
             }
         });
 
-        // Tab switching
         document.querySelectorAll('.tab-button').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('.tab-button').forEach(function(b) { b.classList.remove('active'); });
@@ -3257,7 +3211,6 @@
 
         document.getElementById('refreshRequestsBtn') && document.getElementById('refreshRequestsBtn').addEventListener('click', loadPendingRegistrations);
 
-        // Transactions pagination
         document.getElementById('transactionsRowsPerPage') && document.getElementById('transactionsRowsPerPage').addEventListener('change', function() {
             txRows = parseInt(this.value);
             txPage = 1;
@@ -3281,7 +3234,6 @@
             }
         });
 
-        // Dashboard cards
         document.getElementById('pendingRequestsCard') && document.getElementById('pendingRequestsCard').addEventListener('click', showPendingRequestsModal);
         document.getElementById('pendingKeyRequestsCard') && document.getElementById('pendingKeyRequestsCard').addEventListener('click', showPendingRequestsModal);
         document.getElementById('pendingReturnsCard') && document.getElementById('pendingReturnsCard').addEventListener('click', showPendingReturnsModal);
@@ -3291,7 +3243,6 @@
 
         document.getElementById('refreshAuditBtn') && document.getElementById('refreshAuditBtn').addEventListener('click', loadAuditHealth);
 
-        // Admin modal
         document.getElementById('modalConfirmBtn') && document.getElementById('modalConfirmBtn').addEventListener('click', async function() {
             var notes = document.getElementById('modalNotes').value.trim();
             var action = currentAction;
@@ -3334,7 +3285,6 @@
             }
         });
 
-        // Search and reset
         document.getElementById('searchBtn') && document.getElementById('searchBtn').addEventListener('click', function(e) {
             e.preventDefault();
             loadTransactions();
@@ -3353,7 +3303,6 @@
             loadTransactions();
         });
 
-        // Inventory search with debounce
         document.getElementById('inventorySearchInput') && document.getElementById('inventorySearchInput').addEventListener('input', function() {
             if (searchTimeout) clearTimeout(searchTimeout);
             searchTimeout = setTimeout(function() {
@@ -3393,7 +3342,6 @@
             applyInventoryFilters();
         });
 
-        // Key management
         document.getElementById('manageKeysBtn') && document.getElementById('manageKeysBtn').addEventListener('click', openKeyManageModal);
 
         document.getElementById('closeKeyManageModalBtn') && document.getElementById('closeKeyManageModalBtn').addEventListener('click', function() {
@@ -3441,7 +3389,6 @@
             document.getElementById('keyManageModal').style.display = 'none';
         });
 
-        // Key edit modal
         document.getElementById('closeKeyEditModalBtn') && document.getElementById('closeKeyEditModalBtn').addEventListener('click', function() {
             document.getElementById('keyEditModal').style.display = 'none';
         });
@@ -3521,7 +3468,6 @@
             }
         });
 
-        // Print buttons
         document.addEventListener('click', function(e) {
             var btn = e.target.closest('.btn-print');
             if (!btn) return;
@@ -3540,7 +3486,6 @@
             printSection(containerId);
         });
 
-        // Template management
         document.getElementById('manageTemplatesBtn') && document.getElementById('manageTemplatesBtn').addEventListener('click', openTemplateManageModal);
         document.getElementById('closeTemplateManageModalBtn') && document.getElementById('closeTemplateManageModalBtn').addEventListener('click', function() {
             document.getElementById('templateManageModal').style.display = 'none';
@@ -3616,7 +3561,6 @@
             }
         });
 
-        // Settings save
         document.getElementById('saveSettingsBtn') && document.getElementById('saveSettingsBtn').addEventListener('click', async function() {
             var toggles = document.querySelectorAll('.setting-toggle');
             var updates = [];
@@ -3659,7 +3603,6 @@
             }
         });
 
-        // Admin recipient management
         document.getElementById('addAdminRecipientBtn') && document.getElementById('addAdminRecipientBtn').addEventListener('click', openAddAdminRecipientModal);
         document.getElementById('closeAddAdminRecipientModalBtn') && document.getElementById('closeAddAdminRecipientModalBtn').addEventListener('click', function() {
             document.getElementById('addAdminRecipientModal').style.display = 'none';
@@ -3704,7 +3647,6 @@
 
         document.getElementById('refreshLostKeysBtn') && document.getElementById('refreshLostKeysBtn').addEventListener('click', loadLostKeysManagement);
 
-        // Lost key detail modal
         document.getElementById('closeLostKeyDetailModalBtn') && document.getElementById('closeLostKeyDetailModalBtn').addEventListener('click', function() {
             document.getElementById('lostKeyDetailModal').style.display = 'none';
         });
@@ -3717,7 +3659,6 @@
             }
         });
 
-        // Lost key edit modal
         document.getElementById('closeLostKeyEditModalBtn') && document.getElementById('closeLostKeyEditModalBtn').addEventListener('click', function() {
             document.getElementById('lostKeyEditModal').style.display = 'none';
         });
@@ -3769,7 +3710,6 @@
         document.getElementById('refreshAdminRecipientsBtn') && document.getElementById('refreshAdminRecipientsBtn').addEventListener('click', loadAdminRecipients);
         document.getElementById('refreshAuditLogBtn') && document.getElementById('refreshAuditLogBtn').addEventListener('click', loadAuditLogs);
 
-        // Role management
         document.getElementById('addRoleBtn') && document.getElementById('addRoleBtn').addEventListener('click', function() {
             document.getElementById('newRoleName').value = '';
             document.getElementById('addRoleModal').style.display = 'flex';
@@ -3835,7 +3775,6 @@
             }
         });
 
-        // Key detail modal
         document.getElementById('closeKeyDetailModalBtn') && document.getElementById('closeKeyDetailModalBtn').addEventListener('click', function() {
             document.getElementById('keyDetailModal').style.display = 'none';
         });
@@ -3848,7 +3787,6 @@
             }
         });
 
-        // User management
         document.getElementById('openUserManagementBtn') && document.getElementById('openUserManagementBtn').addEventListener('click', function() {
             document.getElementById('userManagementModal').style.display = 'flex';
             fetchManageUsers();
@@ -3863,8 +3801,6 @@
             }
         });
     }
-
-    // ===== INITIALIZATION =====
 
     async function init() {
         var isAuthenticated = await checkAuth();
@@ -3881,12 +3817,10 @@
         initEventListeners();
         initUserManagement();
 
-        // Load critical data sequentially
         await loadPendingRequests();
         await loadTransactions();
         await loadPendingReturns();
 
-        // Load secondary data in background
         setTimeout(function() {
             loadLostKeys();
             loadAuditHealth();
@@ -3894,7 +3828,6 @@
             checkEmailPermissions();
         }, 500);
 
-        // Page visibility tracking
         document.addEventListener('visibilitychange', function() {
             isPageVisible = !document.hidden;
             if (isPageVisible) {

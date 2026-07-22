@@ -58,7 +58,6 @@ async function sendAdminNotification(db, subject, message) {
     }
 }
 
-// ===== OPTIMIZED: Transactions with Pagination =====
 router.get('/transactions', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
     await setAuditContext(req);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -96,7 +95,6 @@ router.get('/transactions', requireAuth, authorize('admin'), requireReadOnly, as
     const params = [];
     let idx = 1;
 
-    // Build filter conditions
     const filterConditions = [];
     
     if (giver) {
@@ -135,21 +133,19 @@ router.get('/transactions', requireAuth, authorize('admin'), requireReadOnly, as
         idx++;
     }
 
-    // Apply filters to both queries
     if (filterConditions.length > 0) {
         const whereClause = ' AND ' + filterConditions.join(' AND ');
         query += whereClause;
         countQuery += whereClause;
     }
 
-    // Add pagination
     query += ` ORDER BY t.borrowed_at DESC LIMIT $${idx} OFFSET $${idx + 1}`;
     params.push(parseInt(limit), offset);
 
     try {
         const [dataResult, countResult] = await Promise.all([
             db.query(query, params),
-            db.query(countQuery, params.slice(0, params.length - 2)) // Remove limit and offset params
+            db.query(countQuery, params.slice(0, params.length - 2))
         ]);
         
         const total = parseInt(countResult.rows[0]?.total || 0);
@@ -212,7 +208,6 @@ router.post('/force-return', requireAuth, authorize('admin'), async (req, res) =
     }
 });
 
-// ===== OPTIMIZED: Pending Requests with JOIN to avoid N+1 =====
 router.get('/requests/pending', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
     await setAuditContext(req);
     const db = req.db;
@@ -588,6 +583,125 @@ router.post('/lost-keys/:id/close', requireAuth, authorize('admin'), async (req,
         await client.query('ROLLBACK');
         console.error('[admin] /lost-keys/:id/close error:', err);
         res.status(500).json({ error: 'Failed to close ticket: ' + err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ===== NEW: Make lost key available =====
+router.post('/lost-keys/:id/make-available', requireAuth, authorize('admin'), async (req, res) => {
+    if (req.isReadOnly) {
+        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
+    }
+    const { id } = req.params;
+    const { notes } = req.body;
+    
+    const db = req.db;
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const lostTxResult = await client.query(`
+            SELECT 
+                t.*, 
+                k.id as key_id, 
+                k.code as key_code, 
+                k.brand,
+                k.status as key_status
+            FROM transactions t
+            JOIN keys k ON t.key_id = k.id
+            WHERE t.id = $1 AND t.status = 'lost'
+        `, [id]);
+        
+        if (lostTxResult.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Lost key transaction not found or already resolved' });
+        }
+        
+        const lostTx = lostTxResult.rows[0];
+        
+        await client.query(
+            `UPDATE transactions 
+             SET status = 'returned', 
+                 returned_at = NOW(),
+                 admin_notes = COALESCE(admin_notes, '') || $1,
+                 resolved_at = NOW()
+             WHERE id = $2 AND status = 'lost'
+             RETURNING id`,
+            [
+                notes ? '\n' + notes + ' (Key found and marked available)' : '\nKey found and marked available by admin.', 
+                id
+            ]
+        );
+        
+        await client.query(
+            `UPDATE keys 
+             SET status = 'available',
+                 updated_at = NOW(),
+                 updated_by = $1
+             WHERE id = $2
+             RETURNING id, status`,
+            [req.user?.userId || req.session?.userId, lostTx.key_id]
+        );
+        
+        const fineResult = await client.query(
+            `UPDATE fines 
+             SET status = 'waived', 
+                 waived_at = NOW(),
+                 waived_by = $1,
+                 notes = COALESCE(notes, '') || 'Fine waived - key found and returned to inventory'
+             WHERE transaction_id = $2 AND status = 'pending'
+             RETURNING id`,
+            [req.user?.userId || req.session?.userId, id]
+        );
+        
+        await logUpdate({
+            targetType: 'transactions',
+            targetId: id,
+            oldData: { transaction: lostTx, key_status: 'lost' },
+            newData: { transaction: { ...lostTx, status: 'returned', returned_at: new Date() }, key_status: 'available' },
+            userId: req.user?.userId || req.session?.userId,
+            userEmail: req.user?.email || req.session?.username,
+            req,
+            extraDetails: { 
+                action: 'make_lost_key_available',
+                key_code: lostTx.key_code,
+                key_id: lostTx.key_id,
+                notes: notes || null,
+                fine_waived: fineResult.rowCount > 0
+            }
+        });
+        
+        await client.query('COMMIT');
+        
+        try {
+            await sendAdminNotification(client,
+                `Key Found: ${lostTx.key_code} (${lostTx.brand})`,
+                `The lost key ${lostTx.key_code} (${lostTx.brand}) has been found and marked as available.\n` +
+                `Borrower: ${lostTx.receiver_signature_name || lostTx.receiver_email}\n` +
+                `Resolved by: ${req.user?.email || req.session?.username || 'Admin'}\n` +
+                `Fine ${fineResult.rowCount > 0 ? 'waived' : 'not applicable'}`
+            );
+        } catch (notifyErr) {
+            console.warn('[admin] Failed to send admin notification:', notifyErr.message);
+        }
+        
+        res.json({ 
+            success: true, 
+            message: `Key ${lostTx.key_code} has been marked as available and is back in inventory.`,
+            data: {
+                transaction_id: id,
+                key_id: lostTx.key_id,
+                key_code: lostTx.key_code,
+                status: 'available',
+                fine_waived: fineResult.rowCount > 0
+            }
+        });
+        
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('[admin] /lost-keys/:id/make-available error:', err);
+        res.status(500).json({ error: 'Failed to mark key as available: ' + err.message });
     } finally {
         client.release();
     }
@@ -1084,7 +1198,6 @@ router.delete('/keys/:id', requireAuth, authorize('admin'), async (req, res) => 
     }
 });
 
-// ===== FIXED: GET /users - Using last_active AS "lastActive" =====
 router.get('/users', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
     const { search, role, status, page = 1, limit = 10 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -1138,7 +1251,6 @@ router.get('/users', requireAuth, authorize('admin'), requireReadOnly, async (re
     }
 });
 
-// ===== FIXED: POST /users - Removed updated_at =====
 router.post('/users', requireAuth, authorize('admin'), async (req, res) => {
     if (req.isReadOnly) {
         return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
@@ -1195,7 +1307,6 @@ router.post('/users', requireAuth, authorize('admin'), async (req, res) => {
     }
 });
 
-// ===== FIXED: PUT /users/:id - Removed updated_at =====
 router.put('/users/:id', requireAuth, authorize('admin'), async (req, res) => {
     if (req.isReadOnly) {
         return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
@@ -1295,7 +1406,6 @@ router.delete('/users/:id', requireAuth, authorize('admin'), async (req, res) =>
     }
 });
 
-// ===== FIXED: PATCH /users/:id/suspend - Removed updated_at =====
 router.patch('/users/:id/suspend', requireAuth, authorize('admin'), async (req, res) => {
     if (req.isReadOnly) {
         return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
@@ -1342,7 +1452,6 @@ router.patch('/users/:id/suspend', requireAuth, authorize('admin'), async (req, 
     }
 });
 
-// ===== FIXED: POST /users/:id/unlock - Removed updated_at =====
 router.post('/users/:id/unlock', requireAuth, authorize('admin'), async (req, res) => {
     if (req.isReadOnly) {
         return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
@@ -1443,7 +1552,6 @@ router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), asyn
     }
 });
 
-// ===== NEW: Reset password endpoint =====
 router.post('/users/:userId/reset-password', requireAuth, authorize('admin'), async (req, res) => {
     if (req.isReadOnly) {
         return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });

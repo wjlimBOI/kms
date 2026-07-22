@@ -386,20 +386,104 @@
         }
     }
 
+    // ===== FIXED: Enhanced showToast function =====
     function showToast(message, type) {
-        type = type || 'success';
+        type = type || 'info';
         var root = document.getElementById('toastRoot');
         if (!root) {
             root = document.createElement('div');
             root.id = 'toastRoot';
+            root.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:10000000;display:flex;flex-direction:column;gap:8px;max-width:480px;width:100%;pointer-events:none;';
             document.body.appendChild(root);
         }
+
         var toast = document.createElement('div');
         toast.className = 'toast-notification';
-        toast.textContent = message;
-        toast.style.background = type === 'error' ? '#EF4444' : type === 'warning' ? '#F59E0B' : '#1E293B';
+        toast.style.cssText = `
+            padding: 14px 20px;
+            background: ${type === 'success' ? '#10B981' : type === 'error' ? '#EF4444' : type === 'warning' ? '#F59E0B' : '#1E293B'};
+            color: white;
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideUp 0.3s ease;
+            cursor: default;
+            min-width: 200px;
+        `;
+        
+        var iconMap = {
+            success: '✓',
+            error: '✕',
+            warning: '⚠',
+            info: 'ℹ'
+        };
+        
+        toast.innerHTML = `
+            <span style="font-size:1.2rem;font-weight:600;">${iconMap[type] || 'ℹ'}</span>
+            <span style="flex:1;">${message}</span>
+            <button onclick="this.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,0.8);font-size:1.2rem;cursor:pointer;padding:0 4px;">&times;</button>
+        `;
+
+        // Add animation styles if not present
+        if (!document.getElementById('toastStyles')) {
+            var style = document.createElement('style');
+            style.id = 'toastStyles';
+            style.textContent = `
+                @keyframes slideUp {
+                    from { opacity: 0; transform: translateY(20px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                .toast-notification {
+                    animation: slideUp 0.3s ease;
+                }
+            `;
+            document.head.appendChild(style);
+        }
+
         root.appendChild(toast);
-        setTimeout(function() { toast.remove(); }, 3000);
+
+        setTimeout(function() {
+            if (toast.parentElement) {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(20px)';
+                toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                setTimeout(function() {
+                    if (toast.parentElement) {
+                        toast.remove();
+                    }
+                }, 300);
+            }
+        }, 5000);
+    }
+
+    // ===== FIXED: showConfirmModal alias for compatibility =====
+    function showConfirmModal(message, options) {
+        options = options || {};
+        if (typeof message === 'object') {
+            options = message;
+            message = options.message || 'Are you sure?';
+        }
+        return showConfirm(message, options);
+    }
+
+    // ===== FIXED: Missing functions =====
+    function closeLostKeyDetailModal() {
+        var modal = document.getElementById('lostKeyDetailModal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    function updateDashboardStats() {
+        // Reload dashboard metrics
+        loadPendingRequests();
+        loadTransactions();
+        loadPendingReturns();
+        loadLostKeys();
     }
 
     function showAlertModal(message, type, title) {
@@ -649,6 +733,60 @@
             document.addEventListener('keydown', escHandler);
         } catch (err) {
             showAlertModal('Failed to preview template: ' + err.message, 'error');
+        }
+    }
+
+    // ===== FIXED: makeLostKeyAvailable function with proper error handling =====
+    async function makeLostKeyAvailable(transactionId, keyId) {
+        if (!transactionId) {
+            showToast('Invalid transaction ID', 'error');
+            return;
+        }
+
+        var ok = await showConfirmModal('Mark key as available again?', {
+            title: 'Mark Available',
+            danger: false,
+            okLabel: 'Mark Available'
+        });
+        if (!ok) return;
+
+        try {
+            showToast('Processing...', 'info');
+
+            var res = await authenticatedFetch('/api/admin/lost-keys/' + transactionId + '/make-available', {
+                method: 'POST',
+                body: {
+                    notes: 'Key found and returned to inventory by admin'
+                }
+            });
+
+            var data = await res.json();
+
+            if (res.ok) {
+                await logAuditEvent('make_key_available', 'lost_key', transactionId, {
+                    key_id: keyId,
+                    key_code: data.data?.key_code || 'unknown'
+                });
+                showToast(data.message || 'Key marked as available successfully!', 'success');
+                
+                // Refresh all affected views
+                await Promise.all([
+                    loadLostKeys(),
+                    loadInventory(),
+                    loadLostKeysManagement(),
+                    loadTransactions()
+                ]);
+                
+                // Close any open modals
+                closeDetailModal();
+                closeLostKeyDetailModal();
+                updateDashboardStats();
+            } else {
+                showToast(data.error || 'Failed to make key available.', 'error');
+            }
+        } catch (err) {
+            console.error('Error making lost key available:', err);
+            showToast(err.message || 'Network error. Please try again.', 'error');
         }
     }
 
@@ -1101,31 +1239,8 @@
                 break;
             }
             case 'make-available': {
-                var ok = await showConfirm('Mark key ' + keyCode + ' as available again?', {
-                    title: 'Mark Available',
-                    danger: false,
-                    okLabel: 'Mark Available'
-                });
-                if (!ok) return;
-                try {
-                    var res = await authenticatedFetch('/api/admin/lost-keys/' + item.id + '/make-available', { method: 'POST' });
-                    var data = await res.json();
-                    if (res.ok) {
-                        await logAuditEvent('make_key_available', 'lost_key', item.id, {
-                            key_code: keyCode
-                        });
-                        showAlertModal('Key ' + keyCode + ' is now available.', 'success');
-                        closeDetailModal();
-                        await loadLostKeys();
-                        await loadTransactions();
-                        await loadInventory();
-                        await loadLostKeysManagement();
-                    } else {
-                        showAlertModal(data.error || 'Failed to make key available.', 'error');
-                    }
-                } catch (err) {
-                    showAlertModal(err.message || 'Network error.', 'error');
-                }
+                // Call the dedicated function
+                await makeLostKeyAvailable(item.id, item.key_id);
                 break;
             }
         }
@@ -1953,7 +2068,7 @@
                                 } else if (action === 'close-ticket') {
                                     handleCloseTicket(id, lostItem.key_code);
                                 } else if (action === 'make-available') {
-                                    handleMakeAvailable(id, lostItem.key_code);
+                                    makeLostKeyAvailable(id, lostItem.key_id);
                                 }
                             });
                         });
@@ -1996,33 +2111,6 @@
                 loadInventory();
             } else {
                 showAlertModal(data.error || 'Failed to close ticket.', 'error');
-            }
-        } catch (err) {
-            showAlertModal(err.message || 'Network error.', 'error');
-        }
-    }
-
-    async function handleMakeAvailable(id, key) {
-        var ok = await showConfirm('Mark key ' + key + ' as available again?', {
-            title: 'Mark Available',
-            danger: false,
-            okLabel: 'Mark Available'
-        });
-        if (!ok) return;
-
-        try {
-            var res = await authenticatedFetch('/api/admin/lost-keys/' + id + '/make-available', { method: 'POST' });
-            var data = await res.json();
-
-            if (res.ok) {
-                await logAuditEvent('make_key_available', 'lost_key', id, { key_code: key });
-                showAlertModal('Key ' + key + ' is now available.', 'success');
-                closeDetailModal();
-                loadLostKeysManagement();
-                loadLostKeys();
-                loadInventory();
-            } else {
-                showAlertModal(data.error || 'Failed to make key available.', 'error');
             }
         } catch (err) {
             showAlertModal(err.message || 'Network error.', 'error');
@@ -3801,6 +3889,13 @@
             }
         });
     }
+
+    // ===== FIXED: Make functions globally accessible =====
+    window.makeLostKeyAvailable = makeLostKeyAvailable;
+    window.showToast = showToast;
+    window.showConfirmModal = showConfirmModal;
+    window.closeLostKeyDetailModal = closeLostKeyDetailModal;
+    window.updateDashboardStats = updateDashboardStats;
 
     async function init() {
         var isAuthenticated = await checkAuth();

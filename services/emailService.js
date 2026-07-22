@@ -1,8 +1,8 @@
 // services/emailService.js
-const nodemailer = require('nodemailer');
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
+const axios = require('axios');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -18,6 +18,21 @@ const BATCH_SIZE = 10;
 const BATCH_DELAY = 100; // ms between batches
 
 let cachedLogoBase64 = null;
+
+// Brevo configuration
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || process.env.EMAIL_USER;
+const BREVO_SENDER_NAME = 'BOI Key Management';
+const ENABLE_EMAIL = process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && BREVO_API_KEY && BREVO_SENDER_EMAIL;
+
+// Log status on startup
+console.log(`📧 Brevo API Key: ${BREVO_API_KEY ? '✓ Set' : '✗ Not Set'}`);
+console.log(`📧 Sender Email: ${BREVO_SENDER_EMAIL || '✗ Not Set'}`);
+console.log(`📧 Email Enabled: ${ENABLE_EMAIL ? '✓ Yes' : '✗ No'}`);
+
+if (!ENABLE_EMAIL) {
+    console.log('⚠️ Email notifications disabled. Check BREVO_API_KEY and BREVO_SENDER_EMAIL in .env');
+}
 
 function getLogoBase64() {
     if (cachedLogoBase64) return cachedLogoBase64;
@@ -94,37 +109,62 @@ function getEmailHtml(content, subject) {
 }
 
 // ============================================================
-//  TRANSPORTER WITH RETRY
+//  BREVO EMAIL SENDER (Using axios)
 // ============================================================
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    },
-    pool: true,
-    maxConnections: 5,
-    maxMessages: 100,
-    rateLimit: 10 // Max 10 messages per second
-});
+
+async function sendEmailViaBrevo(toEmail, subject, htmlContent) {
+    if (!ENABLE_EMAIL) {
+        console.log(`📧 Email not sent (disabled): ${subject} -> ${toEmail}`);
+        return;
+    }
+
+    try {
+        const response = await axios.post(
+            'https://api.brevo.com/v3/smtp/email',
+            {
+                sender: {
+                    email: BREVO_SENDER_EMAIL,
+                    name: BREVO_SENDER_NAME
+                },
+                to: [{ email: toEmail }],
+                subject: subject,
+                htmlContent: htmlContent
+            },
+            {
+                headers: {
+                    'api-key': BREVO_API_KEY,
+                    'Content-Type': 'application/json'
+                },
+                timeout: 30000 // 30 second timeout
+            }
+        );
+        console.log(`✅ Email sent to ${toEmail}: ${subject}`);
+        return response.data;
+    } catch (err) {
+        const errorData = err.response?.data;
+        console.error('❌ Brevo API error:', errorData || err.message);
+        throw new Error(errorData?.message || err.message);
+    }
+}
 
 // ============================================================
 //  EMAIL QUEUE SYSTEM
 // ============================================================
+
 async function processEmailQueue() {
     if (isProcessingQueue || emailQueue.length === 0) return;
     isProcessingQueue = true;
-    
+
     console.log(`📧 Processing ${emailQueue.length} emails in queue...`);
-    
+
     try {
         let processed = 0;
         let failed = 0;
-        
+
         while (emailQueue.length > 0) {
             // Process in batches
             const batch = emailQueue.splice(0, BATCH_SIZE);
-            
+
             const batchPromises = batch.map(async (emailJob) => {
                 try {
                     await emailJob();
@@ -134,19 +174,19 @@ async function processEmailQueue() {
                     console.error('❌ Email send error:', err.message);
                 }
             });
-            
+
             await Promise.all(batchPromises);
-            
+
             // Add delay between batches
             if (emailQueue.length > 0) {
                 await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
             }
         }
-        
+
         console.log(`📧 Queue processed: ${processed} sent, ${failed} failed`);
     } finally {
         isProcessingQueue = false;
-        
+
         // If more emails were added while processing, continue
         if (emailQueue.length > 0) {
             processEmailQueue();
@@ -155,6 +195,10 @@ async function processEmailQueue() {
 }
 
 function queueEmail(sendFn) {
+    if (!ENABLE_EMAIL) {
+        return Promise.resolve();
+    }
+
     return new Promise((resolve, reject) => {
         // Limit queue size to prevent memory issues
         if (emailQueue.length >= MAX_QUEUE_SIZE) {
@@ -162,7 +206,7 @@ function queueEmail(sendFn) {
             reject(new Error('Email queue is full'));
             return;
         }
-        
+
         emailQueue.push(async () => {
             try {
                 await sendFn();
@@ -171,7 +215,7 @@ function queueEmail(sendFn) {
                 reject(err);
             }
         });
-        
+
         // Start processing if not already running
         if (!isProcessingQueue) {
             processEmailQueue();
@@ -182,6 +226,7 @@ function queueEmail(sendFn) {
 // ============================================================
 //  TEMPLATE MANAGEMENT WITH CACHING
 // ============================================================
+
 async function loadTemplate(templateKey, data = {}) {
     // Check cache first
     const cacheKey = templateKey;
@@ -205,14 +250,14 @@ async function loadTemplate(templateKey, data = {}) {
         throw new Error(`Template "${templateKey}" not found or inactive`);
     }
     let { subject, body_html } = result.rows[0];
-    
+
     // Update cache
     templateCache[cacheKey] = {
         template: { subject, body_html },
         timestamp: Date.now(),
         version: result.rows[0].updated_at
     };
-    
+
     // Replace placeholders
     for (const [key, value] of Object.entries(data)) {
         const regex = new RegExp(`{{${key}}}`, 'g');
@@ -276,13 +321,7 @@ async function sendOtpEmail(toEmail, otp) {
     return queueEmail(async () => {
         const { subject, body_html } = await loadTemplate('otp', { otp });
         const html = getEmailHtml(body_html, subject);
-        await transporter.sendMail({
-            from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
-            to: toEmail,
-            subject,
-            html
-        });
-        console.log(`✅ OTP email sent to ${toEmail}`);
+        await sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
@@ -293,27 +332,21 @@ async function sendPasswordResetEmail(toEmail, resetLink, name = 'User') {
             let templateKey = 'password_reset_imda';
             let template;
             try {
-                template = await loadTemplate(templateKey, { 
+                template = await loadTemplate(templateKey, {
                     name: name,
                     reset_link: resetLink,
                     app_url: process.env.APP_URL || 'http://localhost:3000'
                 });
             } catch (err) {
                 templateKey = 'password_reset';
-                template = await loadTemplate(templateKey, { 
+                template = await loadTemplate(templateKey, {
                     name: name,
                     reset_link: resetLink,
                     app_url: process.env.APP_URL || 'http://localhost:3000'
                 });
             }
             const html = getEmailHtml(template.body_html, template.subject);
-            await transporter.sendMail({
-                from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
-                to: toEmail,
-                subject: template.subject,
-                html
-            });
-            console.log(`✅ Password reset email sent to ${toEmail}`);
+            await sendEmailViaBrevo(toEmail, template.subject, html);
         } catch (err) {
             console.error('❌ Failed to send password reset email:', err);
             throw err;
@@ -325,7 +358,7 @@ async function sendWelcomeEmail(toEmail, username, plainPassword, changePassword
     if (!(await isNotificationEnabled('send_welcome_email'))) return;
     return queueEmail(async () => {
         try {
-            const { subject, body_html } = await loadTemplate('welcome', { 
+            const { subject, body_html } = await loadTemplate('welcome', {
                 name: username,
                 username: username,
                 password: plainPassword,
@@ -333,13 +366,7 @@ async function sendWelcomeEmail(toEmail, username, plainPassword, changePassword
                 app_url: process.env.APP_URL || 'http://localhost:3000'
             });
             const html = getEmailHtml(body_html, subject);
-            await transporter.sendMail({
-                from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
-                to: toEmail,
-                subject,
-                html
-            });
-            console.log(`✅ Welcome email sent to ${toEmail}`);
+            await sendEmailViaBrevo(toEmail, subject, html);
         } catch (err) {
             console.error('❌ Failed to send welcome email:', err);
             throw err;
@@ -358,13 +385,7 @@ async function sendRequestSubmittedEmail(toEmail, requesterName, items, plannedR
             app_url: process.env.APP_URL || 'http://localhost:3000'
         });
         const html = getEmailHtml(body_html, subject);
-        await transporter.sendMail({
-            from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
-            to: toEmail,
-            subject,
-            html
-        });
-        console.log(`✅ Request submitted email sent to ${toEmail}`);
+        await sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
@@ -379,26 +400,14 @@ async function sendRequestApprovedEmail(toEmail, requesterName, items, plannedRe
             app_url: process.env.APP_URL || 'http://localhost:3000'
         });
         const html = getEmailHtml(body_html, subject);
-        await transporter.sendMail({
-            from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
-            to: toEmail,
-            subject,
-            html
-        });
-        console.log(`✅ Request approved email sent to ${toEmail}`);
+        await sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
 async function sendReminderEmail(toEmail, subject, body) {
     return queueEmail(async () => {
         const html = getEmailHtml(body, subject);
-        await transporter.sendMail({
-            from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
-            to: toEmail,
-            subject,
-            html
-        });
-        console.log(`✅ Reminder email sent to ${toEmail}`);
+        await sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
@@ -413,13 +422,7 @@ async function sendAdminRegistrationAlert(adminEmail, userDetails) {
             app_url: process.env.APP_URL || 'http://localhost:3000'
         });
         const html = getEmailHtml(body_html, subject);
-        await transporter.sendMail({
-            from: `"BOI Key Management Admin" <${process.env.EMAIL_USER}>`,
-            to: adminEmail,
-            subject,
-            html
-        });
-        console.log(`✅ Admin registration alert sent to ${adminEmail}`);
+        await sendEmailViaBrevo(adminEmail, subject, html);
     });
 }
 
@@ -437,13 +440,7 @@ async function sendAdminNewRequestAlert(adminEmail, requestDetails) {
             app_url: process.env.APP_URL || 'http://localhost:3000'
         });
         const html = getEmailHtml(body_html, subject);
-        await transporter.sendMail({
-            from: `"BOI Key Management Admin" <${process.env.EMAIL_USER}>`,
-            to: adminEmail,
-            subject,
-            html
-        });
-        console.log(`✅ Admin new request alert sent to ${adminEmail}`);
+        await sendEmailViaBrevo(adminEmail, subject, html);
     });
 }
 
@@ -471,13 +468,7 @@ async function sendAdminReturnReminder(adminEmail, dueTransactions) {
         const { subject, body_html } = await loadTemplate('admin_daily_summary', { summary: summaryBody });
         const finalBody = body_html.replace('{{summary}}', summaryBody);
         const html = getEmailHtml(finalBody, subject);
-        await transporter.sendMail({
-            from: `"BOI Key Management Admin" <${process.env.EMAIL_USER}>`,
-            to: adminEmail,
-            subject,
-            html
-        });
-        console.log(`✅ Admin return reminder sent to ${adminEmail}`);
+        await sendEmailViaBrevo(adminEmail, subject, html);
     });
 }
 
@@ -488,7 +479,7 @@ async function sendAccountLockedEmail(toEmail, username, attempts, resetLink) {
             let templateKey = 'account_locked_imda';
             let template;
             try {
-                template = await loadTemplate(templateKey, { 
+                template = await loadTemplate(templateKey, {
                     name: username,
                     attempts: attempts,
                     reset_link: resetLink || `${process.env.APP_URL}/forgot-password`,
@@ -496,20 +487,14 @@ async function sendAccountLockedEmail(toEmail, username, attempts, resetLink) {
                 });
             } catch (err) {
                 templateKey = 'account_locked';
-                template = await loadTemplate(templateKey, { 
+                template = await loadTemplate(templateKey, {
                     name: username,
                     attempts: attempts,
                     app_url: process.env.APP_URL || 'http://localhost:3000'
                 });
             }
             const html = getEmailHtml(template.body_html, template.subject);
-            await transporter.sendMail({
-                from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
-                to: toEmail,
-                subject: template.subject,
-                html
-            });
-            console.log(`✅ Account locked email sent to ${toEmail}`);
+            await sendEmailViaBrevo(toEmail, template.subject, html);
         } catch (err) {
             console.error('❌ Failed to send account locked email:', err);
             throw err;
@@ -520,53 +505,35 @@ async function sendAccountLockedEmail(toEmail, username, attempts, resetLink) {
 async function sendFineCreatedEmail(toEmail, username, keyCode, amount) {
     if (!(await isNotificationEnabled('send_fine_created'))) return;
     return queueEmail(async () => {
-        const { subject, body_html } = await loadTemplate('fine_created', { 
-            name: username, 
-            key_code: keyCode, 
+        const { subject, body_html } = await loadTemplate('fine_created', {
+            name: username,
+            key_code: keyCode,
             amount: amount,
             app_url: process.env.APP_URL || 'http://localhost:3000'
         });
         const html = getEmailHtml(body_html, subject);
-        await transporter.sendMail({
-            from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
-            to: toEmail,
-            subject,
-            html
-        });
-        console.log(`✅ Fine created email sent to ${toEmail}`);
+        await sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
 async function sendFinePaidEmail(toEmail, username, keyCode, amount) {
     if (!(await isNotificationEnabled('send_fine_paid'))) return;
     return queueEmail(async () => {
-        const { subject, body_html } = await loadTemplate('fine_paid', { 
-            name: username, 
-            key_code: keyCode, 
+        const { subject, body_html } = await loadTemplate('fine_paid', {
+            name: username,
+            key_code: keyCode,
             amount: amount,
             app_url: process.env.APP_URL || 'http://localhost:3000'
         });
         const html = getEmailHtml(body_html, subject);
-        await transporter.sendMail({
-            from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
-            to: toEmail,
-            subject,
-            html
-        });
-        console.log(`✅ Fine paid email sent to ${toEmail}`);
+        await sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
 async function sendConfirmationEmail(toEmail, subject, body) {
     return queueEmail(async () => {
         const html = getEmailHtml(body, subject);
-        await transporter.sendMail({
-            from: `"BOI Key Management" <${process.env.EMAIL_USER}>`,
-            to: toEmail,
-            subject,
-            html
-        });
-        console.log(`✅ Confirmation email sent to ${toEmail}`);
+        await sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
@@ -597,10 +564,11 @@ module.exports = {
     getNotificationConfig,
     clearTemplateCache,
     updateTemplate,
-    // Export queue status for debugging
     getQueueStatus: () => ({
         queueLength: emailQueue.length,
         isProcessing: isProcessingQueue,
-        maxQueueSize: MAX_QUEUE_SIZE
+        maxQueueSize: MAX_QUEUE_SIZE,
+        enabled: ENABLE_EMAIL,
+        senderEmail: BREVO_SENDER_EMAIL
     })
 };

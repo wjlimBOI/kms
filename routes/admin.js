@@ -1159,6 +1159,7 @@ router.get('/users', requireAuth, authorize('admin'), requireReadOnly, async (re
     }
 });
 
+// ===== FIXED: POST /users - Removed updated_at =====
 router.post('/users', requireAuth, authorize('admin'), async (req, res) => {
     if (req.isReadOnly) {
         return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
@@ -1177,8 +1178,8 @@ router.post('/users', requireAuth, authorize('admin'), async (req, res) => {
         const bcrypt = require('bcrypt');
         const hashed = await bcrypt.hash(tempPassword, 10);
         const result = await client.query(
-            `INSERT INTO users (name, email, role, status, password_hash, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+            `INSERT INTO users (name, email, role, status, password_hash, created_at)
+             VALUES ($1, $2, $3, $4, $5, NOW())
              RETURNING id, name, email, role, status`,
             [name, email, role, status || 'active', hashed]
         );
@@ -1215,6 +1216,7 @@ router.post('/users', requireAuth, authorize('admin'), async (req, res) => {
     }
 });
 
+// ===== FIXED: PUT /users/:id - Removed updated_at =====
 router.put('/users/:id', requireAuth, authorize('admin'), async (req, res) => {
     if (req.isReadOnly) {
         return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
@@ -1238,7 +1240,7 @@ router.put('/users/:id', requireAuth, authorize('admin'), async (req, res) => {
         
         const result = await client.query(
             `UPDATE users
-             SET name = $1, email = $2, role = $3, status = $4, updated_at = NOW()
+             SET name = $1, email = $2, role = $3, status = $4
              WHERE id = $5
              RETURNING id, name, email, role, status`,
             [name, email, role, status, id]
@@ -1314,6 +1316,7 @@ router.delete('/users/:id', requireAuth, authorize('admin'), async (req, res) =>
     }
 });
 
+// ===== FIXED: PATCH /users/:id/suspend - Removed updated_at =====
 router.patch('/users/:id/suspend', requireAuth, authorize('admin'), async (req, res) => {
     if (req.isReadOnly) {
         return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
@@ -1333,7 +1336,7 @@ router.patch('/users/:id/suspend', requireAuth, authorize('admin'), async (req, 
         
         const newStatus = oldData.rows[0].status === 'suspended' ? 'active' : 'suspended';
         const result = await client.query(
-            `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING status`,
+            `UPDATE users SET status = $1 WHERE id = $2 RETURNING status`,
             [newStatus, id]
         );
         
@@ -1360,6 +1363,7 @@ router.patch('/users/:id/suspend', requireAuth, authorize('admin'), async (req, 
     }
 });
 
+// ===== FIXED: POST /users/:id/unlock - Removed updated_at =====
 router.post('/users/:id/unlock', requireAuth, authorize('admin'), async (req, res) => {
     if (req.isReadOnly) {
         return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
@@ -1378,7 +1382,7 @@ router.post('/users/:id/unlock', requireAuth, authorize('admin'), async (req, re
         }
         
         const result = await client.query(
-            `UPDATE users SET status = 'active', updated_at = NOW() WHERE id = $1 AND status = 'locked' RETURNING id`,
+            `UPDATE users SET status = 'active' WHERE id = $1 AND status = 'locked' RETURNING id`,
             [id]
         );
         if (result.rowCount === 0) {

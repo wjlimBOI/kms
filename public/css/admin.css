@@ -935,10 +935,38 @@ select { appearance: auto; }
     background: transparent; 
     color: var(--exec-slate); 
     border-color: transparent; 
+    min-width: 36px;
+    min-height: 36px;
+    padding: 0.35rem;
+    border-radius: var(--radius-sm);
 }
 
 .btn-ghost:hover { 
     background: #f1f5f9; 
+}
+
+/* ===== 3-DOT ACTION MENU BUTTON (Table Actions) ===== */
+.btn-ghost.table-action {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    min-height: 32px;
+    padding: 0;
+    font-size: 0.9rem;
+    border-radius: 50%;
+}
+
+.btn-ghost.table-action i {
+    font-size: 1rem;
+}
+
+.btn-ghost.table-action:hover {
+    background: var(--bg-card-alt);
+    color: var(--text-primary);
+}
+
+.btn-ghost.table-action:active {
+    transform: scale(0.92);
 }
 
 /* Deprecated aliases for backward compatibility */
@@ -967,17 +995,19 @@ select { appearance: auto; }
     padding: 0.35rem;
 }
 
-/* ===== PORTAL MENU ===== */
+/* ===== PORTAL MENU (3-Dot Dropdown) ===== */
 .portal-menu {
     position: fixed;
-    z-index: 100000;
+    z-index: 1000000 !important;
     background: var(--bg-card);
     border: 1px solid var(--border-light);
     border-radius: var(--radius-md);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-xl);
     min-width: 180px;
+    max-width: 260px;
     padding: 6px 0;
-    animation: fadeScaleUp 0.1s ease;
+    animation: fadeScaleUp 0.12s ease;
+    overflow: hidden;
 }
 
 .portal-menu .menu-item {
@@ -994,12 +1024,34 @@ select { appearance: auto; }
     text-align: left;
     cursor: pointer;
     transition: background 0.1s ease;
+    font-family: inherit;
+    min-height: 36px;
 }
 
 .portal-menu .menu-item:hover { 
     background: var(--bg-card-alt); 
     color: var(--bg-primary); 
 }
+
+.portal-menu .menu-item i {
+    width: 18px;
+    color: var(--text-muted);
+    text-align: center;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+}
+
+.portal-menu .menu-item .fa-eye { color: #3B82F6; }
+.portal-menu .menu-item .fa-edit { color: #F59E0B; }
+.portal-menu .menu-item .fa-plus-circle { color: #3B82F6; }
+.portal-menu .menu-item .fa-check-circle { color: #10B981; }
+.portal-menu .menu-item .fa-check { color: #10B981; }
+.portal-menu .menu-item .fa-dollar-sign { color: #10B981; }
+.portal-menu .menu-item .fa-handshake { color: #F59E0B; }
+.portal-menu .menu-item .fa-trash { color: #EF4444; }
+.portal-menu .menu-item .fa-ban { color: #EF4444; }
+.portal-menu .menu-item .fa-unlock { color: #3B82F6; }
+.portal-menu .menu-item .fa-times { color: #EF4444; }
 
 .portal-menu .menu-item.danger { 
     color: #dc2626; 
@@ -1009,16 +1061,68 @@ select { appearance: auto; }
     background: #fef2f2; 
 }
 
+.portal-menu .menu-item.danger i { 
+    color: #dc2626; 
+}
+
 .portal-menu .menu-item:disabled,
 .portal-menu .menu-item.disabled { 
     opacity: 0.5; 
     cursor: not-allowed; 
 }
 
+.portal-menu .menu-item:disabled:hover,
+.portal-menu .menu-item.disabled:hover { 
+    background: transparent; 
+}
+
 .portal-menu .menu-divider { 
     height: 1px; 
     background: var(--border-light); 
-    margin: 4px 0; 
+    margin: 4px 8px; 
+}
+
+/* ===== REQUEST ACTION BUTTONS (Approved/Reject) ===== */
+.request-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 0.35rem 0.75rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-family: var(--btn-font);
+    min-height: 30px;
+}
+
+.request-action-btn.approve {
+    background: var(--exec-forest);
+    color: #fff;
+}
+
+.request-action-btn.approve:hover {
+    background: var(--exec-forest-dark);
+    transform: translateY(-1px);
+}
+
+.request-action-btn.reject {
+    background: var(--exec-crimson);
+    color: #fff;
+}
+
+.request-action-btn.reject:hover {
+    background: var(--exec-crimson-dark);
+    transform: translateY(-1px);
+}
+
+.request-action-btn i {
+    font-size: 0.65rem;
 }
 
 /* ===== CONFIRM & PROMPT MODALS ===== */

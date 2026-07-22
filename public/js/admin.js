@@ -91,7 +91,7 @@
         document.body.appendChild(menu);
 
         var rect = triggerEl.getBoundingClientRect();
-        var menuWidth = menu.offsetWidth;
+        var menuWidth = menu.offsetWidth || 200;
         var left = rect.right - menuWidth;
         if (left < 8) left = rect.left;
         var top = rect.bottom + 6;
@@ -100,6 +100,7 @@
         }
         menu.style.left = Math.max(8, left) + 'px';
         menu.style.top = Math.max(8, top) + 'px';
+        menu.style.zIndex = '1000000';
 
         if (onRender) onRender(menu);
 
@@ -141,10 +142,12 @@
 
             modal.classList.add('active');
             modal.style.display = 'flex';
+            modal.style.zIndex = '1000001';
 
             var cleanup = function(result) {
                 modal.classList.remove('active');
                 modal.style.display = 'none';
+                modal.style.zIndex = '';
                 okBtn.removeEventListener('click', onOk);
                 cancelBtn.removeEventListener('click', onCancel);
                 modal.removeEventListener('click', onOverlay);
@@ -180,11 +183,13 @@
             input.style.borderColor = '';
             modal.classList.add('active');
             modal.style.display = 'flex';
+            modal.style.zIndex = '1000001';
             setTimeout(function() { input.focus(); }, 50);
 
             var cleanup = function(result) {
                 modal.classList.remove('active');
                 modal.style.display = 'none';
+                modal.style.zIndex = '';
                 okBtn.removeEventListener('click', onOk);
                 cancelBtn.removeEventListener('click', onCancel);
                 closeBtn.removeEventListener('click', onCancel);
@@ -828,6 +833,7 @@
         }
     }
 
+    // ===== FIXED: showPendingRequestsModal with 3-dot menu =====
     function showPendingRequestsModal() {
         var data = window._pendingRequestsData || [];
         if (!data.length) {
@@ -842,21 +848,40 @@
                 + '<td>' + escapeHtml(req.requester_email) + '</td>'
                 + '<td>' + escapeHtml(keyList) + '</td>'
                 + '<td>' + formatDate(req.planned_return) + '</td>'
-                + '<td><div class="action-buttons">'
-                + '<button class="btn btn-success btn-sm approveBtnModal" data-id="' + req.id + '"><i class="fas fa-check"></i> Approve</button>'
-                + '<button class="btn btn-danger btn-sm denyBtnModal" data-id="' + req.id + '"><i class="fas fa-times"></i> Deny</button>'
-                + '</div></td></tr>';
+                + '<td><button class="btn btn-sm btn-ghost request-actions-btn" data-id="' + req.id + '" data-name="' + escapeHtml(req.requester_name) + '"><i class="fas fa-ellipsis-v"></i></button></td></tr>';
         }
         showDetailModal('Pending Requests', '<table class="table-clean"><thead><tr><th>Requester</th><th>Email</th><th>Keys</th><th>Planned Return</th><th>Actions</th></tr></thead><tbody>' + rows + '</tbody></table>');
 
-        document.querySelectorAll('.approveBtnModal, .denyBtnModal').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                currentAction = this.classList.contains('approveBtnModal') ? 'approve' : 'deny';
-                currentRequestId = parseInt(this.dataset.id);
-                document.getElementById('modalTitle').textContent = currentAction === 'approve' ? 'Approve request' : 'Deny request';
-                document.getElementById('modalNotes').value = '';
-                document.getElementById('adminModal').style.display = 'flex';
-                closeDetailModal();
+        document.querySelectorAll('#detailModalContent .request-actions-btn').forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var id = parseInt(this.dataset.id);
+                var name = this.dataset.name;
+
+                var menuHtml = '<button class="menu-item approve-request" data-id="' + id + '"><i class="fas fa-check-circle"></i> Approve Request</button>'
+                    + '<button class="menu-item danger reject-request" data-id="' + id + '"><i class="fas fa-times-circle"></i> Reject Request</button>';
+
+                openPortalMenu(this, menuHtml, function(menu) {
+                    menu.querySelector('.approve-request').addEventListener('click', function() {
+                        menu.remove();
+                        currentAction = 'approve';
+                        currentRequestId = id;
+                        document.getElementById('modalTitle').textContent = 'Approve request from ' + name;
+                        document.getElementById('modalNotes').value = '';
+                        document.getElementById('adminModal').style.display = 'flex';
+                        closeDetailModal();
+                    });
+
+                    menu.querySelector('.reject-request').addEventListener('click', function() {
+                        menu.remove();
+                        currentAction = 'deny';
+                        currentRequestId = id;
+                        document.getElementById('modalTitle').textContent = 'Reject request from ' + name;
+                        document.getElementById('modalNotes').value = '';
+                        document.getElementById('adminModal').style.display = 'flex';
+                        closeDetailModal();
+                    });
+                });
             });
         });
     }
@@ -1929,72 +1954,52 @@
                     + '<td class="text-left">' + escapeHtml(item.borrower_name || item.borrower_email) + '</td>'
                     + '<td style="text-align:center;">' + formatDate(item.lost_at) + '</td>'
                     + '<td style="text-align:center;"><span class="status-badge ' + statusClass + '">' + statusLabel + '</span></td>'
-                    + '<td style="text-align:right;"><div class="actions-dropdown">'
-                    + '<button class="dropdown-toggle" data-id="' + item.id + '">Actions <i class="fas fa-chevron-down"></i></button>'
-                    + '<div class="dropdown-menu" data-id="' + item.id + '">'
-                    + '<button class="dropdown-item btn-view view-lost-key-btn" data-id="' + item.id + '"><i class="fas fa-eye"></i> View</button>';
-
-                if (!item.resolved_at) {
-                    html += '<button class="dropdown-item btn-edit edit-lost-key-btn" data-id="' + item.id + '"><i class="fas fa-edit"></i> Edit</button>'
-                        + '<button class="dropdown-item btn-success close-lost-ticket-btn" data-id="' + item.id + '" data-key="' + escapeHtml(item.key_code) + '"><i class="fas fa-check-circle"></i> Close Ticket</button>';
-                }
-
-                html += '<button class="dropdown-item btn-warning make-available-btn" data-id="' + item.id + '" data-key="' + escapeHtml(item.key_code) + '"><i class="fas fa-check"></i> Make Available</button>'
-                    + '</div></div></td></tr>';
+                    + '<td style="text-align:right;"><button class="btn btn-sm btn-ghost lost-key-actions-btn" data-id="' + item.id + '"><i class="fas fa-ellipsis-v"></i></button></td></tr>';
             }
             html += '</tbody></table>';
             container.innerHTML = html;
 
-            container.querySelectorAll('.actions-dropdown').forEach(function(dropdown) {
-                var toggle = dropdown.querySelector('.dropdown-toggle');
-                var menu = dropdown.querySelector('.dropdown-menu');
-
-                toggle.addEventListener('click', function(e) {
+            container.querySelectorAll('.lost-key-actions-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    container.querySelectorAll('.dropdown-menu').forEach(function(m) {
-                        if (m !== menu) m.classList.remove('show');
-                    });
-                    menu.classList.toggle('show');
-                });
+                    var id = parseInt(this.dataset.id);
+                    var lostItem = null;
+                    for (var d = 0; d < data.length; d++) {
+                        if (data[d].id === id) {
+                            lostItem = data[d];
+                            break;
+                        }
+                    }
+                    if (!lostItem) return;
 
-                menu.querySelectorAll('.dropdown-item').forEach(function(item) {
-                    item.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        var id = parseInt(this.dataset.id);
-                        var action = this.classList.contains('view-lost-key-btn') ? 'view' :
-                            this.classList.contains('edit-lost-key-btn') ? 'edit' :
-                            this.classList.contains('close-lost-ticket-btn') ? 'close-ticket' :
-                            this.classList.contains('make-available-btn') ? 'make-available' : null;
+                    var menuHtml = '<button class="menu-item" data-action="view"><i class="fas fa-eye"></i> View</button>'
+                        + '<button class="menu-item" data-action="edit"><i class="fas fa-edit"></i> Edit</button>'
+                        + '<div class="menu-divider"></div>';
 
-                        if (action) {
-                            menu.classList.remove('show');
-                            var lostItem = null;
-                            for (var d = 0; d < data.length; d++) {
-                                if (data[d].id === id) {
-                                    lostItem = data[d];
-                                    break;
-                                }
-                            }
-                            if (lostItem) {
+                    if (!lostItem.resolved_at) {
+                        menuHtml += '<button class="menu-item" data-action="close-ticket"><i class="fas fa-check-circle"></i> Close Ticket</button>';
+                    }
+                    menuHtml += '<button class="menu-item" data-action="make-available"><i class="fas fa-check"></i> Make Available</button>';
+
+                    openPortalMenu(this, menuHtml, function(menu) {
+                        menu.querySelectorAll('.menu-item[data-action]').forEach(function(item) {
+                            item.addEventListener('click', function() {
+                                var action = this.dataset.action;
+                                menu.remove();
+
                                 if (action === 'view') {
                                     showLostKeyDetail(id);
                                 } else if (action === 'edit') {
                                     openLostKeyEditModal(id);
                                 } else if (action === 'close-ticket') {
-                                    handleCloseTicket(id, this.dataset.key);
+                                    handleCloseTicket(id, lostItem.key_code);
                                 } else if (action === 'make-available') {
-                                    handleMakeAvailable(id, this.dataset.key);
+                                    handleMakeAvailable(id, lostItem.key_code);
                                 }
-                            }
-                        }
+                            });
+                        });
                     });
                 });
-            });
-
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('.actions-dropdown')) {
-                    container.querySelectorAll('.dropdown-menu').forEach(function(m) { m.classList.remove('show'); });
-                }
             });
         } catch (err) {
             container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load lost keys: ' + escapeHtml(err.message) + '</div>';
@@ -2548,82 +2553,96 @@
                     + '<td style="text-align:center;">' + escapeHtml(req.email) + '</td>'
                     + '<td style="text-align:center;">' + escapeHtml(req.username || '—') + '</td>'
                     + '<td style="text-align:center;">' + formatDate(req.created_at) + '</td>'
-                    + '<td style="text-align:center;"><div class="action-buttons" style="justify-content:center;">'
-                    + '<button class="btn btn-success btn-sm approveRequestBtn" data-id="' + req.id + '"><i class="fas fa-check"></i> Approve</button>'
-                    + '<button class="btn btn-danger btn-sm rejectRequestBtn" data-id="' + req.id + '"><i class="fas fa-times"></i> Reject</button>'
-                    + '</div></td></tr>';
+                    + '<td style="text-align:center;"><button class="btn btn-sm btn-ghost registration-actions-btn" data-id="' + req.id + '" data-name="' + escapeHtml(req.name) + '"><i class="fas fa-ellipsis-v"></i></button></td></tr>';
             }
             html += '</tbody></table>';
             container.innerHTML = html;
 
-            container.querySelectorAll('.approveRequestBtn').forEach(function(btn) {
-                btn.addEventListener('click', async function() {
-                    var id = this.dataset.id;
-                    var ok = await showConfirm('Approve this registration request?', {
-                        title: 'Approve Request',
-                        danger: false,
-                        okLabel: 'Approve'
-                    });
-                    if (!ok) return;
+            container.querySelectorAll('.registration-actions-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var id = parseInt(this.dataset.id);
+                    var name = this.dataset.name;
 
-                    try {
-                        var res = await authenticatedFetch('/api/auth/admin/pending-requests/' + id + '/approve', { method: 'POST' });
-                        var data = await res.json();
+                    var menuHtml = '<button class="menu-item approve-registration" data-id="' + id + '"><i class="fas fa-check-circle"></i> Approve</button>'
+                        + '<button class="menu-item danger reject-registration" data-id="' + id + '"><i class="fas fa-times-circle"></i> Reject</button>';
 
-                        if (res.ok) {
-                            await logAuditEvent('registration_approved', 'registration_request', id, {
-                                user_name: data.user ? data.user.name : data.name,
-                                user_email: data.user ? data.user.email : data.email,
-                                approved_by: getUser() ? getUser().name : 'Admin'
-                            });
-                            showAlertModal(data.message || 'User approved. Password sent.', 'success');
-                            loadPendingRegistrations();
-                        } else {
-                            showAlertModal(data.error || 'Approval failed.', 'error');
-                        }
-                    } catch (err) {
-                        showAlertModal(err.message || 'Network error.', 'error');
-                    }
-                });
-            });
-
-            container.querySelectorAll('.rejectRequestBtn').forEach(function(btn) {
-                btn.addEventListener('click', async function() {
-                    var id = this.dataset.id;
-                    var reason = await showPromptModal('Optional reason for rejection:', {
-                        title: 'Reject Request',
-                        placeholder: 'Reason (optional)'
-                    });
-                    if (reason === undefined) return;
-
-                    var ok = await showConfirm('Reject this registration request?', { title: 'Reject Request' });
-                    if (!ok) return;
-
-                    try {
-                        var res = await authenticatedFetch('/api/auth/admin/pending-requests/' + id + '/reject', {
-                            method: 'POST',
-                            body: { reason: reason || null }
+                    openPortalMenu(this, menuHtml, function(menu) {
+                        menu.querySelector('.approve-registration').addEventListener('click', function() {
+                            menu.remove();
+                            handleApproveRegistration(id);
                         });
-                        var data = await res.json();
 
-                        if (res.ok) {
-                            await logAuditEvent('registration_rejected', 'registration_request', id, {
-                                reason: reason || 'No reason provided',
-                                rejected_by: getUser() ? getUser().name : 'Admin'
-                            });
-                            showAlertModal('Request rejected successfully.', 'success');
-                            loadPendingRegistrations();
-                        } else {
-                            showAlertModal(data.error || 'Rejection failed.', 'error');
-                        }
-                    } catch (err) {
-                        showAlertModal(err.message || 'Network error.', 'error');
-                    }
+                        menu.querySelector('.reject-registration').addEventListener('click', function() {
+                            menu.remove();
+                            handleRejectRegistration(id);
+                        });
+                    });
                 });
             });
         } catch (err) {
             container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load requests. Please refresh the page.</div>';
             showAlertModal(err.message || 'Unable to load pending requests.', 'error');
+        }
+    }
+
+    async function handleApproveRegistration(id) {
+        var ok = await showConfirm('Approve this registration request?', {
+            title: 'Approve Request',
+            danger: false,
+            okLabel: 'Approve'
+        });
+        if (!ok) return;
+
+        try {
+            var res = await authenticatedFetch('/api/auth/admin/pending-requests/' + id + '/approve', { method: 'POST' });
+            var data = await res.json();
+
+            if (res.ok) {
+                await logAuditEvent('registration_approved', 'registration_request', id, {
+                    user_name: data.user ? data.user.name : data.name,
+                    user_email: data.user ? data.user.email : data.email,
+                    approved_by: getUser() ? getUser().name : 'Admin'
+                });
+                showAlertModal(data.message || 'User approved. Password sent.', 'success');
+                loadPendingRegistrations();
+            } else {
+                showAlertModal(data.error || 'Approval failed.', 'error');
+            }
+        } catch (err) {
+            showAlertModal(err.message || 'Network error.', 'error');
+        }
+    }
+
+    async function handleRejectRegistration(id) {
+        var reason = await showPromptModal('Optional reason for rejection:', {
+            title: 'Reject Request',
+            placeholder: 'Reason (optional)'
+        });
+        if (reason === undefined) return;
+
+        var ok = await showConfirm('Reject this registration request?', { title: 'Reject Request' });
+        if (!ok) return;
+
+        try {
+            var res = await authenticatedFetch('/api/auth/admin/pending-requests/' + id + '/reject', {
+                method: 'POST',
+                body: { reason: reason || null }
+            });
+            var data = await res.json();
+
+            if (res.ok) {
+                await logAuditEvent('registration_rejected', 'registration_request', id, {
+                    reason: reason || 'No reason provided',
+                    rejected_by: getUser() ? getUser().name : 'Admin'
+                });
+                showAlertModal('Request rejected successfully.', 'success');
+                loadPendingRegistrations();
+            } else {
+                showAlertModal(data.error || 'Rejection failed.', 'error');
+            }
+        } catch (err) {
+            showAlertModal(err.message || 'Network error.', 'error');
         }
     }
 
@@ -2914,6 +2933,7 @@
                             document.getElementById('acmDeleteUserMessage').innerHTML =
                                 'Are you sure you want to delete <strong>' + escapeHtml(user.name) + '</strong>? This action cannot be undone.';
                             deleteConfirmModal.classList.add('active');
+                            deleteConfirmModal.style.zIndex = '1000001';
                         });
                     });
                 });

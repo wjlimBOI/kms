@@ -1,6 +1,10 @@
 const router = require('express').Router();
 const { requireAuth, authorize, requirePermission } = require('../middleware/auth');
-const { sendRequestApprovedEmail } = require('../services/emailService');
+const { 
+    sendRequestApprovedEmail,
+    sendManualWelcomeEmail,
+    sendWelcomeEmail
+} = require('../services/emailService');
 const { logUpdate, logDelete, logInsert } = require('../lib/audit');
 
 async function setAuditContext(req) {
@@ -254,7 +258,16 @@ router.post('/requests/approve', requireAuth, authorize('admin'), async (req, re
         });
         
         await client.query('COMMIT');
-        await sendRequestApprovedEmail(request.requester_email, request.requester_name, items, request.planned_return);
+        
+        // ===== FIX: Send email with proper error handling =====
+        try {
+            await sendRequestApprovedEmail(request.requester_email, request.requester_name, items, request.planned_return);
+            console.log(`✅ Approval email sent to ${request.requester_email}`);
+        } catch (emailErr) {
+            console.error('❌ Failed to send approval email:', emailErr.message);
+            // Don't fail the request if email fails
+        }
+        
         await sendAdminNotification(client,
             `Key Request Approved: ${request.requester_name}`,
             `A key request from ${request.requester_name} (${request.requester_email}) has been approved for ${items.length} key(s).`
@@ -1115,6 +1128,16 @@ router.post('/users', requireAuth, authorize('admin'), async (req, res) => {
             extraDetails: { action: 'create_user' }
         });
         
+        // ===== FIX: Send welcome email after user creation =====
+        try {
+            const changePasswordLink = `${process.env.APP_URL || 'https://kms-staging.onrender.com'}/change-password`;
+            await sendWelcomeEmail(email, name, tempPassword, changePasswordLink);
+            console.log(`✅ Welcome email sent to ${email}`);
+        } catch (emailErr) {
+            console.error('❌ Failed to send welcome email:', emailErr.message);
+            // Don't fail the user creation if email fails
+        }
+        
         await client.query('COMMIT');
         res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -1320,6 +1343,63 @@ router.post('/users/:id/unlock', requireAuth, authorize('admin'), async (req, re
         res.status(500).json({ error: 'Failed to unlock user: ' + err.message });
     } finally {
         client.release();
+    }
+});
+
+// ===== NEW: Manual Welcome Email Route =====
+router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), async (req, res) => {
+    if (req.isReadOnly) {
+        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
+    }
+    
+    const { userId } = req.params;
+    const db = req.db;
+    
+    try {
+        // Get user details
+        const userResult = await db.query(
+            'SELECT id, name, email, status FROM users WHERE id = $1',
+            [userId]
+        );
+        
+        if (userResult.rowCount === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        const user = userResult.rows[0];
+        
+        // Check if user is active
+        if (user.status !== 'active') {
+            return res.status(400).json({ error: 'User is not active. Please activate the user first.' });
+        }
+        
+        // Generate a temporary password (optional - if you want to send a reset link instead)
+        const tempPassword = Math.random().toString(36).slice(-8);
+        const bcrypt = require('bcrypt');
+        const hashed = await bcrypt.hash(tempPassword, 10);
+        
+        // Update user's password (optional - only if you want to reset it)
+        await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashed, userId]);
+        
+        // Send welcome email using the manual function
+        const changePasswordLink = `${process.env.APP_URL || 'https://kms-staging.onrender.com'}/change-password`;
+        await sendManualWelcomeEmail(user.email, user.name, tempPassword, changePasswordLink);
+        
+        await logUpdate({
+            targetType: 'users',
+            targetId: userId,
+            oldData: { ...user, password_hash: '[REDACTED]' },
+            newData: { ...user, password_hash: '[REDACTED]', password_reset: true },
+            userId: req.user?.userId || req.session?.userId,
+            userEmail: req.user?.email || req.session?.username,
+            req,
+            extraDetails: { action: 'send_manual_welcome_email' }
+        });
+        
+        res.json({ message: `Welcome email sent to ${user.email}` });
+    } catch (err) {
+        console.error('[admin] /users/:userId/send-welcome error:', err);
+        res.status(500).json({ error: 'Failed to send welcome email: ' + err.message });
     }
 });
 

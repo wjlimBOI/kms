@@ -2811,7 +2811,7 @@
             attachManageEvents();
         }
 
-        // ===== FIXED: attachManageEvents with portal menu =====
+        // ===== FIXED: attachManageEvents with portal menu and "Send Welcome Email" =====
         function attachManageEvents() {
             document.querySelectorAll('.manageActionDots').forEach(btn => {
                 btn.addEventListener('click', function(e) {
@@ -2824,6 +2824,7 @@
                         <button class="menu-item" data-action="edit"><i class="fas fa-edit"></i> Edit</button>
                         <button class="menu-item" data-action="suspend"><i class="fas fa-ban"></i> ${user.status === 'suspended' ? 'Unsuspend' : 'Suspend'}</button>
                         ${user.status === 'locked' ? `<button class="menu-item" data-action="unlock"><i class="fas fa-unlock"></i> Unlock</button>` : ''}
+                        <button class="menu-item" data-action="send-welcome"><i class="fas fa-envelope"></i> Send Welcome Email</button>
                         <div class="menu-divider"></div>
                         <button class="menu-item danger" data-action="delete"><i class="fas fa-trash"></i> Delete</button>
                     `;
@@ -2867,6 +2868,30 @@
                                 showAlertModal(`User ${user.name} unlocked.`, 'success');
                                 fetchManageUsers();
                                 fetchUsersInline();
+                            } catch (err) {
+                                showAlertModal(err.message || 'Network error.', 'error');
+                            }
+                        });
+                        
+                        // ===== NEW: Send Welcome Email handler =====
+                        menu.querySelector('[data-action="send-welcome"]')?.addEventListener('click', async () => {
+                            menu.remove();
+                            const ok = await showConfirm(`Send welcome email to ${user.name} (${user.email})?`, { 
+                                title: 'Send Welcome Email', 
+                                danger: false, 
+                                okLabel: 'Send Email' 
+                            });
+                            if (!ok) return;
+                            try {
+                                const res = await authenticatedFetch(`/api/admin/users/${user.id}/send-welcome`, { 
+                                    method: 'POST' 
+                                });
+                                const data = await res.json();
+                                if (res.ok) {
+                                    showAlertModal(data.message || 'Welcome email sent successfully.', 'success');
+                                } else {
+                                    showAlertModal(data.error || 'Failed to send email. Please try again.', 'error');
+                                }
                             } catch (err) {
                                 showAlertModal(err.message || 'Network error.', 'error');
                             }

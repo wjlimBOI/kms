@@ -25,9 +25,16 @@ const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || process.env.EMAIL_U
 const BREVO_SENDER_NAME = 'BOI Key Management';
 const ENABLE_EMAIL = process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && BREVO_API_KEY && BREVO_SENDER_EMAIL;
 
+// ===== FIX: APP_URL with fallback and environment detection =====
+const APP_URL = process.env.APP_URL || 
+                (process.env.NODE_ENV === 'staging' 
+                    ? 'https://kms-staging.onrender.com' 
+                    : 'http://localhost:3000');
+
 // Log status on startup
 console.log(`📧 Brevo API Key: ${BREVO_API_KEY ? '✓ Set' : '✗ Not Set'}`);
 console.log(`📧 Sender Email: ${BREVO_SENDER_EMAIL || '✗ Not Set'}`);
+console.log(`📧 App URL: ${APP_URL}`);
 console.log(`📧 Email Enabled: ${ENABLE_EMAIL ? '✓ Yes' : '✗ No'}`);
 
 if (!ENABLE_EMAIL) {
@@ -56,8 +63,7 @@ function getLogoBase64() {
 
 function getEmailHtml(content, subject) {
     const logoBase64 = getLogoBase64();
-    const baseUrl = process.env.APP_URL || 'http://localhost:3000';
-    const cleanBase = baseUrl.replace(/\/$/, '');
+    const cleanBase = APP_URL.replace(/\/$/, '');
     const currentYear = new Date().getFullYear();
 
     return `<!DOCTYPE html>
@@ -329,20 +335,22 @@ async function sendPasswordResetEmail(toEmail, resetLink, name = 'User') {
     if (!(await isNotificationEnabled('send_password_reset'))) return;
     return queueEmail(async () => {
         try {
+            // ===== FIX: Try IMDA template first, fallback to regular =====
             let templateKey = 'password_reset_imda';
             let template;
             try {
                 template = await loadTemplate(templateKey, {
                     name: name,
                     reset_link: resetLink,
-                    app_url: process.env.APP_URL || 'http://localhost:3000'
+                    app_url: APP_URL
                 });
             } catch (err) {
+                console.log(`📧 Falling back to password_reset template`);
                 templateKey = 'password_reset';
                 template = await loadTemplate(templateKey, {
                     name: name,
                     reset_link: resetLink,
-                    app_url: process.env.APP_URL || 'http://localhost:3000'
+                    app_url: APP_URL
                 });
             }
             const html = getEmailHtml(template.body_html, template.subject);
@@ -362,8 +370,8 @@ async function sendWelcomeEmail(toEmail, username, plainPassword, changePassword
                 name: username,
                 username: username,
                 password: plainPassword,
-                change_password_link: changePasswordLink || `${process.env.APP_URL}/change-password`,
-                app_url: process.env.APP_URL || 'http://localhost:3000'
+                change_password_link: changePasswordLink || `${APP_URL}/change-password`,
+                app_url: APP_URL
             });
             const html = getEmailHtml(body_html, subject);
             await sendEmailViaBrevo(toEmail, subject, html);
@@ -382,7 +390,7 @@ async function sendRequestSubmittedEmail(toEmail, requesterName, items, plannedR
             name: requesterName,
             keys,
             planned_return: plannedReturn,
-            app_url: process.env.APP_URL || 'http://localhost:3000'
+            app_url: APP_URL
         });
         const html = getEmailHtml(body_html, subject);
         await sendEmailViaBrevo(toEmail, subject, html);
@@ -397,7 +405,7 @@ async function sendRequestApprovedEmail(toEmail, requesterName, items, plannedRe
             name: requesterName,
             keys,
             planned_return: plannedReturn,
-            app_url: process.env.APP_URL || 'http://localhost:3000'
+            app_url: APP_URL
         });
         const html = getEmailHtml(body_html, subject);
         await sendEmailViaBrevo(toEmail, subject, html);
@@ -419,7 +427,7 @@ async function sendAdminRegistrationAlert(adminEmail, userDetails) {
             name,
             email,
             username: username || '—',
-            app_url: process.env.APP_URL || 'http://localhost:3000'
+            app_url: APP_URL
         });
         const html = getEmailHtml(body_html, subject);
         await sendEmailViaBrevo(adminEmail, subject, html);
@@ -437,7 +445,7 @@ async function sendAdminNewRequestAlert(adminEmail, requestDetails) {
             keys,
             planned_return,
             created_at,
-            app_url: process.env.APP_URL || 'http://localhost:3000'
+            app_url: APP_URL
         });
         const html = getEmailHtml(body_html, subject);
         await sendEmailViaBrevo(adminEmail, subject, html);
@@ -476,21 +484,23 @@ async function sendAccountLockedEmail(toEmail, username, attempts, resetLink) {
     if (!(await isNotificationEnabled('send_account_locked'))) return;
     return queueEmail(async () => {
         try {
+            // ===== FIX: Try IMDA template first, fallback to regular =====
             let templateKey = 'account_locked_imda';
             let template;
             try {
                 template = await loadTemplate(templateKey, {
                     name: username,
                     attempts: attempts,
-                    reset_link: resetLink || `${process.env.APP_URL}/forgot-password`,
-                    app_url: process.env.APP_URL || 'http://localhost:3000'
+                    reset_link: resetLink || `${APP_URL}/forgot-password`,
+                    app_url: APP_URL
                 });
             } catch (err) {
+                console.log(`📧 Falling back to account_locked template`);
                 templateKey = 'account_locked';
                 template = await loadTemplate(templateKey, {
                     name: username,
                     attempts: attempts,
-                    app_url: process.env.APP_URL || 'http://localhost:3000'
+                    app_url: APP_URL
                 });
             }
             const html = getEmailHtml(template.body_html, template.subject);
@@ -509,7 +519,7 @@ async function sendFineCreatedEmail(toEmail, username, keyCode, amount) {
             name: username,
             key_code: keyCode,
             amount: amount,
-            app_url: process.env.APP_URL || 'http://localhost:3000'
+            app_url: APP_URL
         });
         const html = getEmailHtml(body_html, subject);
         await sendEmailViaBrevo(toEmail, subject, html);
@@ -523,7 +533,7 @@ async function sendFinePaidEmail(toEmail, username, keyCode, amount) {
             name: username,
             key_code: keyCode,
             amount: amount,
-            app_url: process.env.APP_URL || 'http://localhost:3000'
+            app_url: APP_URL
         });
         const html = getEmailHtml(body_html, subject);
         await sendEmailViaBrevo(toEmail, subject, html);
@@ -539,6 +549,31 @@ async function sendConfirmationEmail(toEmail, subject, body) {
 
 function generateOtp() {
     return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+// ============================================================
+//  ADMIN FUNCTIONS - Manual Welcome Email
+// ============================================================
+
+async function sendManualWelcomeEmail(toEmail, username, plainPassword, changePasswordLink) {
+    // This is the same as sendWelcomeEmail but without the notification setting check
+    // so admins can force-send it
+    return queueEmail(async () => {
+        try {
+            const { subject, body_html } = await loadTemplate('welcome', {
+                name: username,
+                username: username,
+                password: plainPassword,
+                change_password_link: changePasswordLink || `${APP_URL}/change-password`,
+                app_url: APP_URL
+            });
+            const html = getEmailHtml(body_html, subject);
+            await sendEmailViaBrevo(toEmail, subject, html);
+        } catch (err) {
+            console.error('❌ Failed to send manual welcome email:', err);
+            throw err;
+        }
+    });
 }
 
 // ============================================================
@@ -558,6 +593,7 @@ module.exports = {
     sendFineCreatedEmail,
     sendFinePaidEmail,
     sendConfirmationEmail,
+    sendManualWelcomeEmail,
     generateOtp,
     loadTemplate,
     isNotificationEnabled,
@@ -569,6 +605,7 @@ module.exports = {
         isProcessing: isProcessingQueue,
         maxQueueSize: MAX_QUEUE_SIZE,
         enabled: ENABLE_EMAIL,
-        senderEmail: BREVO_SENDER_EMAIL
+        senderEmail: BREVO_SENDER_EMAIL,
+        appUrl: APP_URL
     })
 };

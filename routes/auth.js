@@ -22,6 +22,12 @@ const LOCK_DURATION_MINUTES = 30;
 const JWT_EXPIRY = '7d';
 const SESSION_EXPIRY = 7 * 24 * 60 * 60 * 1000;
 
+// ===== FIX: APP_URL with proper fallback =====
+const APP_URL = process.env.APP_URL || 
+                (process.env.NODE_ENV === 'production' 
+                    ? 'https://kms-staging.onrender.com' 
+                    : 'http://localhost:3000');
+
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 5,
@@ -267,7 +273,6 @@ router.post('/register-request', async (req, res) => {
     }
     
     // Check for ANY existing pending record for this email (regardless of status)
-    // This prevents the unique constraint violation
     const existingPending = await db.query(
       'SELECT id, status FROM pending_users WHERE email = $1',
       [email]
@@ -276,14 +281,11 @@ router.post('/register-request', async (req, res) => {
     if (existingPending.rowCount > 0) {
       const record = existingPending.rows[0];
       
-      // If it's pending, tell the user to wait
       if (record.status === 'pending') {
         return res.status(400).json({ error: 'You already have a pending request. Please wait for admin approval.' });
       }
       
       // If it's rejected or approved, delete it so they can re-register
-      // This handles the case where a user was rejected and wants to try again,
-      // or where an approved user was deleted and wants to re-register
       await db.query(
         'DELETE FROM pending_users WHERE email = $1',
         [email]
@@ -345,13 +347,10 @@ router.post('/register-request', async (req, res) => {
       requestId: requestId
     });
   } catch (err) {
-    // Check for unique constraint violation as a safety net
     if (err.code === '23505' && err.constraint === 'pending_users_email_key') {
-      // This shouldn't happen now, but just in case, clean up and retry or return a friendly error
       try {
         await db.query('DELETE FROM pending_users WHERE email = $1', [email]);
         logger.info('Cleaned up duplicate pending record on error', { email });
-        // Return a friendly error telling the user to try again
         return res.status(400).json({ 
           error: 'There was an issue with your registration. Please try again.' 
         });
@@ -381,6 +380,7 @@ router.get('/admin/pending-requests', requireAuth, authorize('admin'), async (re
   }
 });
 
+// ===== FIXED: Registration Approval Route with proper APP_URL =====
 router.post('/admin/pending-requests/:id/approve', requireAuth, authorize('admin'), async (req, res) => {
   const { id } = req.params;
   const db = req.db;
@@ -440,9 +440,11 @@ router.post('/admin/pending-requests/:id/approve', requireAuth, authorize('admin
 
     await db.query('COMMIT');
 
+    // ===== FIX: Send welcome email with proper APP_URL =====
     try {
-      const changePasswordLink = `${process.env.APP_URL || 'http://localhost:3000'}/change-password`;
+      const changePasswordLink = `${APP_URL}/change-password`;
       await sendWelcomeEmail(pending.email, pending.name, plainPassword, changePasswordLink);
+      logger.info(`Welcome email sent to ${pending.email}`);
     } catch (emailErr) {
       logger.error('Failed to send welcome email:', emailErr);
     }
@@ -789,9 +791,11 @@ router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) =>
     );
     const newUserId = insertResult.rows[0].id;
 
+    // ===== FIX: Send welcome email with proper APP_URL =====
     try {
-      const changePasswordLink = `${process.env.APP_URL || 'http://localhost:3000'}/change-password`;
+      const changePasswordLink = `${APP_URL}/change-password`;
       await sendWelcomeEmail(email, username, plainPassword, changePasswordLink);
+      logger.info(`Welcome email sent to ${email}`);
     } catch (emailErr) {
       logger.error('Failed to send welcome email:', emailErr);
     }

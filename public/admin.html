@@ -119,6 +119,158 @@
             background: #FEF3C7;
             color: #92400E;
         }
+        
+        /* Enhanced action buttons */
+        .action-btn-group {
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+        .action-btn-group .btn-sm {
+            padding: 0.2rem 0.5rem;
+            font-size: 0.7rem;
+            white-space: nowrap;
+        }
+        .btn-make-available {
+            background: #10B981;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            padding: 0.2rem 0.6rem;
+            font-size: 0.7rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+        }
+        .btn-make-available:hover {
+            background: #059669;
+            transform: translateY(-1px);
+        }
+        .btn-make-available:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        .btn-make-available i {
+            font-size: 0.6rem;
+        }
+        
+        /* Loading spinner for buttons */
+        .btn-loading {
+            position: relative;
+            pointer-events: none;
+            opacity: 0.7;
+        }
+        .btn-loading::after {
+            content: '';
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            top: 50%;
+            left: 50%;
+            margin-top: -7px;
+            margin-left: -7px;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .btn-loading .btn-text {
+            visibility: hidden;
+        }
+        
+        /* Improved lost keys table */
+        .lost-keys-table td {
+            vertical-align: middle;
+        }
+        .lost-keys-table .status-cell {
+            min-width: 80px;
+        }
+        .lost-keys-table .actions-cell {
+            min-width: 180px;
+        }
+        
+        /* Toast enhancements */
+        #toastRoot {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            z-index: 10000000;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-width: 480px;
+            width: 100%;
+            pointer-events: none;
+        }
+        .toast-notification {
+            padding: 14px 20px;
+            color: white;
+            border-radius: 12px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 500;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            pointer-events: auto;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideUp 0.3s ease;
+            cursor: default;
+            min-width: 200px;
+        }
+        .toast-success { background: #10B981; }
+        .toast-error { background: #EF4444; }
+        .toast-warning { background: #F59E0B; }
+        .toast-info { background: #1E293B; }
+        
+        .toast-icon {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+        .toast-message {
+            flex: 1;
+        }
+        .toast-close {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.8);
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+        .toast-close:hover {
+            color: white;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Empty state */
+        .empty-state {
+            text-align: center;
+            padding: 3rem 1.5rem;
+        }
+        .empty-state i {
+            font-size: 3rem;
+            color: #CBD5E1;
+            margin-bottom: 1rem;
+        }
+        .empty-state h4 {
+            color: #1E2A3E;
+            font-size: 1.1rem;
+            margin-bottom: 0.25rem;
+        }
+        .empty-state p {
+            color: #64748B;
+            font-size: 0.9rem;
+        }
+        
         /* ACM Avatar Initials */
         .acm-avatar-initials {
             width: 34px;
@@ -132,10 +284,24 @@
             color: #ffffff;
             flex-shrink: 0;
         }
+        
         @media (max-width: 640px) {
             .status-badge {
                 font-size: 0.6rem;
                 padding: 0.1rem 0.4rem;
+            }
+            .action-btn-group .btn-sm {
+                font-size: 0.6rem;
+                padding: 0.1rem 0.4rem;
+            }
+            .lost-keys-table .actions-cell {
+                min-width: 120px;
+            }
+            #toastRoot {
+                bottom: 12px;
+                right: 12px;
+                left: 12px;
+                max-width: 100%;
             }
         }
     </style>
@@ -166,7 +332,6 @@
                         </div>
                     </div>
                     <div class="nav-actions">
-                        <!-- Return to Portal removed from here - moved to hamburger menu -->
                         <div class="user-profile">
                             <button class="user-profile-btn" id="userProfileBtn">
                                 <div class="user-avatar" id="userAvatar">U</div>
@@ -339,7 +504,6 @@
                             </div>
                             <button id="inventoryResetFiltersBtn" class="btn btn-refresh btn-sm"><i class="fas fa-times"></i> Reset</button>
                         </div>
-                        <!-- Updated table with Status and Actions columns -->
                         <div class="overflow-x-auto">
                             <table class="table-clean inventory-table">
                                 <thead>
@@ -375,6 +539,7 @@
                 </div>
             </div>
 
+            <!-- UPDATED: Lost Keys Tab with enhanced table and Make Available button -->
             <div id="tab-lost" class="tab-panel">
                 <div class="bento-card" id="lostKeysManagementCard">
                     <div class="card-header">
@@ -384,7 +549,9 @@
                         </div>
                     </div>
                     <div class="card-body">
-                        <div id="lostKeysManagementContainer"><div class="text-center py-8 text-slate-400">Loading lost keys...</div></div>
+                        <div id="lostKeysManagementContainer">
+                            <div class="text-center py-8 text-slate-400">Loading lost keys...</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -436,7 +603,6 @@
                                 </select>
                                 <button id="acmResetFiltersBtn" class="btn btn-refresh btn-sm"><i class="fas fa-times"></i> Reset</button>
                             </div>
-                            <!-- Removed overflow-x-auto wrapper -->
                             <table class="table-clean user-table">
                                 <thead>
                                     <tr>
@@ -593,7 +759,7 @@
             </div>
         </div>
 
-        <!-- Generic Confirm Modal (replaces window.confirm) -->
+        <!-- Generic Confirm Modal -->
         <div id="execConfirmModal" class="modal-overlay">
             <div class="modal-container" style="max-width:420px;">
                 <div class="modal-body" style="text-align:center;padding:2rem 1.75rem 1.5rem;">
@@ -608,7 +774,7 @@
             </div>
         </div>
 
-        <!-- Generic Prompt Modal (replaces window.prompt) -->
+        <!-- Generic Prompt Modal -->
         <div id="execPromptModal" class="modal-overlay">
             <div class="modal-container" style="max-width:460px;">
                 <div class="modal-header">
@@ -797,7 +963,6 @@
                         </select>
                         <button id="resetManageUserFilters" class="btn btn-refresh"><i class="fas fa-times"></i> Reset</button>
                     </div>
-                    <!-- Removed overflow-x-auto wrapper -->
                     <table class="table-clean user-table">
                         <thead>
                             <tr><th style="text-align:center;">User</th><th style="text-align:center;">Role</th><th style="text-align:center;">Status</th><th style="text-align:center;">Last Active</th><th style="text-align:center;">Actions</th></tr>

@@ -10,29 +10,23 @@
 
     let csrfToken = null;
     let csrfFetchPromise = null;
+    let refreshInterval = null;
+    let isPageVisible = true;
 
     function redirectToLogin() {
-        if (isRedirecting) {
-            return;
-        }
+        if (isRedirecting) return;
         isRedirecting = true;
         localStorage.removeItem('kms_token');
         localStorage.removeItem('kms_user');
         sessionStorage.clear();
-        
         document.cookie.split(";").forEach(function(c) {
-            document.cookie = c.replace(/^ +/, "")
-                .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
         });
-        
         window.location.href = '/login';
     }
 
     async function fetchCsrfToken() {
-        if (csrfFetchPromise) {
-            return csrfFetchPromise;
-        }
-
+        if (csrfFetchPromise) return csrfFetchPromise;
         csrfFetchPromise = (async () => {
             try {
                 const response = await fetch('/api/csrf-token', {
@@ -55,13 +49,11 @@
                 csrfFetchPromise = null;
             }
         })();
-
         return csrfFetchPromise;
     }
 
     async function getCsrfToken() {
-        if (csrfToken) return csrfToken;
-        return await fetchCsrfToken();
+        return csrfToken || await fetchCsrfToken();
     }
 
     async function refreshCsrfToken() {
@@ -80,10 +72,17 @@
 
     function escapeHtml(str) {
         if (!str) return '';
-        return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#x27;',
+            '/': '&#x2F;'
+        };
+        return String(str).replace(/[&<>"'/]/g, m => map[m]);
     }
 
-    // ===== PORTAL MENU HELPER =====
     function openPortalMenu(triggerEl, menuHtml, onRender) {
         document.querySelectorAll('.portal-menu').forEach(m => m.remove());
         const menu = document.createElement('div');
@@ -99,8 +98,8 @@
         if (top + menu.offsetHeight > window.innerHeight - 8) {
             top = rect.top - menu.offsetHeight - 6;
         }
-        menu.style.left = `${Math.max(8, left)}px`;
-        menu.style.top = `${Math.max(8, top)}px`;
+        menu.style.left = Math.max(8, left) + 'px';
+        menu.style.top = Math.max(8, top) + 'px';
 
         if (onRender) onRender(menu);
 
@@ -121,7 +120,6 @@
         return menu;
     }
 
-    // ===== CONFIRM & PROMPT MODAL HELPERS =====
     function showConfirm(message, { title = 'Please confirm', danger = true, okLabel = 'Confirm' } = {}) {
         return new Promise((resolve) => {
             const modal = document.getElementById('execConfirmModal');
@@ -255,7 +253,7 @@
         for (let i = 0; i < name.length; i++) {
             h = name.charCodeAt(i) + ((h << 5) - h);
         }
-        return `hsl(${Math.abs(h % 360)},70%,80%)`;
+        return 'hsl(' + Math.abs(h % 360) + ',70%,80%)';
     }
 
     function formatLastActive(iso) {
@@ -278,28 +276,24 @@
     function statusBadgeHtml(status) {
         const map = {
             available: ['returned', 'Available'],
-            borrowed:  ['borrowed', 'Borrowed'],
-            lost:      ['lost', 'Lost'],
-            unavailable: ['locked', 'Unavailable']
+            borrowed: ['borrowed', 'Borrowed'],
+            lost: ['lost', 'Lost'],
+            unavailable: ['unavailable', 'Unavailable']
         };
         const [cls, label] = map[status] || ['pending', status || 'Unknown'];
-        return `<span class="status-badge ${cls}">${label}</span>`;
+        return '<span class="status-badge ' + cls + '">' + label + '</span>';
     }
 
     async function authenticatedFetch(url, options = {}) {
         const token = getToken();
         if (!token) {
-            if (!isRedirecting) {
-                redirectToLogin();
-            }
+            if (!isRedirecting) redirectToLogin();
             throw new Error('No authentication token found. Please log in again.');
         }
 
-        let csrf = await getCsrfToken();
-        if (!csrf) csrf = '';
-
+        let csrf = await getCsrfToken() || '';
         const headers = {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': 'Bearer ' + token,
             'X-CSRF-Token': csrf,
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json',
@@ -309,20 +303,12 @@
         if (options.body && !(options.body instanceof FormData)) {
             headers['Content-Type'] = 'application/json';
         }
-
         if (options.body instanceof FormData) {
             delete headers['Content-Type'];
         }
 
-        const fetchOptions = {
-            ...options,
-            headers,
-            credentials: 'include'
-        };
-
-        if (options.method === 'GET') {
-            delete fetchOptions.body;
-        }
+        const fetchOptions = { ...options, headers, credentials: 'include' };
+        if (options.method === 'GET') delete fetchOptions.body;
 
         try {
             let response = await fetch(url, fetchOptions);
@@ -340,9 +326,7 @@
             }
 
             if (response.status === 401) {
-                if (!isRedirecting) {
-                    redirectToLogin();
-                }
+                if (!isRedirecting) redirectToLogin();
                 throw new Error('Your session has expired. Please log in again.');
             }
 
@@ -372,47 +356,28 @@
 
     function showAlertModal(message, type = 'success', title = null) {
         const modal = document.getElementById('alertModal');
-        if (!modal) {
-            console.error('Alert modal not found');
-            return;
-        }
-        
+        if (!modal) return;
+
         const icon = document.getElementById('alertIcon');
         const titleEl = document.getElementById('alertTitle');
         const msgEl = document.getElementById('alertMessage');
-        
-        if (!icon || !titleEl || !msgEl) {
-            console.error('Alert modal elements not found');
-            return;
-        }
-        
+        if (!icon || !titleEl || !msgEl) return;
+
         icon.className = 'alert-icon';
-        const titles = {
-            success: 'Success',
-            error: 'Error',
-            warning: 'Warning',
-            info: 'Information'
-        };
-        
+        const titles = { success: 'Success', error: 'Error', warning: 'Warning', info: 'Information' };
         const icons = {
             success: 'fa-check-circle',
             error: 'fa-times-circle',
             warning: 'fa-exclamation-triangle',
             info: 'fa-info-circle'
         };
-        
-        const classes = {
-            success: 'success',
-            error: 'error',
-            warning: 'warning',
-            info: 'info'
-        };
-        
+        const classes = { success: 'success', error: 'error', warning: 'warning', info: 'info' };
+
         icon.classList.add(classes[type] || 'success');
-        icon.innerHTML = `<i class="fas ${icons[type] || icons.success}"></i>`;
+        icon.innerHTML = '<i class="fas ' + (icons[type] || icons.success) + '"></i>';
         titleEl.textContent = title || titles[type] || 'Notice';
         msgEl.textContent = message;
-        
+
         modal.classList.add('active');
         modal.style.display = 'flex';
     }
@@ -451,15 +416,13 @@
         try {
             const token = getToken();
             if (!token) return;
-            
             const res = await fetch('/api/user/profile', {
                 credentials: 'include',
                 headers: {
-                    'Authorization': `Bearer ${token}`,
+                    'Authorization': 'Bearer ' + token,
                     'Accept': 'application/json'
                 }
             });
-            
             if (res.ok) {
                 const data = await res.json();
                 const user = getUser() || {};
@@ -509,44 +472,22 @@
         clone.querySelectorAll('.btn-print').forEach(el => el.remove());
         const header = clone.querySelector('.card-header');
         if (header) {
-            const actions = header.querySelectorAll('.btn-print, .btn-manage, .btn-refresh, input, select, button');
-            actions.forEach(el => el.remove());
+            header.querySelectorAll('.btn-print, .btn-manage, .btn-refresh, input, select, button').forEach(el => el.remove());
         }
-        const filterRows = clone.querySelectorAll('.grid, .search-bar, .flex.gap-2.justify-end');
-        filterRows.forEach(el => el.remove());
+        clone.querySelectorAll('.grid, .search-bar, .flex.gap-2.justify-end').forEach(el => el.remove());
 
         const styles = document.querySelector('style')?.innerHTML || '';
         const width = Math.min(1200, screen.width - 40);
         const height = Math.min(800, screen.height - 80);
-        const printWin = window.open('', '_blank', `width=${width},height=${height}`);
-        printWin.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head><title>Print</title>
-            <style>
-                * { box-sizing: border-box; }
-                body { font-family: 'Inter', sans-serif; background: white; padding: 2rem; }
-                .container { max-width: 1200px; margin: 0 auto; }
-                .card-header { background: #f8fafc; padding: 0.75rem 1.125rem; border-bottom: 2px solid #d4a843; }
-                .card-header h3 { margin: 0; font-size: 1rem; }
-                .card-body { padding: 1rem 1.125rem; }
-                table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-                th { background: #f1f5f9; text-align: left; padding: 0.5rem; border-bottom: 2px solid #e2e8f0; }
-                td { padding: 0.5rem; border-bottom: 1px solid #e2e8f0; }
-                .status-badge { padding: 0.1rem 0.6rem; border-radius: 40px; font-size: 0.7rem; display: inline-block; }
-                .no-print { display: none !important; }
-                @page { margin: 1.5cm; }
-                ${styles}
-            </style>
-            </head>
-            <body>
-                <div class="container">${clone.outerHTML}</div>
-                <script>
-                    window.onload = function() { window.print(); window.close(); };
-                <\/script>
-            </body>
-            </html>
-        `);
+        const printWin = window.open('', '_blank', 'width=' + width + ',height=' + height);
+        printWin.document.write('<!DOCTYPE html><html><head><title>Print</title><style>'
+            + '* { box-sizing: border-box; } body { font-family: "Inter", sans-serif; background: white; padding: 2rem; } '
+            + '.container { max-width: 1200px; margin: 0 auto; } .card-header { background: #f8fafc; padding: 0.75rem 1.125rem; border-bottom: 2px solid #d4a843; } '
+            + '.card-header h3 { margin: 0; font-size: 1rem; } .card-body { padding: 1rem 1.125rem; } table { width: 100%; border-collapse: collapse; font-size: 0.8rem; } '
+            + 'th { background: #f1f5f9; text-align: left; padding: 0.5rem; border-bottom: 2px solid #e2e8f0; } td { padding: 0.5rem; border-bottom: 1px solid #e2e8f0; } '
+            + '.status-badge { padding: 0.1rem 0.6rem; border-radius: 40px; font-size: 0.7rem; display: inline-block; } .no-print { display: none !important; } '
+            + '@page { margin: 1.5cm; } ' + styles
+            + '</style></head><body><div class="container">' + clone.outerHTML + '</div><script>window.onload = function() { window.print(); window.close(); };<\/script></body></html>');
         printWin.document.close();
     }
 
@@ -554,9 +495,7 @@
         try {
             const token = getToken();
             if (!token) {
-                if (!isRedirecting) {
-                    redirectToLogin();
-                }
+                if (!isRedirecting) redirectToLogin();
                 return false;
             }
 
@@ -566,18 +505,13 @@
             });
 
             if (!response.ok) {
-                if (!isRedirecting) {
-                    redirectToLogin();
-                }
+                if (!isRedirecting) redirectToLogin();
                 return false;
             }
 
             const data = await response.json();
-
             if (!data.authenticated) {
-                if (!isRedirecting) {
-                    redirectToLogin();
-                }
+                if (!isRedirecting) redirectToLogin();
                 return false;
             }
 
@@ -586,7 +520,7 @@
                     const profileRes = await fetch('/api/user/profile', {
                         credentials: 'include',
                         headers: {
-                            'Authorization': `Bearer ${token}`,
+                            'Authorization': 'Bearer ' + token,
                             'Accept': 'application/json'
                         }
                     });
@@ -597,15 +531,11 @@
                         data.user.role = profileData.role || data.user.role || 'user';
                     }
                 } catch (profileErr) {
-                    if (!data.user.name) {
-                        data.user.name = 'User';
-                    }
+                    if (!data.user.name) data.user.name = 'User';
                 }
-                
                 if (!data.user.name || data.user.name.trim() === '') {
                     data.user.name = 'User';
                 }
-                
                 localStorage.setItem('kms_user', JSON.stringify(data.user));
             }
 
@@ -620,9 +550,7 @@
             return true;
         } catch (error) {
             console.error('Auth check failed:', error);
-            if (!isRedirecting) {
-                redirectToLogin();
-            }
+            if (!isRedirecting) redirectToLogin();
             return false;
         }
     }
@@ -648,79 +576,48 @@
         }
     }
 
-    // ===== FIXED: TEMPLATE PREVIEW FUNCTION WITH PROPER CLOSE HANDLERS =====
     async function previewTemplate(templateKey) {
         try {
-            const res = await authenticatedFetch(`/api/admin/email/templates/${templateKey}`);
+            const res = await authenticatedFetch('/api/admin/email/templates/' + templateKey);
             const template = await res.json();
-            
+
             const existingModal = document.getElementById('templatePreviewModal');
-            if (existingModal) {
-                existingModal.remove();
-            }
-            
+            if (existingModal) existingModal.remove();
+
             const modal = document.createElement('div');
             modal.className = 'modal-overlay active';
             modal.id = 'templatePreviewModal';
             modal.style.display = 'flex';
             modal.style.zIndex = '100001';
-            
-            modal.innerHTML = `
-                <div class="modal-container" style="max-width:800px;max-height:90vh;">
-                    <div class="modal-header">
-                        <h3><i class="fas fa-eye"></i> Template Preview: ${escapeHtml(template.template_key)}</h3>
-                        <button class="close-btn" id="templatePreviewCloseBtn">&times;</button>
-                    </div>
-                    <div class="modal-body" style="padding:0;overflow:hidden;">
-                        <div style="padding:1rem 1.5rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
-                            <p style="margin:0;font-size:0.85rem;color:#64748b;">
-                                <strong>Subject:</strong> ${escapeHtml(template.subject)}
-                            </p>
-                            <p style="margin:0.25rem 0 0;font-size:0.8rem;color:#64748b;">
-                                <strong>Status:</strong> ${template.is_active ? '✅ Active' : '❌ Inactive'}
-                            </p>
-                        </div>
-                        <div style="padding:1.5rem;max-height:60vh;overflow-y:auto;background:#f4f7fc;">
-                            ${template.body_html}
-                        </div>
-                    </div>
-                    <div class="modal-footer" style="gap:8px;justify-content:flex-end;">
-                        <button class="btn btn-refresh" id="templatePreviewCloseFooterBtn">Close</button>
-                        <button class="btn btn-primary" id="templatePreviewOkBtn">OK</button>
-                    </div>
-                </div>
-            `;
-            
+
+            modal.innerHTML = '<div class="modal-container" style="max-width:800px;max-height:90vh;">'
+                + '<div class="modal-header"><h3><i class="fas fa-eye"></i> Template Preview: ' + escapeHtml(template.template_key) + '</h3>'
+                + '<button class="close-btn" id="templatePreviewCloseBtn">&times;</button></div>'
+                + '<div class="modal-body" style="padding:0;overflow:hidden;">'
+                + '<div style="padding:1rem 1.5rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;">'
+                + '<p style="margin:0;font-size:0.85rem;color:#64748b;"><strong>Subject:</strong> ' + escapeHtml(template.subject) + '</p>'
+                + '<p style="margin:0.25rem 0 0;font-size:0.8rem;color:#64748b;"><strong>Status:</strong> ' + (template.is_active ? '✅ Active' : '❌ Inactive') + '</p>'
+                + '</div><div style="padding:1.5rem;max-height:60vh;overflow-y:auto;background:#f4f7fc;">' + template.body_html + '</div>'
+                + '</div><div class="modal-footer" style="gap:8px;justify-content:flex-end;">'
+                + '<button class="btn btn-refresh" id="templatePreviewCloseFooterBtn">Close</button>'
+                + '<button class="btn btn-primary" id="templatePreviewOkBtn">OK</button>'
+                + '</div></div>';
+
             document.body.appendChild(modal);
-            
+
             const closeModal = function() {
                 const modalEl = document.getElementById('templatePreviewModal');
-                if (modalEl) {
-                    modalEl.remove();
-                }
+                if (modalEl) modalEl.remove();
             };
-            
+
             modal.addEventListener('click', function(e) {
-                if (e.target === this) {
-                    closeModal();
-                }
+                if (e.target === this) closeModal();
             });
-            
-            const closeBtn = document.getElementById('templatePreviewCloseBtn');
-            if (closeBtn) {
-                closeBtn.addEventListener('click', closeModal);
-            }
-            
-            const closeFooterBtn = document.getElementById('templatePreviewCloseFooterBtn');
-            if (closeFooterBtn) {
-                closeFooterBtn.addEventListener('click', closeModal);
-            }
-            
-            const okBtn = document.getElementById('templatePreviewOkBtn');
-            if (okBtn) {
-                okBtn.addEventListener('click', closeModal);
-            }
-            
+
+            document.getElementById('templatePreviewCloseBtn')?.addEventListener('click', closeModal);
+            document.getElementById('templatePreviewCloseFooterBtn')?.addEventListener('click', closeModal);
+            document.getElementById('templatePreviewOkBtn')?.addEventListener('click', closeModal);
+
             const escHandler = function(e) {
                 if (e.key === 'Escape') {
                     closeModal();
@@ -728,7 +625,6 @@
                 }
             };
             document.addEventListener('keydown', escHandler);
-            
         } catch (err) {
             showAlertModal('Failed to preview template: ' + err.message, 'error');
         }
@@ -736,24 +632,30 @@
 
     let allTransactions = [];
     let filteredTransactions = [];
-    let txPage = 1, txRows = 10, txTotal = 0;
+    let txPage = 1,
+        txRows = 10,
+        txTotal = 0;
 
     let inventoryData = [];
     let filteredInventory = [];
-    let invPage = 1, invRows = 10, invTotal = 0;
+    let invPage = 1,
+        invRows = 10,
+        invTotal = 0;
 
     let manageKeyData = [];
     let manageKeyFiltered = [];
-    let manageKeyPage = 1, manageKeyRows = 8, manageKeyTotal = 0;
+    let manageKeyPage = 1,
+        manageKeyRows = 8,
+        manageKeyTotal = 0;
 
     let permissionsData = { roles: [], permissions: [], roleMappings: {} };
     let allRolesList = [];
     let emailTabLoaded = false;
     let securityLoaded = false;
-    let _lostKeysListenerAttached = false;
     let currentAction = null;
     let currentRequestId = null;
-    let pendingLostTransaction = null;
+
+    // ===== LOAD FUNCTIONS =====
 
     async function loadTransactions() {
         const giver = document.getElementById('filterGiver')?.value.trim() || '';
@@ -772,24 +674,27 @@
         if (status) params.append('status', status);
         if (from) params.append('from', from);
         if (to) params.append('to', to);
+        params.append('page', txPage);
+        params.append('limit', txRows);
 
-        const url = `/api/admin/transactions${params.toString() ? '?' + params.toString() : ''}`;
+        const url = '/api/admin/transactions' + (params.toString() ? '?' + params.toString() : '');
         try {
             const res = await authenticatedFetch(url);
             const data = await res.json();
-            allTransactions = data;
+            allTransactions = data.data || [];
+            txTotal = data.pagination?.total || 0;
             applyTransactionFilters();
-            updateMetrics(data);
-            window._activeBorrowsData = data.filter(t => t.status === 'borrowed');
+            updateMetrics(allTransactions);
+            window._activeBorrowsData = allTransactions.filter(t => t.status === 'borrowed');
         } catch (err) {
-            document.getElementById('transactionsTableBody').innerHTML = '<tr><td colspan="10" class="text-center py-8 text-slate-400">Unable to load transactions. Please refresh the page.</td></tr>';
-            showAlertModal(err.message || 'Failed to load transactions. Please check your network.', 'error');
+            document.getElementById('transactionsTableBody').innerHTML =
+                '<tr><td colspan="10" class="text-center py-8 text-slate-400">Unable to load transactions. Please refresh the page.</td></tr>';
+            showAlertModal(err.message || 'Failed to load transactions.', 'error');
         }
     }
 
     function applyTransactionFilters() {
         filteredTransactions = allTransactions;
-        txTotal = filteredTransactions.length;
         renderTransactionsTable();
         updateTransactionPagination();
     }
@@ -799,25 +704,25 @@
         const start = (txPage - 1) * txRows;
         const end = Math.min(start + txRows, txTotal);
         const pageData = filteredTransactions.slice(start, end);
+
         if (!pageData.length) {
             tbody.innerHTML = '<tr><td colspan="10" class="text-center py-8 text-slate-400">No transactions found.</td></tr>';
             return;
         }
+
         let html = '';
         for (const tx of pageData) {
             const statusClass = tx.status === 'borrowed' ? 'borrowed' : tx.status === 'returned' ? 'returned' : tx.status === 'lost' ? 'lost' : '';
-            html += `<tr>
-                <td>${escapeHtml(tx.id)}</td>
-                <td>${escapeHtml(tx.giver_signature_name || '—')}</td>
-                <td>${escapeHtml(tx.receiver_signature_name || '—')}</td>
-                <td>${escapeHtml(tx.key_code || '—')}</td>
-                <td>${escapeHtml(tx.quantity)}</td>
-                <td>${tx.action === 'borrow' ? 'Withdraw' : 'Return'}</td>
-                <td>${formatDate(tx.borrowed_at)}</td>
-                <td>${formatDate(tx.returned_at)}</td>
-                <td><span class="status-badge ${statusClass}">${tx.status}</span></td>
-                <td>${escapeHtml(tx.reason || '—')}</td>
-            </tr>`;
+            html += '<tr><td>' + escapeHtml(tx.id) + '</td>'
+                + '<td>' + escapeHtml(tx.giver_signature_name || '—') + '</td>'
+                + '<td>' + escapeHtml(tx.receiver_signature_name || '—') + '</td>'
+                + '<td>' + escapeHtml(tx.key_code || '—') + '</td>'
+                + '<td>' + escapeHtml(tx.quantity) + '</td>'
+                + '<td>' + (tx.action === 'borrow' ? 'Withdraw' : 'Return') + '</td>'
+                + '<td>' + formatDate(tx.borrowed_at) + '</td>'
+                + '<td>' + formatDate(tx.returned_at) + '</td>'
+                + '<td><span class="status-badge ' + statusClass + '">' + tx.status + '</span></td>'
+                + '<td>' + escapeHtml(tx.reason || '—') + '</td></tr>';
         }
         tbody.innerHTML = html;
     }
@@ -826,7 +731,9 @@
         const totalPages = Math.ceil(txTotal / txRows) || 1;
         const start = (txPage - 1) * txRows + 1;
         const end = Math.min(txPage * txRows, txTotal);
-        document.getElementById('transactionsPaginationInfo').innerText = txTotal === 0 ? 'Showing 0 of 0 transactions' : `Showing ${start}–${end} of ${txTotal} transactions`;
+        document.getElementById('transactionsPaginationInfo').innerText = txTotal === 0 ?
+            'Showing 0 of 0 transactions' :
+            'Showing ' + start + '–' + end + ' of ' + txTotal + ' transactions';
         document.getElementById('transactionsPrevPageBtn').disabled = txPage === 1 || txTotal === 0;
         document.getElementById('transactionsNextPageBtn').disabled = txPage >= totalPages || txTotal === 0;
     }
@@ -834,9 +741,11 @@
     function updateMetrics(transactions) {
         const active = transactions.filter(t => t.status === 'borrowed');
         updateNumber('borrowedCount', active.length);
+
         const withReturn = transactions.filter(t => t.status === 'borrowed' && t.planned_return);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+
         const overdue = withReturn.filter(t => {
             const d = new Date(t.planned_return);
             d.setHours(0, 0, 0, 0);
@@ -848,11 +757,12 @@
             return d.getTime() === today.getTime();
         });
         updateNumber('overdueCount', overdue.length + dueToday.length);
+
         let next = null;
         if (withReturn.length) {
             next = withReturn.reduce((a, b) => new Date(a.planned_return) < new Date(b.planned_return) ? a : b);
         }
-        document.getElementById('reminderNextDue').innerText = next ? `Next due: ${formatDateShort(next.planned_return)}` : 'Next due: --';
+        document.getElementById('reminderNextDue').innerText = next ? 'Next due: ' + formatDateShort(next.planned_return) : 'Next due: --';
     }
 
     async function loadPendingRequests() {
@@ -865,7 +775,7 @@
         } catch (err) {
             updateNumber('pendingCount', 0);
             updateNumber('pendingKeyRequestsCount', 0);
-            showAlertModal(err.message || 'Unable to load pending requests. Please refresh.', 'error');
+            showAlertModal(err.message || 'Unable to load pending requests.', 'error');
         }
     }
 
@@ -877,28 +787,23 @@
         }
         let rows = '';
         for (const req of data) {
-            const keyList = req.key_details?.map(k => `${k.code} x${k.quantity}`).join(', ') || '—';
-            rows += `<tr>
-                <td>${escapeHtml(req.requester_name)}</td>
-                <td>${escapeHtml(req.requester_email)}</td>
-                <td>${escapeHtml(keyList)}</td>
-                <td>${formatDate(req.planned_return)}</td>
-                <td>
-                    <div class="action-buttons">
-                        <button class="btn btn-success btn-sm approveBtnModal" data-id="${req.id}"><i class="fas fa-check"></i> Approve</button>
-                        <button class="btn btn-danger btn-sm denyBtnModal" data-id="${req.id}"><i class="fas fa-times"></i> Deny</button>
-                    </div>
-                </td>
-            </tr>`;
+            const keyList = req.key_details?.map(k => k.code + ' x' + k.quantity).join(', ') || '—';
+            rows += '<tr><td>' + escapeHtml(req.requester_name) + '</td>'
+                + '<td>' + escapeHtml(req.requester_email) + '</td>'
+                + '<td>' + escapeHtml(keyList) + '</td>'
+                + '<td>' + formatDate(req.planned_return) + '</td>'
+                + '<td><div class="action-buttons">'
+                + '<button class="btn btn-success btn-sm approveBtnModal" data-id="' + req.id + '"><i class="fas fa-check"></i> Approve</button>'
+                + '<button class="btn btn-danger btn-sm denyBtnModal" data-id="' + req.id + '"><i class="fas fa-times"></i> Deny</button>'
+                + '</div></td></tr>';
         }
-        const html = `<table class="table-clean"><thead><tr><th>Requester</th><th>Email</th><th>Keys</th><th>Planned Return</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
-        showDetailModal('Pending Requests', html);
+        showDetailModal('Pending Requests', '<table class="table-clean"><thead><tr><th>Requester</th><th>Email</th><th>Keys</th><th>Planned Return</th><th>Actions</th></tr></thead><tbody>' + rows + '</tbody></table>');
+
         document.querySelectorAll('.approveBtnModal, .denyBtnModal').forEach(btn => {
             btn.addEventListener('click', function() {
-                const action = this.classList.contains('approveBtnModal') ? 'approve' : 'deny';
-                currentAction = action;
+                currentAction = this.classList.contains('approveBtnModal') ? 'approve' : 'deny';
                 currentRequestId = parseInt(this.dataset.id);
-                document.getElementById('modalTitle').textContent = action === 'approve' ? 'Approve request' : 'Deny request';
+                document.getElementById('modalTitle').textContent = currentAction === 'approve' ? 'Approve request' : 'Deny request';
                 document.getElementById('modalNotes').value = '';
                 document.getElementById('adminModal').style.display = 'flex';
                 closeDetailModal();
@@ -914,7 +819,7 @@
             window._pendingReturnsData = data;
         } catch (err) {
             updateNumber('pendingReturnsCount', 0);
-            showAlertModal(err.message || 'Unable to load pending returns. Please refresh.', 'error');
+            showAlertModal(err.message || 'Unable to load pending returns.', 'error');
         }
     }
 
@@ -926,19 +831,13 @@
         }
         let rows = '';
         for (const ret of data) {
-            rows += `<tr>
-                <td>${escapeHtml(ret.requester_name || ret.requester_email)}</td>
-                <td>${escapeHtml(ret.key_list)}</td>
-                <td>${formatDate(ret.created_at)}</td>
-                <td>
-                    <div class="action-buttons">
-                        <button class="btn btn-success btn-sm approveReturnModalBtn" data-id="${ret.id}"><i class="fas fa-check"></i> Verify</button>
-                    </div>
-                </td>
-            </tr>`;
+            rows += '<tr><td>' + escapeHtml(ret.requester_name || ret.requester_email) + '</td>'
+                + '<td>' + escapeHtml(ret.key_list) + '</td>'
+                + '<td>' + formatDate(ret.created_at) + '</td>'
+                + '<td><button class="btn btn-success btn-sm approveReturnModalBtn" data-id="' + ret.id + '"><i class="fas fa-check"></i> Verify</button></td></tr>';
         }
-        const html = `<table class="table-clean"><thead><tr><th>Requester</th><th>Keys</th><th>Requested</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>`;
-        showDetailModal('Pending Returns', html);
+        showDetailModal('Pending Returns', '<table class="table-clean"><thead><tr><th>Requester</th><th>Keys</th><th>Requested</th><th>Action</th></tr></thead><tbody>' + rows + '</tbody></table>');
+
         document.querySelectorAll('.approveReturnModalBtn').forEach(btn => {
             btn.addEventListener('click', async function() {
                 const id = parseInt(this.dataset.id);
@@ -954,10 +853,10 @@
                         loadTransactions();
                     } else {
                         const data = await res.json();
-                        showAlertModal(data.error || 'Verification failed. Please try again.', 'error');
+                        showAlertModal(data.error || 'Verification failed.', 'error');
                     }
                 } catch (err) {
-                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                    showAlertModal(err.message || 'Network error.', 'error');
                 }
             });
         });
@@ -971,11 +870,10 @@
             window._lostKeysData = data;
         } catch (err) {
             updateNumber('lostKeysCount', 0);
-            showAlertModal(err.message || 'Unable to load lost keys. Please refresh the page.', 'error');
+            showAlertModal(err.message || 'Unable to load lost keys.', 'error');
         }
     }
 
-    // ===== FIXED: showLostKeysModal with portal menu =====
     function showLostKeysModal() {
         const data = window._lostKeysData || [];
         if (!data.length) {
@@ -984,54 +882,42 @@
         }
         let rows = '';
         for (const item of data) {
-            const statusLabel = item.resolved_at ? 'Resolved' : 'Lost';
             const statusClass = item.resolved_at ? 'returned' : 'lost';
-            rows += `<tr class="lost-key-row" data-tx-id="${item.id}">
-                <td><code>${escapeHtml(item.key_code)}</code></td>
-                <td>${escapeHtml(item.brand)}</td>
-                <td>${escapeHtml(item.borrower_name || item.borrower_email)}</td>
-                <td>${formatDate(item.lost_at)}</td>
-                <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-                <td>
-                    <button class="btn btn-sm btn-ghost lost-actions-btn" data-tx-id="${item.id}">
-                        <i class="fas fa-ellipsis-v"></i>
-                    </button>
-                </td>
-            </tr>`;
+            const statusLabel = item.resolved_at ? 'Resolved' : 'Lost';
+            rows += '<tr class="lost-key-row" data-tx-id="' + item.id + '">'
+                + '<td><code>' + escapeHtml(item.key_code) + '</code></td>'
+                + '<td>' + escapeHtml(item.brand) + '</td>'
+                + '<td>' + escapeHtml(item.borrower_name || item.borrower_email) + '</td>'
+                + '<td>' + formatDate(item.lost_at) + '</td>'
+                + '<td><span class="status-badge ' + statusClass + '">' + statusLabel + '</span></td>'
+                + '<td><button class="btn btn-sm btn-ghost lost-actions-btn" data-tx-id="' + item.id + '"><i class="fas fa-ellipsis-v"></i></button></td></tr>';
         }
-        const html = `<table class="table-clean"><thead><tr><th>Key</th><th>Brand</th><th>Borrower</th><th>Lost Date</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
-        showDetailModal('Lost Keys', html);
-        
-        // Portal menu for lost key actions
+        showDetailModal('Lost Keys', '<table class="table-clean"><thead><tr><th>Key</th><th>Brand</th><th>Borrower</th><th>Lost Date</th><th>Status</th><th>Actions</th></tr></thead><tbody>' + rows + '</tbody></table>');
+
         document.querySelectorAll('#detailModalContent .lost-actions-btn').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 const txId = parseInt(this.dataset.txId);
                 const lostItem = window._lostKeysData?.find(d => d.id === txId);
                 if (!lostItem) return;
-                
-                let menuHtml = `
-                    <button class="menu-item" data-action="view"><i class="fas fa-eye"></i> View Details</button>
-                    <button class="menu-item" data-action="edit"><i class="fas fa-edit"></i> Edit</button>
-                    <div class="menu-divider"></div>
-                `;
-                
+
+                let menuHtml = '<button class="menu-item" data-action="view"><i class="fas fa-eye"></i> View Details</button>'
+                    + '<button class="menu-item" data-action="edit"><i class="fas fa-edit"></i> Edit</button><div class="menu-divider"></div>';
+
                 if (!lostItem.fine_id && !lostItem.resolved_at) {
-                    menuHtml += `<button class="menu-item" data-action="create-fine"><i class="fas fa-plus-circle"></i> Create Fee</button>`;
+                    menuHtml += '<button class="menu-item" data-action="create-fine"><i class="fas fa-plus-circle"></i> Create Fee</button>';
                 }
                 if (!lostItem.resolved_at) {
-                    menuHtml += `<button class="menu-item" data-action="close-ticket"><i class="fas fa-check-circle"></i> Close Ticket</button>`;
+                    menuHtml += '<button class="menu-item" data-action="close-ticket"><i class="fas fa-check-circle"></i> Close Ticket</button>';
                 }
-                menuHtml += `<button class="menu-item" data-action="make-available"><i class="fas fa-check"></i> Make Available</button>`;
-                
+                menuHtml += '<button class="menu-item" data-action="make-available"><i class="fas fa-check"></i> Make Available</button>';
+
                 if (lostItem.fine_id && lostItem.fine_status === 'pending') {
-                    menuHtml += `
-                        <div class="menu-divider"></div>
-                        <button class="menu-item" data-action="mark-paid"><i class="fas fa-dollar-sign"></i> Mark Paid</button>
-                        <button class="menu-item" data-action="waive"><i class="fas fa-handshake"></i> Waive Fee</button>
-                    `;
+                    menuHtml += '<div class="menu-divider"></div>'
+                        + '<button class="menu-item" data-action="mark-paid"><i class="fas fa-dollar-sign"></i> Mark Paid</button>'
+                        + '<button class="menu-item" data-action="waive"><i class="fas fa-handshake"></i> Waive Fee</button>';
                 }
-                
+
                 openPortalMenu(this, menuHtml, (menu) => {
                     menu.querySelectorAll('.menu-item[data-action]').forEach(item => {
                         item.addEventListener('click', function() {
@@ -1045,9 +931,9 @@
         });
     }
 
-    // ===== FIXED: executeLostKeyAction with confirm/prompt modals =====
     async function executeLostKeyAction(action, item) {
         const keyCode = item.key_code || 'unknown';
+
         switch (action) {
             case 'view':
                 showLostKeyDetailFromItem(item);
@@ -1056,14 +942,14 @@
                 openLostKeyEditModal(item.id);
                 break;
             case 'create-fine': {
-                const ok = await showConfirm(`Create a $50 fee for lost key ${keyCode}?`, { 
-                    title: 'Create Fee', 
-                    danger: false, 
-                    okLabel: 'Create Fee' 
+                const ok = await showConfirm('Create a $50 fee for lost key ' + keyCode + '?', {
+                    title: 'Create Fee',
+                    danger: false,
+                    okLabel: 'Create Fee'
                 });
                 if (!ok) return;
                 try {
-                    const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/create-fine`, { method: 'POST' });
+                    const res = await authenticatedFetch('/api/admin/lost-keys/' + item.id + '/create-fine', { method: 'POST' });
                     const data = await res.json();
                     if (res.ok) {
                         await logAuditEvent('create_fine', 'lost_key', item.id, {
@@ -1077,22 +963,22 @@
                         await loadTransactions();
                         await loadLostKeysManagement();
                     } else {
-                        showAlertModal(data.error || 'Failed to create fee. Please try again.', 'error');
+                        showAlertModal(data.error || 'Failed to create fee.', 'error');
                     }
                 } catch (err) {
-                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                    showAlertModal(err.message || 'Network error.', 'error');
                 }
                 break;
             }
             case 'mark-paid': {
-                const ok = await showConfirm(`Mark fee for ${keyCode} as paid?`, { 
-                    title: 'Confirm Payment', 
-                    danger: false, 
-                    okLabel: 'Mark Paid' 
+                const ok = await showConfirm('Mark fee for ' + keyCode + ' as paid?', {
+                    title: 'Confirm Payment',
+                    danger: false,
+                    okLabel: 'Mark Paid'
                 });
                 if (!ok) return;
                 try {
-                    const res = await authenticatedFetch(`/api/admin/fines/${item.fine_id}/paid`, { method: 'POST' });
+                    const res = await authenticatedFetch('/api/admin/fines/' + item.fine_id + '/paid', { method: 'POST' });
                     if (res.ok) {
                         await logAuditEvent('mark_fine_paid', 'lost_key', item.id, {
                             key_code: keyCode,
@@ -1105,18 +991,18 @@
                         await loadLostKeysManagement();
                     } else {
                         const data = await res.json();
-                        showAlertModal(data.error || 'Action failed. Please try again.', 'error');
+                        showAlertModal(data.error || 'Action failed.', 'error');
                     }
                 } catch (err) {
-                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                    showAlertModal(err.message || 'Network error.', 'error');
                 }
                 break;
             }
             case 'waive': {
-                const ok = await showConfirm(`Waive fee for ${keyCode}?`, { title: 'Waive Fee' });
+                const ok = await showConfirm('Waive fee for ' + keyCode + '?', { title: 'Waive Fee' });
                 if (!ok) return;
                 try {
-                    const res = await authenticatedFetch(`/api/admin/fines/${item.fine_id}/waived`, { method: 'POST' });
+                    const res = await authenticatedFetch('/api/admin/fines/' + item.fine_id + '/waived', { method: 'POST' });
                     if (res.ok) {
                         await logAuditEvent('waive_fine', 'lost_key', item.id, {
                             key_code: keyCode,
@@ -1129,24 +1015,24 @@
                         await loadLostKeysManagement();
                     } else {
                         const data = await res.json();
-                        showAlertModal(data.error || 'Action failed. Please try again.', 'error');
+                        showAlertModal(data.error || 'Action failed.', 'error');
                     }
                 } catch (err) {
-                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                    showAlertModal(err.message || 'Network error.', 'error');
                 }
                 break;
             }
             case 'close-ticket': {
-                const ok = await showConfirm(`Close lost ticket for key ${keyCode}? This will mark the issue as resolved.`, { 
-                    title: 'Close Ticket', 
-                    danger: false, 
-                    okLabel: 'Close Ticket' 
+                const ok = await showConfirm('Close lost ticket for key ' + keyCode + '?', {
+                    title: 'Close Ticket',
+                    danger: false,
+                    okLabel: 'Close Ticket'
                 });
                 if (!ok) return;
                 const notes = await showPromptModal('Resolution notes (optional):', { title: 'Close Ticket' });
                 if (notes === undefined) return;
                 try {
-                    const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/close`, {
+                    const res = await authenticatedFetch('/api/admin/lost-keys/' + item.id + '/close', {
                         method: 'POST',
                         body: JSON.stringify({ resolution_notes: notes || null })
                     });
@@ -1163,40 +1049,38 @@
                         await loadLostKeysManagement();
                     } else {
                         const data = await res.json();
-                        showAlertModal(data.error || 'Failed to close ticket. Please try again.', 'error');
+                        showAlertModal(data.error || 'Failed to close ticket.', 'error');
                     }
                 } catch (err) {
-                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                    showAlertModal(err.message || 'Network error.', 'error');
                 }
                 break;
             }
             case 'make-available': {
-                const ok = await showConfirm(`Mark key ${keyCode} as available again? This will make it available for borrowing.`, { 
-                    title: 'Mark Available', 
-                    danger: false, 
-                    okLabel: 'Mark Available' 
+                const ok = await showConfirm('Mark key ' + keyCode + ' as available again?', {
+                    title: 'Mark Available',
+                    danger: false,
+                    okLabel: 'Mark Available'
                 });
                 if (!ok) return;
                 try {
-                    const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}/make-available`, {
-                        method: 'POST'
-                    });
+                    const res = await authenticatedFetch('/api/admin/lost-keys/' + item.id + '/make-available', { method: 'POST' });
                     const data = await res.json();
                     if (res.ok) {
                         await logAuditEvent('make_key_available', 'lost_key', item.id, {
                             key_code: keyCode
                         });
-                        showAlertModal(`Key ${keyCode} is now available.`, 'success');
+                        showAlertModal('Key ' + keyCode + ' is now available.', 'success');
                         closeDetailModal();
                         await loadLostKeys();
                         await loadTransactions();
                         await loadInventory();
                         await loadLostKeysManagement();
                     } else {
-                        showAlertModal(data.error || 'Failed to make key available. Please try again.', 'error');
+                        showAlertModal(data.error || 'Failed to make key available.', 'error');
                     }
                 } catch (err) {
-                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                    showAlertModal(err.message || 'Network error.', 'error');
                 }
                 break;
             }
@@ -1208,53 +1092,39 @@
         const content = document.getElementById('lostKeyDetailContent');
         modal.style.display = 'flex';
         content.innerHTML = '<div class="text-center py-8 text-slate-400">Loading details...</div>';
+
         try {
-            const res = await authenticatedFetch(`/api/admin/lost-keys/${item.id}`);
+            const res = await authenticatedFetch('/api/admin/lost-keys/' + item.id);
             const data = await res.json();
-            const formatAmount = (amount) => {
-                const num = safeNumber(amount);
-                return num.toFixed(2);
-            };
+            const formatAmount = (amount) => safeNumber(amount).toFixed(2);
             const statusClass = data.resolved_at ? 'returned' : 'lost';
             const statusLabel = data.resolved_at ? 'Resolved' : 'Lost';
-            const html = `
-                <div class="detail-section"><div class="detail-label">Key Information</div>
-                    <div class="detail-grid">
-                        <div><span class="detail-label">Code</span><div class="detail-value">${escapeHtml(data.key_code)}</div></div>
-                        <div><span class="detail-label">Brand</span><div class="detail-value">${escapeHtml(data.brand || '—')}</div></div>
-                        <div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ${statusClass}">${statusLabel}</span></div></div>
-                    </div>
-                </div>
-                <div class="detail-section"><div class="detail-label">Borrower</div>
-                    <div class="detail-grid">
-                        <div><span class="detail-label">Name</span><div class="detail-value">${escapeHtml(data.borrower_name || '—')}</div></div>
-                        <div><span class="detail-label">Email</span><div class="detail-value">${escapeHtml(data.borrower_email || '—')}</div></div>
-                    </div>
-                </div>
-                <div class="detail-section"><div class="detail-label">Lost Event</div>
-                    <div class="detail-grid">
-                        <div><span class="detail-label">Lost At</span><div class="detail-value">${formatDate(data.lost_at)}</div></div>
-                        <div><span class="detail-label">Planned Return</span><div class="detail-value">${formatDate(data.planned_return)}</div></div>
-                        ${data.returned_at ? `<div><span class="detail-label">Returned At</span><div class="detail-value">${formatDate(data.returned_at)}</div></div>` : ''}
-                        <div class="full-width"><span class="detail-label">Reason</span><div class="detail-value">${escapeHtml(data.reason || '—')}</div></div>
-                        ${data.resolved_at ? `<div><span class="detail-label">Resolved At</span><div class="detail-value">${formatDate(data.resolved_at)}</div></div>` : ''}
-                    </div>
-                </div>
-                ${data.fine ? `
-                <div class="detail-section"><div class="detail-label">Fee</div>
-                    <div class="detail-grid">
-                        <div><span class="detail-label">Amount</span><div class="detail-value">$${formatAmount(data.fine.amount)}</div></div>
-                        <div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ${data.fine.status === 'paid' ? 'returned' : 'pending'}">${escapeHtml(data.fine.status || 'pending')}</span></div></div>
-                        <div><span class="detail-label">Issued</span><div class="detail-value">${formatDate(data.fine.created_at)}</div></div>
-                        ${data.fine.paid_at ? `<div><span class="detail-label">Paid At</span><div class="detail-value">${formatDate(data.fine.paid_at)}</div></div>` : ''}
-                        ${data.fine.waived_at ? `<div><span class="detail-label">Waived At</span><div class="detail-value">${formatDate(data.fine.waived_at)}</div></div>` : ''}
-                    </div>
-                </div>` : ''}
-            `;
-            content.innerHTML = html;
+
+            const html = '<div class="detail-section"><div class="detail-label">Key Information</div>'
+                + '<div class="detail-grid"><div><span class="detail-label">Code</span><div class="detail-value">' + escapeHtml(data.key_code) + '</div></div>'
+                + '<div><span class="detail-label">Brand</span><div class="detail-value">' + escapeHtml(data.brand || '—') + '</div></div>'
+                + '<div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ' + statusClass + '">' + statusLabel + '</span></div></div></div></div>'
+                + '<div class="detail-section"><div class="detail-label">Borrower</div>'
+                + '<div class="detail-grid"><div><span class="detail-label">Name</span><div class="detail-value">' + escapeHtml(data.borrower_name || '—') + '</div></div>'
+                + '<div><span class="detail-label">Email</span><div class="detail-value">' + escapeHtml(data.borrower_email || '—') + '</div></div></div></div>'
+                + '<div class="detail-section"><div class="detail-label">Lost Event</div>'
+                + '<div class="detail-grid"><div><span class="detail-label">Lost At</span><div class="detail-value">' + formatDate(data.lost_at) + '</div></div>'
+                + '<div><span class="detail-label">Planned Return</span><div class="detail-value">' + formatDate(data.planned_return) + '</div></div>'
+                + (data.returned_at ? '<div><span class="detail-label">Returned At</span><div class="detail-value">' + formatDate(data.returned_at) + '</div></div>' : '')
+                + '<div class="full-width"><span class="detail-label">Reason</span><div class="detail-value">' + escapeHtml(data.reason || '—') + '</div></div>'
+                + (data.resolved_at ? '<div><span class="detail-label">Resolved At</span><div class="detail-value">' + formatDate(data.resolved_at) + '</div></div>' : '')
+                + '</div></div>';
+
+            content.innerHTML = html + (data.fine ? '<div class="detail-section"><div class="detail-label">Fee</div>'
+                + '<div class="detail-grid"><div><span class="detail-label">Amount</span><div class="detail-value">$' + formatAmount(data.fine.amount) + '</div></div>'
+                + '<div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ' + (data.fine.status === 'paid' ? 'returned' : 'pending') + '">' + escapeHtml(data.fine.status || 'pending') + '</span></div></div>'
+                + '<div><span class="detail-label">Issued</span><div class="detail-value">' + formatDate(data.fine.created_at) + '</div></div>'
+                + (data.fine.paid_at ? '<div><span class="detail-label">Paid At</span><div class="detail-value">' + formatDate(data.fine.paid_at) + '</div></div>' : '')
+                + (data.fine.waived_at ? '<div><span class="detail-label">Waived At</span><div class="detail-value">' + formatDate(data.fine.waived_at) + '</div></div>' : '')
+                + '</div></div>' : '');
         } catch (err) {
-            content.innerHTML = `<div class="text-center py-8 text-rose-600">Unable to load details: ${escapeHtml(err.message || 'Please refresh and try again.')}</div>`;
-            showAlertModal(err.message || 'Failed to load lost key details. Please check your connection.', 'error');
+            content.innerHTML = '<div class="text-center py-8 text-rose-600">Unable to load details: ' + escapeHtml(err.message || 'Please refresh and try again.') + '</div>';
+            showAlertModal(err.message || 'Failed to load lost key details.', 'error');
         }
     }
 
@@ -1272,23 +1142,22 @@
             due.setHours(0, 0, 0, 0);
             let statusTag = due < now ? 'Overdue' : due.toDateString() === now.toDateString() ? 'Due today' : 'On loan';
             const statusClass = due < now ? 'overdue' : due.toDateString() === now.toDateString() ? 'pending' : 'borrowed';
-            rows += `<tr>
-                <td>${escapeHtml(tx.key_code)}</td>
-                <td>${escapeHtml(tx.receiver_signature_name || tx.receiver_email)}</td>
-                <td>${formatDate(tx.borrowed_at)}</td>
-                <td>${formatDate(tx.planned_return)}</td>
-                <td><span class="status-badge ${statusClass}">${statusTag}</span></td>
-            </tr>`;
+            rows += '<tr><td>' + escapeHtml(tx.key_code) + '</td>'
+                + '<td>' + escapeHtml(tx.receiver_signature_name || tx.receiver_email) + '</td>'
+                + '<td>' + formatDate(tx.borrowed_at) + '</td>'
+                + '<td>' + formatDate(tx.planned_return) + '</td>'
+                + '<td><span class="status-badge ' + statusClass + '">' + statusTag + '</span></td></tr>';
         }
-        const html = `<table class="table-clean"><thead><tr><th>Key</th><th>Borrower</th><th>Borrowed</th><th>Expected Return</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
-        showDetailModal('Active Borrows', html);
+        showDetailModal('Active Borrows', '<table class="table-clean"><thead><tr><th>Key</th><th>Borrower</th><th>Borrowed</th><th>Expected Return</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table>');
     }
 
     function showReturnRemindersModal() {
         const data = window._activeBorrowsData || [];
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        const overdue = [], upcoming = [];
+        const overdue = [],
+            upcoming = [];
+
         for (const tx of data) {
             if (!tx.planned_return) continue;
             const d = new Date(tx.planned_return);
@@ -1296,39 +1165,42 @@
             if (d < today) overdue.push(tx);
             else if (d <= new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000)) upcoming.push(tx);
         }
+
         overdue.sort((a, b) => new Date(a.planned_return) - new Date(b.planned_return));
         upcoming.sort((a, b) => new Date(a.planned_return) - new Date(b.planned_return));
         const combined = [...overdue, ...upcoming];
+
         if (!combined.length) {
             showDetailModal('Return Reminders', '<div class="text-center py-8 text-slate-400">No upcoming or overdue returns.</div>');
             return;
         }
-        let rows = '', overdueCount = 0;
+
+        let rows = '',
+            overdueCount = 0;
         for (const tx of combined) {
             const due = new Date(tx.planned_return);
             const days = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
             let statusLabel, statusClass;
             if (days < 0) {
-                statusLabel = `Overdue by ${Math.abs(days)} day${Math.abs(days) !== 1 ? 's' : ''}`;
+                statusLabel = 'Overdue by ' + Math.abs(days) + ' day' + (Math.abs(days) !== 1 ? 's' : '');
                 statusClass = 'overdue';
                 overdueCount++;
             } else if (days === 0) {
                 statusLabel = 'Due today';
                 statusClass = 'pending';
             } else {
-                statusLabel = `${days} day${days !== 1 ? 's' : ''} left`;
+                statusLabel = days + ' day' + (days !== 1 ? 's' : '') + ' left';
                 statusClass = 'borrowed';
             }
-            rows += `<tr class="${days < 0 ? 'bg-rose-50' : ''}">
-                <td>${escapeHtml(tx.key_code)}</td>
-                <td>${escapeHtml(tx.receiver_signature_name || tx.receiver_email)}</td>
-                <td>${formatDate(tx.planned_return)}</td>
-                <td><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-            </tr>`;
+            rows += '<tr class="' + (days < 0 ? 'bg-rose-50' : '') + '">'
+                + '<td>' + escapeHtml(tx.key_code) + '</td>'
+                + '<td>' + escapeHtml(tx.receiver_signature_name || tx.receiver_email) + '</td>'
+                + '<td>' + formatDate(tx.planned_return) + '</td>'
+                + '<td><span class="status-badge ' + statusClass + '">' + statusLabel + '</span></td></tr>';
         }
-        const summary = overdueCount > 0 ? `<div class="mb-3 p-2 bg-rose-100 text-rose-800 rounded-lg text-sm font-medium">⚠️ ${overdueCount} overdue return${overdueCount > 1 ? 's' : ''} — please take action.</div>` : '';
-        const html = summary + `<table class="table-clean"><thead><tr><th>Key</th><th>Borrower</th><th>Due Date</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
-        showDetailModal('Return Reminders', html);
+
+        const summary = overdueCount > 0 ? '<div class="mb-3 p-2 bg-rose-100 text-rose-800 rounded-lg text-sm font-medium">⚠️ ' + overdueCount + ' overdue return' + (overdueCount > 1 ? 's' : '') + ' — please take action.</div>' : '';
+        showDetailModal('Return Reminders', summary + '<table class="table-clean"><thead><tr><th>Key</th><th>Borrower</th><th>Due Date</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table>');
     }
 
     async function loadAuditHealth() {
@@ -1337,6 +1209,7 @@
             const data = await res.json();
             const text = document.getElementById('auditStatusText');
             const last = document.getElementById('auditLastCheck');
+
             if (data.status === 'ok') {
                 text.innerHTML = '✅ Chain intact';
                 text.className = 'text-sm font-medium text-emerald-600';
@@ -1350,16 +1223,17 @@
                 text.innerHTML = 'Unknown';
                 text.className = 'text-sm font-medium text-slate-500';
             }
-            last.innerText = data.checked_at ? `Last check: ${formatDate(data.checked_at)}` : 'Last check: --';
+            last.innerText = data.checked_at ? 'Last check: ' + formatDate(data.checked_at) : 'Last check: --';
         } catch (err) {
             document.getElementById('auditStatusText').innerHTML = '❌ Unable to verify audit integrity. Please refresh.';
-            showAlertModal(err.message || 'Failed to load audit health status. Please check your network.', 'error');
+            showAlertModal(err.message || 'Failed to load audit health status.', 'error');
         }
     }
 
     async function loadInventory() {
         const container = document.getElementById('inventoryTableBody');
         container.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-400"><div class="skeleton h-8 w-full"></div></td></tr>';
+
         try {
             const res = await authenticatedFetch('/api/admin/keys');
             const data = await res.json();
@@ -1367,59 +1241,53 @@
             applyInventoryFilters();
         } catch (err) {
             container.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-rose-600">Unable to load keys. Please refresh the page.</td></tr>';
-            showAlertModal(err.message || 'Failed to load inventory. Please check your network.', 'error');
+            showAlertModal(err.message || 'Failed to load inventory.', 'error');
         }
     }
 
     function applyInventoryFilters() {
         const search = safeLower(document.getElementById('inventorySearchInput').value).trim();
         filteredInventory = inventoryData.filter(key => {
-            const matchesSearch = safeLower(key.code).includes(search) ||
+            return safeLower(key.code).includes(search) ||
                 safeLower(key.brand).includes(search) ||
                 safeLower(key.sets).includes(search) ||
                 safeLower(key.remarks).includes(search);
-            return matchesSearch;
         });
         invTotal = filteredInventory.length;
         renderInventoryTable();
         updateInventoryPagination();
     }
 
-    // ===== FIXED: renderInventoryTable with portal menu =====
     function renderInventoryTable() {
         const tbody = document.getElementById('inventoryTableBody');
         const start = (invPage - 1) * invRows;
         const end = Math.min(start + invRows, invTotal);
         const pageData = filteredInventory.slice(start, end);
+
         if (!pageData.length) {
             tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-400">No keys found.</td></tr>';
             return;
         }
+
         let html = '';
         for (const key of pageData) {
             let setsDisplay = '—';
             if (key.sets && Array.isArray(key.sets) && key.sets.length) {
-                setsDisplay = key.sets.map(s => `${escapeHtml(s.owner_name || 'Unknown')} (${s.quantity || 1})`).join(', ');
+                setsDisplay = key.sets.map(s => escapeHtml(s.owner_name || 'Unknown') + ' (' + (s.quantity || 1) + ')').join(', ');
             }
             const status = key.status || 'unknown';
-            html += `
-                <tr class="inventory-row" data-key-id="${key.id}">
-                    <td class="clickable-cell"><code>${escapeHtml(key.code)}</code></td>
-                    <td class="clickable-cell">${escapeHtml(key.brand)}</td>
-                    <td>${statusBadgeHtml(status)}</td>
-                    <td class="clickable-cell">${escapeHtml(setsDisplay)}</td>
-                    <td class="clickable-cell">${escapeHtml(key.total_quantity || 0)}</td>
-                    <td class="clickable-cell">${escapeHtml(key.remarks || '—')}</td>
-                    <td>
-                        <button class="btn btn-sm btn-ghost inventory-actions-btn" data-key-id="${key.id}">
-                            <i class="fas fa-ellipsis-v"></i>
-                        </button>
-                    </td>
-                </tr>`;
+
+            html += '<tr class="inventory-row" data-key-id="' + key.id + '">'
+                + '<td class="clickable-cell"><code>' + escapeHtml(key.code) + '</code></td>'
+                + '<td class="clickable-cell">' + escapeHtml(key.brand) + '</td>'
+                + '<td>' + statusBadgeHtml(status) + '</td>'
+                + '<td class="clickable-cell">' + escapeHtml(setsDisplay) + '</td>'
+                + '<td class="clickable-cell">' + escapeHtml(key.total_quantity || 0) + '</td>'
+                + '<td class="clickable-cell">' + escapeHtml(key.remarks || '—') + '</td>'
+                + '<td><button class="btn btn-sm btn-ghost inventory-actions-btn" data-key-id="' + key.id + '"><i class="fas fa-ellipsis-v"></i></button></td></tr>';
         }
         tbody.innerHTML = html;
 
-        // Clickable cells for view details
         tbody.querySelectorAll('.clickable-cell').forEach(cell => {
             cell.style.cursor = 'pointer';
             cell.addEventListener('click', function() {
@@ -1430,28 +1298,32 @@
             });
         });
 
-        // Portal menu for actions
         tbody.querySelectorAll('.inventory-actions-btn').forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 const key = inventoryData.find(k => k.id === parseInt(this.dataset.keyId));
                 if (!key) return;
-                
-                const menuHtml = `
-                    ${key.status !== 'available' && key.status !== 'borrowed' ? `<button class="menu-item" data-action="available"><i class="fas fa-check-circle"></i> Mark Available</button>` : ''}
-                    ${key.status === 'available' ? `<button class="menu-item" data-action="unavailable"><i class="fas fa-ban"></i> Mark Unavailable</button>` : ''}
-                    ${key.status === 'borrowed' ? `<button class="menu-item disabled" disabled>Currently borrowed</button>` : ''}
-                    <div class="menu-divider"></div>
-                    <button class="menu-item" data-action="view"><i class="fas fa-eye"></i> View Details</button>
-                    <button class="menu-item" data-action="edit"><i class="fas fa-edit"></i> Edit Key</button>
-                `;
-                
+
+                let menuHtml = '';
+                if (key.status !== 'available' && key.status !== 'borrowed') {
+                    menuHtml += '<button class="menu-item" data-action="available"><i class="fas fa-check-circle"></i> Mark Available</button>';
+                }
+                if (key.status === 'available') {
+                    menuHtml += '<button class="menu-item" data-action="unavailable"><i class="fas fa-ban"></i> Mark Unavailable</button>';
+                }
+                if (key.status === 'borrowed') {
+                    menuHtml += '<button class="menu-item disabled" disabled>Currently borrowed</button>';
+                }
+                menuHtml += '<div class="menu-divider"></div>'
+                    + '<button class="menu-item" data-action="view"><i class="fas fa-eye"></i> View Details</button>'
+                    + '<button class="menu-item" data-action="edit"><i class="fas fa-edit"></i> Edit Key</button>';
+
                 openPortalMenu(this, menuHtml, (menu) => {
                     menu.querySelectorAll('.menu-item[data-action]').forEach(item => {
                         item.addEventListener('click', async () => {
                             const action = item.dataset.action;
                             menu.remove();
-                            
+
                             if (action === 'view') {
                                 showKeyDetailModal(key.id);
                                 return;
@@ -1460,13 +1332,13 @@
                                 openKeyEditModal(key);
                                 return;
                             }
-                            
+
                             const endpoint = action === 'available' ? 'available' : 'unavailable';
                             try {
-                                const res = await authenticatedFetch(`/api/admin/keys/${key.id}/${endpoint}`, { method: 'POST' });
+                                const res = await authenticatedFetch('/api/admin/keys/' + key.id + '/' + endpoint, { method: 'POST' });
                                 const data = await res.json();
                                 if (res.ok) {
-                                    showAlertModal(`Key marked ${endpoint}.`, 'success');
+                                    showAlertModal('Key marked ' + endpoint + '.', 'success');
                                     loadInventory();
                                 } else {
                                     showAlertModal(data.error || 'Update failed.', 'error');
@@ -1485,7 +1357,9 @@
         const totalPages = Math.ceil(invTotal / invRows) || 1;
         const start = (invPage - 1) * invRows + 1;
         const end = Math.min(invPage * invRows, invTotal);
-        document.getElementById('inventoryPaginationInfo').innerText = invTotal === 0 ? 'Showing 0 of 0 keys' : `Showing ${start}–${end} of ${invTotal} keys`;
+        document.getElementById('inventoryPaginationInfo').innerText = invTotal === 0 ?
+            'Showing 0 of 0 keys' :
+            'Showing ' + start + '–' + end + ' of ' + invTotal + ' keys';
         document.getElementById('inventoryPrevPageBtn').disabled = invPage === 1 || invTotal === 0;
         document.getElementById('inventoryNextPageBtn').disabled = invPage >= totalPages || invTotal === 0;
     }
@@ -1495,71 +1369,60 @@
         const content = document.getElementById('keyDetailModalContent');
         modal.style.display = 'flex';
         content.innerHTML = '<div class="text-center py-8 text-slate-400">Loading key details...</div>';
+
         try {
             const [keyRes, auditRes] = await Promise.all([
-                authenticatedFetch(`/api/admin/keys/${keyId}`),
-                authenticatedFetch(`/api/audit/logs?target_type=key&target_id=${keyId}`)
+                authenticatedFetch('/api/admin/keys/' + keyId),
+                authenticatedFetch('/api/audit/logs?target_type=key&target_id=' + keyId)
             ]);
             const key = await keyRes.json();
             const auditLogs = await auditRes.json();
 
             let setsDisplay = '—';
             if (key.sets && Array.isArray(key.sets) && key.sets.length) {
-                setsDisplay = key.sets.map(s => `${escapeHtml(s.owner_name)} (${s.quantity})`).join(', ');
+                setsDisplay = key.sets.map(s => escapeHtml(s.owner_name) + ' (' + s.quantity + ')').join(', ');
             }
 
             let auditHtml = '<div class="detail-section"><div class="detail-label">Audit Trail</div>';
             if (auditLogs && auditLogs.length) {
-                auditHtml += `<table class="table-clean"><thead><tr><th>Action</th><th>User</th><th>Timestamp</th></tr></thead><tbody>`;
+                auditHtml += '<table class="table-clean"><thead><tr><th>Action</th><th>User</th><th>Timestamp</th></tr></thead><tbody>';
                 for (const log of auditLogs.slice(0, 10)) {
-                    auditHtml += `<tr>
-                        <td>${escapeHtml(log.action)}</td>
-                        <td>${escapeHtml(log.user_name || log.user_email || 'System')}</td>
-                        <td>${formatDate(log.created_at)}</td>
-                    </tr>`;
+                    auditHtml += '<tr><td>' + escapeHtml(log.action) + '</td>'
+                        + '<td>' + escapeHtml(log.user_name || log.user_email || 'System') + '</td>'
+                        + '<td>' + formatDate(log.created_at) + '</td></tr>';
                 }
-                auditHtml += `</tbody></table>`;
+                auditHtml += '</tbody></table>';
                 if (auditLogs.length > 10) {
-                    auditHtml += `<p class="text-xs text-slate-500 mt-2">Showing last 10 of ${auditLogs.length} entries</p>`;
+                    auditHtml += '<p class="text-xs text-slate-500 mt-2">Showing last 10 of ' + auditLogs.length + ' entries</p>';
                 }
             } else {
-                auditHtml += `<p class="text-sm text-slate-500">No audit logs found for this key.</p>`;
+                auditHtml += '<p class="text-sm text-slate-500">No audit logs found for this key.</p>';
             }
             auditHtml += '</div>';
 
-            const html = `
-                <div class="detail-section">
-                    <div class="detail-label">Key Information</div>
-                    <div class="detail-grid">
-                        <div><span class="detail-label">Code</span><div class="detail-value">${escapeHtml(key.code)}</div></div>
-                        <div><span class="detail-label">Brand</span><div class="detail-value">${escapeHtml(key.brand)}</div></div>
-                        <div><span class="detail-label">Status</span><div class="detail-value">${statusBadgeHtml(key.status || 'unknown')}</div></div>
-                        <div><span class="detail-label">Owner(s)</span><div class="detail-value">${escapeHtml(setsDisplay)}</div></div>
-                        <div><span class="detail-label">Total Quantity</span><div class="detail-value">${escapeHtml(key.total_quantity || 0)}</div></div>
-                        <div class="full-width"><span class="detail-label">Remarks</span><div class="detail-value">${escapeHtml(key.remarks || '—')}</div></div>
-                    </div>
-                </div>
-                <div class="detail-section">
-                    <div class="detail-label">Key Metadata</div>
-                    <div class="detail-grid">
-                        <div><span class="detail-label">Created At</span><div class="detail-value">${formatDate(key.created_at)}</div></div>
-                        <div><span class="detail-label">Last Updated</span><div class="detail-value">${formatDate(key.updated_at)}</div></div>
-                        <div><span class="detail-label">Updated By</span><div class="detail-value">${escapeHtml(key.updated_by || '—')}</div></div>
-                    </div>
-                </div>
-                ${auditHtml}
-            `;
+            const html = '<div class="detail-section"><div class="detail-label">Key Information</div>'
+                + '<div class="detail-grid"><div><span class="detail-label">Code</span><div class="detail-value">' + escapeHtml(key.code) + '</div></div>'
+                + '<div><span class="detail-label">Brand</span><div class="detail-value">' + escapeHtml(key.brand) + '</div></div>'
+                + '<div><span class="detail-label">Status</span><div class="detail-value">' + statusBadgeHtml(key.status || 'unknown') + '</div></div>'
+                + '<div><span class="detail-label">Owner(s)</span><div class="detail-value">' + escapeHtml(setsDisplay) + '</div></div>'
+                + '<div><span class="detail-label">Total Quantity</span><div class="detail-value">' + escapeHtml(key.total_quantity || 0) + '</div></div>'
+                + '<div class="full-width"><span class="detail-label">Remarks</span><div class="detail-value">' + escapeHtml(key.remarks || '—') + '</div></div></div></div>'
+                + '<div class="detail-section"><div class="detail-label">Key Metadata</div>'
+                + '<div class="detail-grid"><div><span class="detail-label">Created At</span><div class="detail-value">' + formatDate(key.created_at) + '</div></div>'
+                + '<div><span class="detail-label">Last Updated</span><div class="detail-value">' + formatDate(key.updated_at) + '</div></div>'
+                + '<div><span class="detail-label">Updated By</span><div class="detail-value">' + escapeHtml(key.updated_by || '—') + '</div></div></div></div>'
+                + auditHtml;
+
             content.innerHTML = html;
-            document.getElementById('keyDetailModalTitle').textContent = `Key: ${key.code}`;
+            document.getElementById('keyDetailModalTitle').textContent = 'Key: ' + key.code;
         } catch (err) {
-            content.innerHTML = `<div class="text-center py-8 text-rose-600">Unable to load key details: ${escapeHtml(err.message || 'Please refresh and try again.')}</div>`;
-            showAlertModal(err.message || 'Failed to load key details. Please check your connection.', 'error');
+            content.innerHTML = '<div class="text-center py-8 text-rose-600">Unable to load key details: ' + escapeHtml(err.message || 'Please refresh and try again.') + '</div>';
+            showAlertModal(err.message || 'Failed to load key details.', 'error');
         }
     }
 
     async function openKeyManageModal() {
-        const modal = document.getElementById('keyManageModal');
-        modal.style.display = 'flex';
+        document.getElementById('keyManageModal').style.display = 'flex';
         await fetchManageKeys();
     }
 
@@ -1567,15 +1430,15 @@
         const tbody = document.getElementById('manageKeyTableBody');
         tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">Loading keys...</td></tr>';
         const search = safeLower(document.getElementById('manageKeySearch')?.value || '').trim();
+
         try {
             const res = await authenticatedFetch('/api/admin/keys');
             const data = await res.json();
             manageKeyData = Array.isArray(data) ? data : [];
             manageKeyFiltered = manageKeyData.filter(key => {
-                const matchSearch = safeLower(key.code).includes(search) ||
+                return safeLower(key.code).includes(search) ||
                     safeLower(key.brand).includes(search) ||
                     safeLower(key.sets).includes(search);
-                return matchSearch;
             });
             manageKeyTotal = manageKeyFiltered.length;
             renderManageKeyTable();
@@ -1591,37 +1454,31 @@
         const start = (manageKeyPage - 1) * manageKeyRows;
         const end = Math.min(start + manageKeyRows, manageKeyTotal);
         const pageData = manageKeyFiltered.slice(start, end);
+
         if (!pageData.length) {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">No keys found.</td></tr>';
             return;
         }
+
         let html = '';
         for (const key of pageData) {
             let setsDisplay = '—';
             if (key.sets && Array.isArray(key.sets) && key.sets.length) {
-                setsDisplay = key.sets.map(s => `${escapeHtml(s.owner_name)} (${s.quantity})`).join(', ');
+                setsDisplay = key.sets.map(s => escapeHtml(s.owner_name) + ' (' + s.quantity + ')').join(', ');
             }
             const status = key.status || 'unknown';
-            html += `
-                <tr>
-                    <td class="text-left"><code>${escapeHtml(key.code)}</code></td>
-                    <td class="text-left">${escapeHtml(key.brand)}</td>
-                    <td class="text-left">${statusBadgeHtml(status)}</td>
-                    <td class="text-left">${escapeHtml(setsDisplay)}</td>
-                    <td class="text-right">
-                        <div class="action-buttons" style="justify-content:flex-end;">
-                            <button class="btn btn-secondary btn-sm edit-manage-key-btn" data-id="${key.id}">
-                                <i class="fas fa-edit"></i> Edit
-                            </button>
-                            <button class="btn btn-danger btn-sm delete-manage-key-btn" data-id="${key.id}" data-code="${escapeHtml(key.code)}">
-                                <i class="fas fa-trash"></i> Delete
-                            </button>
-                        </div>
-                    </td>
-                </tr>
-            `;
+
+            html += '<tr><td class="text-left"><code>' + escapeHtml(key.code) + '</code></td>'
+                + '<td class="text-left">' + escapeHtml(key.brand) + '</td>'
+                + '<td class="text-left">' + statusBadgeHtml(status) + '</td>'
+                + '<td class="text-left">' + escapeHtml(setsDisplay) + '</td>'
+                + '<td class="text-right"><div class="action-buttons" style="justify-content:flex-end;">'
+                + '<button class="btn btn-secondary btn-sm edit-manage-key-btn" data-id="' + key.id + '"><i class="fas fa-edit"></i> Edit</button>'
+                + '<button class="btn btn-danger btn-sm delete-manage-key-btn" data-id="' + key.id + '" data-code="' + escapeHtml(key.code) + '"><i class="fas fa-trash"></i> Delete</button>'
+                + '</div></td></tr>';
         }
         tbody.innerHTML = html;
+
         tbody.querySelectorAll('.edit-manage-key-btn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const id = parseInt(this.dataset.id);
@@ -1632,27 +1489,27 @@
                 }
             });
         });
+
         tbody.querySelectorAll('.delete-manage-key-btn').forEach(btn => {
             btn.addEventListener('click', async function() {
                 const id = this.dataset.id;
                 const code = this.dataset.code;
-                const ok = await showConfirm(`Delete key ${code}? This action cannot be undone.`, { title: 'Delete Key' });
+                const ok = await showConfirm('Delete key ' + code + '? This action cannot be undone.', { title: 'Delete Key' });
                 if (!ok) return;
+
                 try {
-                    const res = await authenticatedFetch(`/api/admin/keys/${id}`, { method: 'DELETE' });
+                    const res = await authenticatedFetch('/api/admin/keys/' + id, { method: 'DELETE' });
                     if (res.ok) {
-                        await logAuditEvent('delete_key', 'key', id, {
-                            key_code: code
-                        });
+                        await logAuditEvent('delete_key', 'key', id, { key_code: code });
                         showAlertModal('Key deleted successfully.', 'success');
                         fetchManageKeys();
                         loadInventory();
                     } else {
                         const data = await res.json();
-                        showAlertModal(data.error || 'Deletion failed. Please try again.', 'error');
+                        showAlertModal(data.error || 'Deletion failed.', 'error');
                     }
                 } catch (err) {
-                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                    showAlertModal(err.message || 'Network error.', 'error');
                 }
             });
         });
@@ -1662,7 +1519,9 @@
         const totalPages = Math.ceil(manageKeyTotal / manageKeyRows) || 1;
         const start = (manageKeyPage - 1) * manageKeyRows + 1;
         const end = Math.min(manageKeyPage * manageKeyRows, manageKeyTotal);
-        document.getElementById('manageKeyPaginationInfo').innerText = manageKeyTotal === 0 ? 'Showing 0 of 0 keys' : `Showing ${start}–${end} of ${manageKeyTotal} keys`;
+        document.getElementById('manageKeyPaginationInfo').innerText = manageKeyTotal === 0 ?
+            'Showing 0 of 0 keys' :
+            'Showing ' + start + '–' + end + ' of ' + manageKeyTotal + ' keys';
         document.getElementById('manageKeyPrevBtn').disabled = manageKeyPage === 1 || manageKeyTotal === 0;
         document.getElementById('manageKeyNextBtn').disabled = manageKeyPage >= totalPages || manageKeyTotal === 0;
     }
@@ -1722,7 +1581,7 @@
         } catch (err) {
             const emailTab = document.querySelector('.tab-button[data-tab="email"]');
             if (emailTab) emailTab.style.display = 'none';
-            showAlertModal(err.message || 'Unable to load permissions. Please refresh.', 'error');
+            showAlertModal(err.message || 'Unable to load permissions.', 'error');
             return false;
         }
     }
@@ -1739,67 +1598,59 @@
     async function loadTemplates() {
         const container = document.getElementById('templatesContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading templates...</div>';
+
         try {
             const res = await authenticatedFetch('/api/admin/email/templates');
             const templates = await res.json();
+
             if (!templates.length) {
                 container.innerHTML = '<div class="text-center py-8 text-slate-400">No templates found.</div>';
                 return;
             }
-            let html = `<table class="table-clean template-list"><thead><tr>
-                <th class="text-left">Key</th>
-                <th class="text-left">Subject</th>
-                <th style="text-align:center;">Active</th>
-                <th style="text-align:right;">Actions</th>
-            </tr></thead><tbody>`;
+
+            let html = '<table class="table-clean template-list"><thead><tr>'
+                + '<th class="text-left">Key</th><th class="text-left">Subject</th>'
+                + '<th style="text-align:center;">Active</th><th style="text-align:right;">Actions</th>'
+                + '</tr></thead><tbody>';
+
             for (const t of templates) {
-                html += `<tr class="template-row" data-key="${escapeHtml(t.template_key)}">
-                    <td class="text-left"><code>${escapeHtml(t.template_key)}</code></td>
-                    <td class="text-left">${escapeHtml(t.subject)}</td>
-                    <td style="text-align:center;">${t.is_active ? '✅' : '❌'}</td>
-                    <td style="text-align:right;">
-                        <div class="action-buttons" style="justify-content:flex-end;">
-                            <button class="btn btn-secondary btn-sm preview-template-btn" data-key="${escapeHtml(t.template_key)}" title="Preview Template">
-                                <i class="fas fa-eye"></i> Preview
-                            </button>
-                            <button class="btn btn-secondary btn-sm edit-template-btn" data-key="${escapeHtml(t.template_key)}" title="Edit Template">
-                                <i class="fas fa-edit"></i> Edit
-                            </button>
-                        </div>
-                    </td>
-                </tr>`;
+                html += '<tr class="template-row" data-key="' + escapeHtml(t.template_key) + '">'
+                    + '<td class="text-left"><code>' + escapeHtml(t.template_key) + '</code></td>'
+                    + '<td class="text-left">' + escapeHtml(t.subject) + '</td>'
+                    + '<td style="text-align:center;">' + (t.is_active ? '✅' : '❌') + '</td>'
+                    + '<td style="text-align:right;"><div class="action-buttons" style="justify-content:flex-end;">'
+                    + '<button class="btn btn-secondary btn-sm preview-template-btn" data-key="' + escapeHtml(t.template_key) + '" title="Preview Template"><i class="fas fa-eye"></i> Preview</button>'
+                    + '<button class="btn btn-secondary btn-sm edit-template-btn" data-key="' + escapeHtml(t.template_key) + '" title="Edit Template"><i class="fas fa-edit"></i> Edit</button>'
+                    + '</div></td></tr>';
             }
-            html += `</tbody></table>`;
+            html += '</tbody></table>';
             container.innerHTML = html;
-            
+
             container.querySelectorAll('.preview-template-btn').forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    const key = this.dataset.key;
-                    previewTemplate(key);
+                    previewTemplate(this.dataset.key);
                 });
             });
-            
+
             container.querySelectorAll('.edit-template-btn').forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    const key = this.dataset.key;
-                    openTemplateEditModal(key);
+                    openTemplateEditModal(this.dataset.key);
                 });
             });
-            
+
             container.querySelectorAll('.template-row').forEach(row => {
                 row.addEventListener('click', function(e) {
                     if (!e.target.closest('.action-buttons')) {
-                        const key = this.dataset.key;
-                        openTemplateEditModal(key);
+                        openTemplateEditModal(this.dataset.key);
                     }
                 });
                 row.style.cursor = 'pointer';
             });
         } catch (err) {
             container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load templates. Please refresh.</div>';
-            showAlertModal(err.message || 'Unable to load email templates. Please check your network.', 'error');
+            showAlertModal(err.message || 'Unable to load email templates.', 'error');
         }
     }
 
@@ -1808,28 +1659,30 @@
         const container = document.getElementById('templateManageContainer');
         modal.style.display = 'flex';
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading templates...</div>';
+
         try {
             const res = await authenticatedFetch('/api/admin/email/templates');
             const templates = await res.json();
+
             if (!templates.length) {
                 container.innerHTML = '<div class="text-center py-8 text-slate-400">No templates found.</div>';
                 return;
             }
-            let html = `<table class="table-clean template-manage-table"><thead><tr><th class="text-left">Key</th><th class="text-left">Subject</th><th>Active</th><th class="text-right">Actions</th></tr></thead><tbody>`;
+
+            let html = '<table class="table-clean template-manage-table"><thead><tr>'
+                + '<th class="text-left">Key</th><th class="text-left">Subject</th><th>Active</th>'
+                + '<th class="text-right">Actions</th></tr></thead><tbody>';
+
             for (const t of templates) {
-                html += `<tr>
-                    <td class="text-left"><code>${escapeHtml(t.template_key)}</code></td>
-                    <td class="text-left">${escapeHtml(t.subject)}</td>
-                    <td>${t.is_active ? '✅' : '❌'}</td>
-                    <td class="text-right">
-                        <div class="action-buttons" style="justify-content:flex-end;">
-                            <button class="btn btn-secondary btn-sm edit" data-key="${escapeHtml(t.template_key)}" title="Edit"><i class="fas fa-edit"></i> Edit</button>
-                            <button class="btn btn-danger btn-sm delete" data-key="${escapeHtml(t.template_key)}" title="Delete"><i class="fas fa-trash"></i> Delete</button>
-                        </div>
-                    </td>
-                </tr>`;
+                html += '<tr><td class="text-left"><code>' + escapeHtml(t.template_key) + '</code></td>'
+                    + '<td class="text-left">' + escapeHtml(t.subject) + '</td>'
+                    + '<td>' + (t.is_active ? '✅' : '❌') + '</td>'
+                    + '<td class="text-right"><div class="action-buttons" style="justify-content:flex-end;">'
+                    + '<button class="btn btn-secondary btn-sm edit" data-key="' + escapeHtml(t.template_key) + '" title="Edit"><i class="fas fa-edit"></i> Edit</button>'
+                    + '<button class="btn btn-danger btn-sm delete" data-key="' + escapeHtml(t.template_key) + '" title="Delete"><i class="fas fa-trash"></i> Delete</button>'
+                    + '</div></td></tr>';
             }
-            html += `</tbody></table>`;
+            html += '</tbody></table>';
             container.innerHTML = html;
 
             container.querySelectorAll('.edit').forEach(btn => {
@@ -1838,63 +1691,67 @@
                     openTemplateEditModal(this.dataset.key);
                 });
             });
+
             container.querySelectorAll('.delete').forEach(btn => {
                 btn.addEventListener('click', async function(e) {
                     e.stopPropagation();
                     const key = this.dataset.key;
-                    const ok = await showConfirm(`Delete template "${key}"?`, { title: 'Delete Template' });
+                    const ok = await showConfirm('Delete template "' + key + '"?', { title: 'Delete Template' });
                     if (!ok) return;
+
                     try {
-                        const res = await authenticatedFetch(`/api/admin/email/templates/${key}`, { method: 'DELETE' });
+                        const res = await authenticatedFetch('/api/admin/email/templates/' + key, { method: 'DELETE' });
                         if (res.ok) {
-                            await logAuditEvent('delete_email_template', 'email_template', key, {
-                                template_key: key
-                            });
+                            await logAuditEvent('delete_email_template', 'email_template', key, { template_key: key });
                             showAlertModal('Template deleted successfully.', 'success');
                             openTemplateManageModal();
                             loadTemplates();
                         } else {
                             const data = await res.json();
-                            showAlertModal(data.error || 'Delete failed. Please try again.', 'error');
+                            showAlertModal(data.error || 'Delete failed.', 'error');
                         }
                     } catch (err) {
-                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                        showAlertModal(err.message || 'Network error.', 'error');
                     }
                 });
             });
         } catch (err) {
             container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load templates. Please refresh.</div>';
-            showAlertModal(err.message || 'Unable to load templates. Please check your network.', 'error');
+            showAlertModal(err.message || 'Unable to load templates.', 'error');
         }
     }
 
     async function openTemplateEditModal(key) {
         try {
-            const res = await authenticatedFetch(`/api/admin/email/templates/${key}`);
+            const res = await authenticatedFetch('/api/admin/email/templates/' + key);
             const template = await res.json();
+
             document.getElementById('editTemplateKey').value = key;
             document.getElementById('editTemplateKeyDisplay').value = key;
             document.getElementById('editTemplateKeyDisplay').disabled = true;
             document.getElementById('editTemplateSubject').value = template.subject || '';
             document.getElementById('editTemplateBody').value = template.body_html || '';
             document.getElementById('editTemplateActive').checked = template.is_active !== false;
-            document.getElementById('templateEditModalTitle').textContent = `Edit Template: ${key}`;
+            document.getElementById('templateEditModalTitle').textContent = 'Edit Template: ' + key;
             document.getElementById('templateEditModal').style.display = 'flex';
         } catch (err) {
-            showAlertModal(err.message || 'Failed to load template details. Please refresh.', 'error');
+            showAlertModal(err.message || 'Failed to load template details.', 'error');
         }
     }
 
     async function loadSettings() {
         const container = document.getElementById('settingsContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading settings...</div>';
+
         try {
             const res = await authenticatedFetch('/api/admin/email/settings');
             const settings = await res.json();
+
             if (!settings.length) {
                 container.innerHTML = '<div class="text-center py-8 text-slate-400">No settings found.</div>';
                 return;
             }
+
             const categories = {
                 user: { label: 'User Notifications', keys: ['send_otp', 'send_welcome_email', 'send_password_reset', 'send_account_locked'] },
                 requests: { label: 'Request Notifications', keys: ['send_request_submitted', 'send_request_approved'] },
@@ -1902,45 +1759,44 @@
                 reminders: { label: 'Reminders', keys: ['send_reminders'] },
                 fines: { label: 'Fine Notifications', keys: ['send_fine_created', 'send_fine_paid'] }
             };
+
             let html = '';
             for (const [catKey, cat] of Object.entries(categories)) {
-                html += `<div class="setting-category">${cat.label}</div>`;
+                html += '<div class="setting-category">' + cat.label + '</div>';
                 for (const settingKey of cat.keys) {
                     const setting = settings.find(s => s.setting_key === settingKey);
                     if (!setting) continue;
+
                     const config = setting.config || {};
                     let configControls = '';
+
                     if (settingKey === 'send_reminders') {
                         const days = config.reminder_days_before ? config.reminder_days_before.join(',') : '1,0';
                         const adminSummaryChecked = config.admin_summary_enabled !== false ? 'checked' : '';
                         const overdueChecked = config.send_overdue_reminders !== false ? 'checked' : '';
-                        configControls = `
-                            <div class="config-group">
-                                <label>Remind days before due: <input type="text" data-key="${settingKey}" data-config="reminder_days_before" value="${escapeHtml(days)}" placeholder="e.g. 1,0" /></label>
-                                <label><input type="checkbox" data-key="${settingKey}" data-config="admin_summary_enabled" ${adminSummaryChecked} /> Admin summary</label>
-                                <label><input type="checkbox" data-key="${settingKey}" data-config="send_overdue_reminders" ${overdueChecked} /> Overdue reminders</label>
-                            </div>
-                        `;
+                        configControls = '<div class="config-group">'
+                            + '<label>Remind days before due: <input type="text" data-key="' + settingKey + '" data-config="reminder_days_before" value="' + escapeHtml(days) + '" placeholder="e.g. 1,0" /></label>'
+                            + '<label><input type="checkbox" data-key="' + settingKey + '" data-config="admin_summary_enabled" ' + adminSummaryChecked + ' /> Admin summary</label>'
+                            + '<label><input type="checkbox" data-key="' + settingKey + '" data-config="send_overdue_reminders" ' + overdueChecked + ' /> Overdue reminders</label>'
+                            + '</div>';
                     } else {
                         if (Object.keys(config).length) {
-                            configControls = `<span class="text-xs text-slate-400">${escapeHtml(JSON.stringify(config))}</span>`;
+                            configControls = '<span class="text-xs text-slate-400">' + escapeHtml(JSON.stringify(config)) + '</span>';
                         }
                     }
-                    html += `
-                        <div class="setting-item">
-                            <div class="setting-label">${escapeHtml(settingKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()))}</div>
-                            <div class="setting-control">
-                                <input type="checkbox" class="setting-toggle" data-key="${settingKey}" ${setting.enabled ? 'checked' : ''} />
-                                ${configControls}
-                            </div>
-                        </div>
-                    `;
+
+                    html += '<div class="setting-item">'
+                        + '<div class="setting-label">' + escapeHtml(settingKey.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())) + '</div>'
+                        + '<div class="setting-control">'
+                        + '<input type="checkbox" class="setting-toggle" data-key="' + settingKey + '" ' + (setting.enabled ? 'checked' : '') + ' />'
+                        + configControls
+                        + '</div></div>';
                 }
             }
             container.innerHTML = html;
         } catch (err) {
             container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load settings. Please refresh.</div>';
-            showAlertModal(err.message || 'Unable to load notification settings. Please check your network.', 'error');
+            showAlertModal(err.message || 'Unable to load notification settings.', 'error');
         }
     }
 
@@ -1948,62 +1804,51 @@
         const container = document.getElementById('lostKeysManagementContainer');
         if (!container) return;
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading lost keys...</div>';
+
         try {
             const res = await authenticatedFetch('/api/admin/lost-keys');
             const data = await res.json();
+
             if (!data.length) {
                 container.innerHTML = '<div class="text-center py-8 text-slate-400">No lost keys found.</div>';
                 return;
             }
-            let html = `<table class="table-clean"><thead><tr>
-                <th class="text-left">Key Code</th>
-                <th class="text-left">Brand</th>
-                <th class="text-left">Borrower</th>
-                <th style="text-align:center;">Lost Date</th>
-                <th style="text-align:center;">Status</th>
-                <th style="text-align:right;">Actions</th>
-            </tr></thead><tbody>`;
+
+            let html = '<table class="table-clean"><thead><tr>'
+                + '<th class="text-left">Key Code</th><th class="text-left">Brand</th>'
+                + '<th class="text-left">Borrower</th><th style="text-align:center;">Lost Date</th>'
+                + '<th style="text-align:center;">Status</th><th style="text-align:right;">Actions</th>'
+                + '</tr></thead><tbody>';
+
             for (const item of data) {
                 const statusClass = item.resolved_at ? 'returned' : 'lost';
                 const statusLabel = item.resolved_at ? 'Resolved' : 'Lost';
-                html += `<tr>
-                    <td class="text-left"><code>${escapeHtml(item.key_code)}</code></td>
-                    <td class="text-left">${escapeHtml(item.brand)}</td>
-                    <td class="text-left">${escapeHtml(item.borrower_name || item.borrower_email)}</td>
-                    <td style="text-align:center;">${formatDate(item.lost_at)}</td>
-                    <td style="text-align:center;"><span class="status-badge ${statusClass}">${statusLabel}</span></td>
-                    <td style="text-align:right;">
-                        <div class="actions-dropdown">
-                            <button class="dropdown-toggle" data-id="${item.id}">
-                                Actions <i class="fas fa-chevron-down"></i>
-                            </button>
-                            <div class="dropdown-menu" data-id="${item.id}">
-                                <button class="dropdown-item btn-view view-lost-key-btn" data-id="${item.id}">
-                                    <i class="fas fa-eye"></i> View
-                                </button>
-                                ${!item.resolved_at ? `
-                                    <button class="dropdown-item btn-edit edit-lost-key-btn" data-id="${item.id}">
-                                        <i class="fas fa-edit"></i> Edit
-                                    </button>
-                                    <button class="dropdown-item btn-success close-lost-ticket-btn" data-id="${item.id}" data-key="${escapeHtml(item.key_code)}">
-                                        <i class="fas fa-check-circle"></i> Close Ticket
-                                    </button>
-                                ` : ''}
-                                <button class="dropdown-item btn-warning make-available-btn" data-id="${item.id}" data-key="${escapeHtml(item.key_code)}">
-                                    <i class="fas fa-check"></i> Make Available
-                                </button>
-                            </div>
-                        </div>
-                    </td>
-                </tr>`;
+
+                html += '<tr><td class="text-left"><code>' + escapeHtml(item.key_code) + '</code></td>'
+                    + '<td class="text-left">' + escapeHtml(item.brand) + '</td>'
+                    + '<td class="text-left">' + escapeHtml(item.borrower_name || item.borrower_email) + '</td>'
+                    + '<td style="text-align:center;">' + formatDate(item.lost_at) + '</td>'
+                    + '<td style="text-align:center;"><span class="status-badge ' + statusClass + '">' + statusLabel + '</span></td>'
+                    + '<td style="text-align:right;"><div class="actions-dropdown">'
+                    + '<button class="dropdown-toggle" data-id="' + item.id + '">Actions <i class="fas fa-chevron-down"></i></button>'
+                    + '<div class="dropdown-menu" data-id="' + item.id + '">'
+                    + '<button class="dropdown-item btn-view view-lost-key-btn" data-id="' + item.id + '"><i class="fas fa-eye"></i> View</button>';
+
+                if (!item.resolved_at) {
+                    html += '<button class="dropdown-item btn-edit edit-lost-key-btn" data-id="' + item.id + '"><i class="fas fa-edit"></i> Edit</button>'
+                        + '<button class="dropdown-item btn-success close-lost-ticket-btn" data-id="' + item.id + '" data-key="' + escapeHtml(item.key_code) + '"><i class="fas fa-check-circle"></i> Close Ticket</button>';
+                }
+
+                html += '<button class="dropdown-item btn-warning make-available-btn" data-id="' + item.id + '" data-key="' + escapeHtml(item.key_code) + '"><i class="fas fa-check"></i> Make Available</button>'
+                    + '</div></div></td></tr>';
             }
-            html += `</tbody></table>`;
+            html += '</tbody></table>';
             container.innerHTML = html;
 
             container.querySelectorAll('.actions-dropdown').forEach(dropdown => {
                 const toggle = dropdown.querySelector('.dropdown-toggle');
                 const menu = dropdown.querySelector('.dropdown-menu');
-                
+
                 toggle.addEventListener('click', function(e) {
                     e.stopPropagation();
                     container.querySelectorAll('.dropdown-menu').forEach(m => {
@@ -2011,7 +1856,7 @@
                     });
                     menu.classList.toggle('show');
                 });
-                
+
                 menu.querySelectorAll('.dropdown-item').forEach(item => {
                     item.addEventListener('click', function(e) {
                         e.stopPropagation();
@@ -2020,6 +1865,7 @@
                             this.classList.contains('edit-lost-key-btn') ? 'edit' :
                             this.classList.contains('close-lost-ticket-btn') ? 'close-ticket' :
                             this.classList.contains('make-available-btn') ? 'make-available' : null;
+
                         if (action) {
                             menu.classList.remove('show');
                             const lostItem = data.find(d => d.id === id);
@@ -2038,34 +1884,36 @@
                     });
                 });
             });
-            
+
             document.addEventListener('click', function(e) {
                 if (!e.target.closest('.actions-dropdown')) {
                     container.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
                 }
             });
         } catch (err) {
-            container.innerHTML = `<div class="text-center py-8 text-rose-600">Failed to load lost keys: ${escapeHtml(err.message)}</div>`;
+            container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load lost keys: ' + escapeHtml(err.message) + '</div>';
             showAlertModal(err.message || 'Failed to load lost keys.', 'error');
         }
     }
 
-    // ===== FIXED: handleCloseTicket with confirm/prompt modals =====
     async function handleCloseTicket(id, key) {
-        const ok = await showConfirm(`Close lost ticket for key ${key}? This will mark the issue as resolved.`, { 
-            title: 'Close Ticket', 
-            danger: false, 
-            okLabel: 'Close Ticket' 
+        const ok = await showConfirm('Close lost ticket for key ' + key + '?', {
+            title: 'Close Ticket',
+            danger: false,
+            okLabel: 'Close Ticket'
         });
         if (!ok) return;
+
         const notes = await showPromptModal('Resolution notes (optional):', { title: 'Close Ticket' });
         if (notes === undefined) return;
+
         try {
-            const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/close`, {
+            const res = await authenticatedFetch('/api/admin/lost-keys/' + id + '/close', {
                 method: 'POST',
                 body: JSON.stringify({ resolution_notes: notes || null })
             });
             const data = await res.json();
+
             if (res.ok) {
                 await logAuditEvent('close_lost_ticket', 'lost_key', id, {
                     key_code: key,
@@ -2084,24 +1932,21 @@
         }
     }
 
-    // ===== FIXED: handleMakeAvailable with confirm modal =====
     async function handleMakeAvailable(id, key) {
-        const ok = await showConfirm(`Mark key ${key} as available again?`, { 
-            title: 'Mark Available', 
-            danger: false, 
-            okLabel: 'Mark Available' 
+        const ok = await showConfirm('Mark key ' + key + ' as available again?', {
+            title: 'Mark Available',
+            danger: false,
+            okLabel: 'Mark Available'
         });
         if (!ok) return;
+
         try {
-            const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/make-available`, {
-                method: 'POST'
-            });
+            const res = await authenticatedFetch('/api/admin/lost-keys/' + id + '/make-available', { method: 'POST' });
             const data = await res.json();
+
             if (res.ok) {
-                await logAuditEvent('make_key_available', 'lost_key', id, {
-                    key_code: key
-                });
-                showAlertModal(`Key ${key} is now available.`, 'success');
+                await logAuditEvent('make_key_available', 'lost_key', id, { key_code: key });
+                showAlertModal('Key ' + key + ' is now available.', 'success');
                 closeDetailModal();
                 loadLostKeysManagement();
                 loadLostKeys();
@@ -2119,57 +1964,40 @@
         const content = document.getElementById('lostKeyDetailContent');
         modal.style.display = 'flex';
         content.innerHTML = '<div class="text-center py-8 text-slate-400">Loading...</div>';
+
         try {
-            const res = await authenticatedFetch(`/api/admin/lost-keys/${id}`);
+            const res = await authenticatedFetch('/api/admin/lost-keys/' + id);
             const data = await res.json();
+            const formatAmount = (amount) => safeNumber(amount).toFixed(2);
             const statusClass = data.resolved_at ? 'returned' : 'lost';
             const statusLabel = data.resolved_at ? 'Resolved' : 'Lost';
-            const formatAmount = (amount) => {
-                const num = safeNumber(amount);
-                return num.toFixed(2);
-            };
-            const html = `
-                <div class="detail-section">
-                    <div class="detail-label">Key Information</div>
-                    <div class="detail-grid">
-                        <div><span class="detail-label">Code</span><div class="detail-value">${escapeHtml(data.key_code)}</div></div>
-                        <div><span class="detail-label">Brand</span><div class="detail-value">${escapeHtml(data.brand)}</div></div>
-                        <div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ${statusClass}">${statusLabel}</span></div></div>
-                    </div>
-                </div>
-                <div class="detail-section">
-                    <div class="detail-label">Borrower</div>
-                    <div class="detail-grid">
-                        <div><span class="detail-label">Name</span><div class="detail-value">${escapeHtml(data.borrower_name || '—')}</div></div>
-                        <div><span class="detail-label">Email</span><div class="detail-value">${escapeHtml(data.borrower_email || '—')}</div></div>
-                    </div>
-                </div>
-                <div class="detail-section">
-                    <div class="detail-label">Lost Event</div>
-                    <div class="detail-grid">
-                        <div><span class="detail-label">Lost At</span><div class="detail-value">${formatDate(data.lost_at)}</div></div>
-                        <div><span class="detail-label">Planned Return</span><div class="detail-value">${formatDate(data.planned_return)}</div></div>
-                        ${data.returned_at ? `<div><span class="detail-label">Returned At</span><div class="detail-value">${formatDate(data.returned_at)}</div></div>` : ''}
-                        <div class="full-width"><span class="detail-label">Reason for Loss</span><div class="detail-value">${escapeHtml(data.reason || '—')}</div></div>
-                        ${data.resolved_at ? `<div><span class="detail-label">Resolved At</span><div class="detail-value">${formatDate(data.resolved_at)}</div></div>` : ''}
-                    </div>
-                </div>
-                ${data.fine ? `
-                <div class="detail-section">
-                    <div class="detail-label">Fee</div>
-                    <div class="detail-grid">
-                        <div><span class="detail-label">Amount</span><div class="detail-value">$${formatAmount(data.fine.amount)}</div></div>
-                        <div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ${data.fine.status === 'paid' ? 'returned' : 'pending'}">${escapeHtml(data.fine.status || 'pending')}</span></div></div>
-                        <div><span class="detail-label">Issued</span><div class="detail-value">${formatDate(data.fine.created_at)}</div></div>
-                        ${data.fine.paid_at ? `<div><span class="detail-label">Paid At</span><div class="detail-value">${formatDate(data.fine.paid_at)}</div></div>` : ''}
-                        ${data.fine.waived_at ? `<div><span class="detail-label">Waived At</span><div class="detail-value">${formatDate(data.fine.waived_at)}</div></div>` : ''}
-                    </div>
-                </div>` : ''}
-            `;
-            content.innerHTML = html;
-            document.getElementById('lostKeyDetailTitle').textContent = `Lost Key: ${data.key_code}`;
+
+            const html = '<div class="detail-section"><div class="detail-label">Key Information</div>'
+                + '<div class="detail-grid"><div><span class="detail-label">Code</span><div class="detail-value">' + escapeHtml(data.key_code) + '</div></div>'
+                + '<div><span class="detail-label">Brand</span><div class="detail-value">' + escapeHtml(data.brand) + '</div></div>'
+                + '<div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ' + statusClass + '">' + statusLabel + '</span></div></div></div></div>'
+                + '<div class="detail-section"><div class="detail-label">Borrower</div>'
+                + '<div class="detail-grid"><div><span class="detail-label">Name</span><div class="detail-value">' + escapeHtml(data.borrower_name || '—') + '</div></div>'
+                + '<div><span class="detail-label">Email</span><div class="detail-value">' + escapeHtml(data.borrower_email || '—') + '</div></div></div></div>'
+                + '<div class="detail-section"><div class="detail-label">Lost Event</div>'
+                + '<div class="detail-grid"><div><span class="detail-label">Lost At</span><div class="detail-value">' + formatDate(data.lost_at) + '</div></div>'
+                + '<div><span class="detail-label">Planned Return</span><div class="detail-value">' + formatDate(data.planned_return) + '</div></div>'
+                + (data.returned_at ? '<div><span class="detail-label">Returned At</span><div class="detail-value">' + formatDate(data.returned_at) + '</div></div>' : '')
+                + '<div class="full-width"><span class="detail-label">Reason for Loss</span><div class="detail-value">' + escapeHtml(data.reason || '—') + '</div></div>'
+                + (data.resolved_at ? '<div><span class="detail-label">Resolved At</span><div class="detail-value">' + formatDate(data.resolved_at) + '</div></div>' : '')
+                + '</div></div>';
+
+            content.innerHTML = html + (data.fine ? '<div class="detail-section"><div class="detail-label">Fee</div>'
+                + '<div class="detail-grid"><div><span class="detail-label">Amount</span><div class="detail-value">$' + formatAmount(data.fine.amount) + '</div></div>'
+                + '<div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ' + (data.fine.status === 'paid' ? 'returned' : 'pending') + '">' + escapeHtml(data.fine.status || 'pending') + '</span></div></div>'
+                + '<div><span class="detail-label">Issued</span><div class="detail-value">' + formatDate(data.fine.created_at) + '</div></div>'
+                + (data.fine.paid_at ? '<div><span class="detail-label">Paid At</span><div class="detail-value">' + formatDate(data.fine.paid_at) + '</div></div>' : '')
+                + (data.fine.waived_at ? '<div><span class="detail-label">Waived At</span><div class="detail-value">' + formatDate(data.fine.waived_at) + '</div></div>' : '')
+                + '</div></div>' : '');
+
+            document.getElementById('lostKeyDetailTitle').textContent = 'Lost Key: ' + data.key_code;
         } catch (err) {
-            content.innerHTML = `<div class="text-center py-8 text-rose-600">Unable to load details: ${escapeHtml(err.message || 'Please refresh and try again.')}</div>`;
+            content.innerHTML = '<div class="text-center py-8 text-rose-600">Unable to load details: ' + escapeHtml(err.message || 'Please refresh and try again.') + '</div>';
             showAlertModal(err.message || 'Failed to load lost key details.', 'error');
         }
     }
@@ -2177,20 +2005,24 @@
     async function openLostKeyEditModal(id) {
         const modal = document.getElementById('lostKeyEditModal');
         modal.style.display = 'flex';
+
         try {
-            const res = await authenticatedFetch(`/api/admin/lost-keys/${id}`);
+            const res = await authenticatedFetch('/api/admin/lost-keys/' + id);
             const data = await res.json();
+
             document.getElementById('editLostTransactionId').value = id;
             document.getElementById('editLostKeyCode').value = data.key_code || '';
             document.getElementById('editLostBrand').value = data.brand || '';
             document.getElementById('editLostBorrower').value = data.borrower_name || data.borrower_email || '';
             document.getElementById('editLostReason').value = data.reason || '';
+
             if (data.lost_at) {
                 const date = new Date(data.lost_at);
                 document.getElementById('editLostDate').value = date.toISOString().slice(0, 16);
             }
+
             document.getElementById('editLostStatus').value = data.resolved_at ? 'resolved' : 'lost';
-            document.getElementById('lostKeyEditTitle').textContent = `Edit Lost Key: ${data.key_code}`;
+            document.getElementById('lostKeyEditTitle').textContent = 'Edit Lost Key: ' + data.key_code;
         } catch (err) {
             showAlertModal(err.message || 'Failed to load lost key details.', 'error');
             modal.style.display = 'none';
@@ -2201,39 +2033,34 @@
         const container = document.getElementById('adminRecipientsContainer');
         if (!container) return;
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading recipients...</div>';
+
         try {
             const res = await authenticatedFetch('/api/admin/admin-notification-recipients');
             const recipients = await res.json();
+
             if (!recipients.length) {
-                container.innerHTML = '<div class="text-center py-8 text-slate-400">No admin notification recipients configured. Add one to receive email notifications for key requests.</div>';
+                container.innerHTML = '<div class="text-center py-8 text-slate-400">No admin notification recipients configured.</div>';
                 return;
             }
-            let html = `<table class="table-clean"><thead><tr>
-                <th class="text-left">Name</th>
-                <th class="text-left">Email</th>
-                <th style="text-align:center;">Status</th>
-                <th style="text-align:right;">Actions</th>
-            </tr></thead><tbody>`;
+
+            let html = '<table class="table-clean"><thead><tr>'
+                + '<th class="text-left">Name</th><th class="text-left">Email</th>'
+                + '<th style="text-align:center;">Status</th><th style="text-align:right;">Actions</th>'
+                + '</tr></thead><tbody>';
+
             for (const r of recipients) {
                 const statusBadge = r.enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700';
                 const statusLabel = r.enabled ? 'Active' : 'Disabled';
-                html += `<tr>
-                    <td class="text-left">${escapeHtml(r.name)}</td>
-                    <td class="text-left">${escapeHtml(r.email)}</td>
-                    <td style="text-align:center;"><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
-                    <td style="text-align:right;">
-                        <div class="action-buttons" style="justify-content:flex-end;">
-                            <button class="btn btn-secondary btn-sm toggle-admin-recipient" data-user-id="${r.id}" data-enabled="${r.enabled}">
-                                <i class="fas ${r.enabled ? 'fa-pause' : 'fa-play'}"></i> ${r.enabled ? 'Disable' : 'Enable'}
-                            </button>
-                            <button class="btn btn-danger btn-sm delete-admin-recipient" data-user-id="${r.id}" data-name="${escapeHtml(r.name)}">
-                                <i class="fas fa-trash"></i> Remove
-                            </button>
-                        </div>
-                    </td>
-                </tr>`;
+
+                html += '<tr><td class="text-left">' + escapeHtml(r.name) + '</td>'
+                    + '<td class="text-left">' + escapeHtml(r.email) + '</td>'
+                    + '<td style="text-align:center;"><span class="status-badge ' + statusBadge + '">' + statusLabel + '</span></td>'
+                    + '<td style="text-align:right;"><div class="action-buttons" style="justify-content:flex-end;">'
+                    + '<button class="btn btn-secondary btn-sm toggle-admin-recipient" data-user-id="' + r.id + '" data-enabled="' + r.enabled + '"><i class="fas ' + (r.enabled ? 'fa-pause' : 'fa-play') + '"></i> ' + (r.enabled ? 'Disable' : 'Enable') + '</button>'
+                    + '<button class="btn btn-danger btn-sm delete-admin-recipient" data-user-id="' + r.id + '" data-name="' + escapeHtml(r.name) + '"><i class="fas fa-trash"></i> Remove</button>'
+                    + '</div></td></tr>';
             }
-            html += `</tbody></table>`;
+            html += '</tbody></table>';
             container.innerHTML = html;
 
             document.querySelectorAll('.toggle-admin-recipient').forEach(btn => {
@@ -2241,16 +2068,15 @@
                     const userId = parseInt(this.dataset.userId);
                     const currentEnabled = this.dataset.enabled === 'true';
                     const newEnabled = !currentEnabled;
+
                     try {
                         const res = await authenticatedFetch('/api/admin/admin-notification-recipients', {
                             method: 'POST',
                             body: JSON.stringify({ user_id: userId, enabled: newEnabled })
                         });
                         if (res.ok) {
-                            await logAuditEvent('toggle_admin_recipient', 'admin_recipient', userId, {
-                                enabled: newEnabled
-                            });
-                            showAlertModal(`Recipient ${newEnabled ? 'enabled' : 'disabled'}.`, 'success');
+                            await logAuditEvent('toggle_admin_recipient', 'admin_recipient', userId, { enabled: newEnabled });
+                            showAlertModal('Recipient ' + (newEnabled ? 'enabled' : 'disabled') + '.', 'success');
                             loadAdminRecipients();
                         } else {
                             const data = await res.json();
@@ -2266,14 +2092,13 @@
                 btn.addEventListener('click', async function() {
                     const userId = parseInt(this.dataset.userId);
                     const name = this.dataset.name;
-                    const ok = await showConfirm(`Remove ${name} from notification recipients?`, { title: 'Remove Recipient' });
+                    const ok = await showConfirm('Remove ' + name + ' from notification recipients?', { title: 'Remove Recipient' });
                     if (!ok) return;
+
                     try {
-                        const res = await authenticatedFetch(`/api/admin/admin-notification-recipients/${userId}`, { method: 'DELETE' });
+                        const res = await authenticatedFetch('/api/admin/admin-notification-recipients/' + userId, { method: 'DELETE' });
                         if (res.ok) {
-                            await logAuditEvent('delete_admin_recipient', 'admin_recipient', userId, {
-                                name: name
-                            });
+                            await logAuditEvent('delete_admin_recipient', 'admin_recipient', userId, { name: name });
                             showAlertModal('Recipient removed successfully.', 'success');
                             loadAdminRecipients();
                         } else {
@@ -2286,7 +2111,7 @@
                 });
             });
         } catch (err) {
-            container.innerHTML = `<div class="text-center py-8 text-rose-600">Failed to load recipients: ${escapeHtml(err.message)}</div>`;
+            container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load recipients: ' + escapeHtml(err.message) + '</div>';
             showAlertModal(err.message || 'Failed to load admin notification recipients.', 'error');
         }
     }
@@ -2296,18 +2121,21 @@
         const select = document.getElementById('adminRecipientSelect');
         modal.style.display = 'flex';
         select.innerHTML = '<option value="">Loading...</option>';
+
         try {
             const res = await authenticatedFetch('/api/admin/admin-notification-recipients/available');
             const users = await res.json();
+
             if (!users.length) {
                 select.innerHTML = '<option value="">No available admins</option>';
                 return;
             }
+
             select.innerHTML = '<option value="">Select admin user...</option>';
             for (const user of users) {
                 const opt = document.createElement('option');
                 opt.value = user.id;
-                opt.textContent = `${user.name} (${user.email})`;
+                opt.textContent = user.name + ' (' + user.email + ')';
                 select.appendChild(opt);
             }
         } catch (err) {
@@ -2325,23 +2153,26 @@
     async function loadAuditLogs() {
         const tbody = document.getElementById('auditLogContainer');
         tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">Loading audit logs...</td></tr>';
+
         try {
             const res = await authenticatedFetch('/api/audit/logs');
             const logs = await res.json();
+
             if (!logs.length) {
                 tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">No audit entries found.</td></tr>';
                 return;
             }
+
             let html = '';
             for (const entry of logs) {
-                html += `<tr class="audit-row" data-entry='${escapeHtml(JSON.stringify(entry))}'>
-                    <td>${escapeHtml(entry.action || '')}</td>
-                    <td>${escapeHtml(entry.target_type || '')}</td>
-                    <td>${escapeHtml(entry.user_name || entry.user_email || 'System')}</td>
-                    <td>${formatDate(entry.created_at)}</td>
-                </tr>`;
+                html += '<tr class="audit-row" data-entry="' + escapeHtml(JSON.stringify(entry)) + '">'
+                    + '<td>' + escapeHtml(entry.action || '') + '</td>'
+                    + '<td>' + escapeHtml(entry.target_type || '') + '</td>'
+                    + '<td>' + escapeHtml(entry.user_name || entry.user_email || 'System') + '</td>'
+                    + '<td>' + formatDate(entry.created_at) + '</td></tr>';
             }
             tbody.innerHTML = html;
+
             tbody.querySelectorAll('.audit-row').forEach(row => {
                 row.addEventListener('click', function() {
                     const entry = JSON.parse(this.dataset.entry);
@@ -2350,38 +2181,47 @@
             });
         } catch (err) {
             tbody.innerHTML = '<tr><td colspan="4" class="text-rose-600 text-center py-8">Unable to load audit logs. Please refresh.</td></tr>';
-            showAlertModal(err.message || 'Failed to load audit logs. Please check your network.', 'error');
+            showAlertModal(err.message || 'Failed to load audit logs.', 'error');
         }
     }
 
     function showAuditDetail(entry) {
-        let detailsHtml = `<div class="space-y-4">
-            <p><strong>Action:</strong> ${escapeHtml(entry.action)}</p>
-            <p><strong>Target:</strong> ${escapeHtml(entry.target_type)} (ID: ${escapeHtml(entry.target_id || 'N/A')})</p>
-            <p><strong>User:</strong> ${escapeHtml(entry.user_name || entry.user_email || 'System')}</p>
-            <p><strong>Timestamp:</strong> ${formatDate(entry.created_at)}</p>`;
+        let detailsHtml = '<div class="space-y-4">'
+            + '<p><strong>Action:</strong> ' + escapeHtml(entry.action) + '</p>'
+            + '<p><strong>Target:</strong> ' + escapeHtml(entry.target_type) + ' (ID: ' + escapeHtml(entry.target_id || 'N/A') + ')</p>'
+            + '<p><strong>User:</strong> ' + escapeHtml(entry.user_name || entry.user_email || 'System') + '</p>'
+            + '<p><strong>Timestamp:</strong> ' + formatDate(entry.created_at) + '</p>';
+
         if (entry.details) {
-            detailsHtml += `<p><strong>Details:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">${escapeHtml(typeof entry.details === 'string' ? entry.details : JSON.stringify(entry.details, null, 2))}</pre></p>`;
+            detailsHtml += '<p><strong>Details:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">'
+                + escapeHtml(typeof entry.details === 'string' ? entry.details : JSON.stringify(entry.details, null, 2))
+                + '</pre></p>';
         }
         if (entry.old_data) {
-            detailsHtml += `<p><strong>Old Data:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">${escapeHtml(typeof entry.old_data === 'string' ? entry.old_data : JSON.stringify(entry.old_data, null, 2))}</pre></p>`;
+            detailsHtml += '<p><strong>Old Data:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">'
+                + escapeHtml(typeof entry.old_data === 'string' ? entry.old_data : JSON.stringify(entry.old_data, null, 2))
+                + '</pre></p>';
         }
         if (entry.new_data) {
-            detailsHtml += `<p><strong>New Data:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">${escapeHtml(typeof entry.new_data === 'string' ? entry.new_data : JSON.stringify(entry.new_data, null, 2))}</pre></p>`;
+            detailsHtml += '<p><strong>New Data:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">'
+                + escapeHtml(typeof entry.new_data === 'string' ? entry.new_data : JSON.stringify(entry.new_data, null, 2))
+                + '</pre></p>';
         }
-        detailsHtml += `</div>`;
+        detailsHtml += '</div>';
         showDetailModal('Audit Entry Details', detailsHtml);
     }
 
     async function loadPermissions() {
         const container = document.getElementById('permissionsContainer');
         container.innerHTML = '<div class="text-center text-slate-400 py-8">Loading permissions...</div>';
+
         try {
             const [rolesRes, permsRes] = await Promise.all([
                 authenticatedFetch('/api/permissions/roles'),
                 authenticatedFetch('/api/permissions')
             ]);
             if (!rolesRes.ok || !permsRes.ok) throw new Error('Failed to load permissions data');
+
             const roleMappings = await rolesRes.json();
             const permissions = await permsRes.json();
 
@@ -2409,53 +2249,56 @@
             permissionsData.roles = Object.keys(normalizedMappings);
             renderPermissions();
         } catch (err) {
-            container.innerHTML = `<div class="text-rose-600 text-center py-8">Error: ${escapeHtml(err.message)}</div>`;
-            showAlertModal(err.message || 'Unable to load permissions. Please refresh.', 'error');
+            container.innerHTML = '<div class="text-rose-600 text-center py-8">Error: ' + escapeHtml(err.message) + '</div>';
+            showAlertModal(err.message || 'Unable to load permissions.', 'error');
         }
     }
 
     function renderPermissions() {
         const container = document.getElementById('permissionsContainer');
         const { roles, permissions, roleMappings } = permissionsData;
+
         if (!permissions || permissions.length === 0) {
             container.innerHTML = '<div class="text-center py-8 text-amber-600">No permissions defined.</div>';
             return;
         }
         if (!roles || roles.length === 0) {
-            container.innerHTML = '<div class="text-center py-8 text-amber-600">No roles found. Add roles to role_permissions.</div>';
+            container.innerHTML = '<div class="text-center py-8 text-amber-600">No roles found.</div>';
             return;
         }
 
-        let html = `<table class="table-clean"><thead><tr><th class="text-left">Role</th>`;
-        for (const p of permissions) html += `<th>${escapeHtml(p.permission_name)}</th>`;
-        html += `<th>Actions</th></tr></thead><tbody>`;
+        let html = '<table class="table-clean"><thead><tr><th class="text-left">Role</th>';
+        for (const p of permissions) html += '<th>' + escapeHtml(p.permission_name) + '</th>';
+        html += '<th>Actions</th></tr></thead><tbody>';
 
         for (const role of roles) {
             const perms = Array.isArray(roleMappings[role]) ? roleMappings[role] : [];
-            html += `<tr><td class="text-left font-medium text-slate-800">${escapeHtml(role)}</td>`;
+            html += '<tr><td class="text-left font-medium text-slate-800">' + escapeHtml(role) + '</td>';
+
             for (const p of permissions) {
                 const checked = perms.includes(p.permission_code) || perms.includes(String(p.permission_id)) ? 'checked' : '';
-                html += `<td><input type="checkbox" class="permission-checkbox" data-role="${escapeHtml(role)}" data-perm-id="${p.permission_id}" ${checked}></td>`;
+                html += '<td><input type="checkbox" class="permission-checkbox" data-role="' + escapeHtml(role) + '" data-perm-id="' + p.permission_id + '" ' + checked + '></td>';
             }
+
             if (role.toLowerCase() === 'admin') {
-                html += `<td><button class="btn btn-secondary btn-sm viewRoleBtn" data-role="${escapeHtml(role)}"><i class="fas fa-eye"></i> View</button></td>`;
+                html += '<td><button class="btn btn-secondary btn-sm viewRoleBtn" data-role="' + escapeHtml(role) + '"><i class="fas fa-eye"></i> View</button></td>';
             } else {
-                html += `<td><button class="btn btn-danger btn-sm deleteRoleBtn" data-role="${escapeHtml(role)}"><i class="fas fa-trash"></i> Delete</button></td>`;
+                html += '<td><button class="btn btn-danger btn-sm deleteRoleBtn" data-role="' + escapeHtml(role) + '"><i class="fas fa-trash"></i> Delete</button></td>';
             }
-            html += `</tr>`;
+            html += '</tr>';
         }
-        html += `</tbody></table>`;
+        html += '</tbody></table>';
         container.innerHTML = html;
 
         document.querySelectorAll('.deleteRoleBtn').forEach(btn => {
             btn.addEventListener('click', function() {
                 const role = this.dataset.role;
-                const ok = await showConfirm(`Delete role "${role}"?`, { title: 'Delete Role' });
+                const ok = await showConfirm('Delete role "' + role + '"?', { title: 'Delete Role' });
                 if (!ok) return;
                 delete permissionsData.roleMappings[role];
                 permissionsData.roles = Object.keys(permissionsData.roleMappings);
                 renderPermissions();
-                showAlertModal(`Role "${role}" removed.`, 'info');
+                showAlertModal('Role "' + role + '" removed.', 'info');
             });
         });
 
@@ -2467,13 +2310,12 @@
                     .filter(p => perms.includes(p.permission_code) || perms.includes(String(p.permission_id)))
                     .map(p => p.permission_name)
                     .join(', ') || 'No permissions assigned';
-                showDetailModal(`Permissions for "${role}"`, `
-                    <div class="p-4">
-                        <p><strong>Role:</strong> ${escapeHtml(role)}</p>
-                        <p><strong>Permissions:</strong> ${escapeHtml(permNames)}</p>
-                        <p class="text-xs text-slate-500 mt-2">System admin role – cannot be deleted.</p>
-                    </div>
-                `);
+
+                showDetailModal('Permissions for "' + role + '"',
+                    '<div class="p-4"><p><strong>Role:</strong> ' + escapeHtml(role) + '</p>'
+                    + '<p><strong>Permissions:</strong> ' + escapeHtml(permNames) + '</p>'
+                    + '<p class="text-xs text-slate-500 mt-2">System admin role – cannot be deleted.</p></div>'
+                );
             });
         });
 
@@ -2493,7 +2335,7 @@
             allRolesList = roleNames;
             populateRoleDropdowns(roleNames);
         } catch (err) {
-            showAlertModal(err.message || 'Failed to load roles. Please refresh.', 'error');
+            showAlertModal(err.message || 'Failed to load roles.', 'error');
         }
     }
 
@@ -2508,6 +2350,7 @@
                 filterSelect.appendChild(opt);
             });
         }
+
         const modalSelect = document.getElementById('acmRole');
         if (modalSelect) {
             modalSelect.innerHTML = '<option value="">Select role...</option>';
@@ -2518,6 +2361,7 @@
                 modalSelect.appendChild(opt);
             });
         }
+
         const manageRoleFilter = document.getElementById('manageUserRoleFilter');
         if (manageRoleFilter) {
             manageRoleFilter.innerHTML = '<option value="all">All roles</option>';
@@ -2530,53 +2374,52 @@
         }
     }
 
-    // ===== FIXED: loadPendingRegistrations with confirm/prompt modals =====
     async function loadPendingRegistrations() {
         const container = document.getElementById('pendingRequestsContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading requests...</div>';
+
         try {
             const res = await authenticatedFetch('/api/auth/admin/pending-requests');
             const requests = await res.json();
+
             if (!requests.length) {
                 container.innerHTML = '<div class="text-center py-8 text-slate-400">No pending requests.</div>';
                 return;
             }
-            let html = `<table class="table-clean"><thead><tr>
-                <th style="text-align:center;">Name</th>
-                <th style="text-align:center;">Email</th>
-                <th style="text-align:center;">Username</th>
-                <th style="text-align:center;">Requested</th>
-                <th style="text-align:center;">Actions</th>
-            </tr></thead><tbody>`;
+
+            let html = '<table class="table-clean"><thead><tr>'
+                + '<th style="text-align:center;">Name</th><th style="text-align:center;">Email</th>'
+                + '<th style="text-align:center;">Username</th><th style="text-align:center;">Requested</th>'
+                + '<th style="text-align:center;">Actions</th>'
+                + '</tr></thead><tbody>';
+
             for (const req of requests) {
-                html += `<tr>
-                    <td style="text-align:center;">${escapeHtml(req.name)}</td>
-                    <td style="text-align:center;">${escapeHtml(req.email)}</td>
-                    <td style="text-align:center;">${escapeHtml(req.username || '—')}</td>
-                    <td style="text-align:center;">${formatDate(req.created_at)}</td>
-                    <td style="text-align:center;">
-                        <div class="action-buttons" style="justify-content:center;">
-                            <button class="btn btn-success btn-sm approveRequestBtn" data-id="${req.id}"><i class="fas fa-check"></i> Approve</button>
-                            <button class="btn btn-danger btn-sm rejectRequestBtn" data-id="${req.id}"><i class="fas fa-times"></i> Reject</button>
-                        </div>
-                    </td>
-                </tr>`;
+                html += '<tr><td style="text-align:center;">' + escapeHtml(req.name) + '</td>'
+                    + '<td style="text-align:center;">' + escapeHtml(req.email) + '</td>'
+                    + '<td style="text-align:center;">' + escapeHtml(req.username || '—') + '</td>'
+                    + '<td style="text-align:center;">' + formatDate(req.created_at) + '</td>'
+                    + '<td style="text-align:center;"><div class="action-buttons" style="justify-content:center;">'
+                    + '<button class="btn btn-success btn-sm approveRequestBtn" data-id="' + req.id + '"><i class="fas fa-check"></i> Approve</button>'
+                    + '<button class="btn btn-danger btn-sm rejectRequestBtn" data-id="' + req.id + '"><i class="fas fa-times"></i> Reject</button>'
+                    + '</div></td></tr>';
             }
-            html += `</tbody></table>`;
+            html += '</tbody></table>';
             container.innerHTML = html;
-            
+
             container.querySelectorAll('.approveRequestBtn').forEach(btn => {
                 btn.addEventListener('click', async function() {
                     const id = this.dataset.id;
-                    const ok = await showConfirm('Approve this registration request? The user will receive a password via email.', { 
-                        title: 'Approve Request', 
-                        danger: false, 
-                        okLabel: 'Approve' 
+                    const ok = await showConfirm('Approve this registration request?', {
+                        title: 'Approve Request',
+                        danger: false,
+                        okLabel: 'Approve'
                     });
                     if (!ok) return;
+
                     try {
-                        const res = await authenticatedFetch(`/api/auth/admin/pending-requests/${id}/approve`, { method: 'POST' });
+                        const res = await authenticatedFetch('/api/auth/admin/pending-requests/' + id + '/approve', { method: 'POST' });
                         const data = await res.json();
+
                         if (res.ok) {
                             await logAuditEvent('registration_approved', 'registration_request', id, {
                                 user_name: data.user?.name || data.name,
@@ -2586,30 +2429,33 @@
                             showAlertModal(data.message || 'User approved. Password sent.', 'success');
                             loadPendingRegistrations();
                         } else {
-                            showAlertModal(data.error || 'Approval failed. Please try again.', 'error');
+                            showAlertModal(data.error || 'Approval failed.', 'error');
                         }
                     } catch (err) {
-                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                        showAlertModal(err.message || 'Network error.', 'error');
                     }
                 });
             });
-            
+
             container.querySelectorAll('.rejectRequestBtn').forEach(btn => {
                 btn.addEventListener('click', async function() {
                     const id = this.dataset.id;
-                    const reason = await showPromptModal('Optional reason for rejection:', { 
-                        title: 'Reject Request', 
-                        placeholder: 'Reason (optional)' 
+                    const reason = await showPromptModal('Optional reason for rejection:', {
+                        title: 'Reject Request',
+                        placeholder: 'Reason (optional)'
                     });
                     if (reason === undefined) return;
+
                     const ok = await showConfirm('Reject this registration request?', { title: 'Reject Request' });
                     if (!ok) return;
+
                     try {
-                        const res = await authenticatedFetch(`/api/auth/admin/pending-requests/${id}/reject`, {
+                        const res = await authenticatedFetch('/api/auth/admin/pending-requests/' + id + '/reject', {
                             method: 'POST',
                             body: JSON.stringify({ reason: reason || null })
                         });
                         const data = await res.json();
+
                         if (res.ok) {
                             await logAuditEvent('registration_rejected', 'registration_request', id, {
                                 reason: reason || 'No reason provided',
@@ -2618,20 +2464,21 @@
                             showAlertModal('Request rejected successfully.', 'success');
                             loadPendingRegistrations();
                         } else {
-                            showAlertModal(data.error || 'Rejection failed. Please try again.', 'error');
+                            showAlertModal(data.error || 'Rejection failed.', 'error');
                         }
                     } catch (err) {
-                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                        showAlertModal(err.message || 'Network error.', 'error');
                     }
                 });
             });
         } catch (err) {
             container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load requests. Please refresh the page.</div>';
-            showAlertModal(err.message || 'Unable to load pending requests. Please check your internet connection.', 'error');
+            showAlertModal(err.message || 'Unable to load pending requests.', 'error');
         }
     }
 
-    // ===== USER MANAGEMENT WITH PORTAL MENU FIX =====
+    // ===== USER MANAGEMENT =====
+
     function initUserManagement() {
         const tbody = document.getElementById('acmUserTableBody');
         const searchInput = document.getElementById('acmSearchInput');
@@ -2641,7 +2488,11 @@
         const prevBtn = document.getElementById('acmPrevPageBtn');
         const nextBtn = document.getElementById('acmNextPageBtn');
         const paginationInfo = document.getElementById('acmPaginationInfo');
-        let allUsers = [], filteredUsers = [], currentPage = 1, rowsPerPage = 5, totalUsers = 0;
+        let allUsers = [],
+            filteredUsers = [],
+            currentPage = 1,
+            rowsPerPage = 5,
+            totalUsers = 0;
 
         const manageModal = document.getElementById('userManagementModal');
         const manageTbody = document.getElementById('manageUserTableBody');
@@ -2654,7 +2505,11 @@
         const managePaginationInfo = document.getElementById('manageUserPaginationInfo');
         const addUserFromManageBtn = document.getElementById('addUserFromManageBtn');
         const manageTotalLabel = document.getElementById('manageUserTotalLabel');
-        let manageUsers = [], manageFiltered = [], managePage = 1, manageRows = 5, manageTotal = 0;
+        let manageUsers = [],
+            manageFiltered = [],
+            managePage = 1,
+            manageRows = 5,
+            manageTotal = 0;
 
         document.getElementById('openUserManagementBtn')?.addEventListener('click', () => {
             manageModal.style.display = 'flex';
@@ -2664,13 +2519,13 @@
             manageModal.style.display = 'none';
         });
         manageModal?.addEventListener('click', (e) => {
-            if (e.target === e.currentTarget) {
-                manageModal.style.display = 'none';
-            }
+            if (e.target === e.currentTarget) manageModal.style.display = 'none';
         });
 
         async function fetchUsersInline() {
-            const search = searchInput.value.trim(), role = roleFilter.value, status = statusFilter.value;
+            const search = searchInput.value.trim(),
+                role = roleFilter.value,
+                status = statusFilter.value;
             const params = new URLSearchParams();
             if (search) params.append('search', search);
             if (role !== 'all') params.append('role', role);
@@ -2678,8 +2533,9 @@
             params.append('page', currentPage);
             params.append('limit', rowsPerPage);
             params.append('_', Date.now());
+
             try {
-                const res = await authenticatedFetch(`/api/admin/users?${params.toString()}`, { cache: 'no-store' });
+                const res = await authenticatedFetch('/api/admin/users?' + params.toString(), { cache: 'no-store' });
                 const data = await res.json();
                 allUsers = data.users || [];
                 totalUsers = data.total || 0;
@@ -2687,8 +2543,8 @@
                 renderInlineTable();
                 updateInlinePagination();
             } catch (err) {
-                tbody.innerHTML = `<tr><td colspan="4" class="text-center py-8 text-rose-600">Unable to load users. Please refresh.</td></tr>`;
-                showAlertModal(err.message || 'Failed to load users. Please check your network.', 'error');
+                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-rose-600">Unable to load users. Please refresh.</td></tr>';
+                showAlertModal(err.message || 'Failed to load users.', 'error');
             }
         }
 
@@ -2697,25 +2553,20 @@
                 tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">No users found</td></tr>';
                 return;
             }
+
             let html = '';
             for (const user of filteredUsers) {
                 const statusBadge = user.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
                     user.status === 'suspended' ? 'bg-rose-100 text-rose-700' :
                     user.status === 'locked' ? 'bg-amber-100 text-amber-700' : 'bg-amber-100 text-amber-700';
                 const statusLabel = user.status.charAt(0).toUpperCase() + user.status.slice(1);
-                html += `
-                    <tr class="hover:bg-slate-50 transition">
-                        <td style="text-align:center;">
-                            <div>
-                                <div class="text-sm font-medium text-slate-800">${escapeHtml(user.name || 'User')}</div>
-                                <div class="text-sm text-slate-500">${escapeHtml(user.email)}</div>
-                            </div>
-                        </td>
-                        <td style="text-align:center;">${escapeHtml(user.role)}</td>
-                        <td style="text-align:center;"><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
-                        <td style="text-align:center;">${formatLastActive(user.lastActive)}</td>
-                    </tr>
-                `;
+
+                html += '<tr class="hover:bg-slate-50 transition">'
+                    + '<td style="text-align:center;"><div><div class="text-sm font-medium text-slate-800">' + escapeHtml(user.name || 'User') + '</div>'
+                    + '<div class="text-sm text-slate-500">' + escapeHtml(user.email) + '</div></div></td>'
+                    + '<td style="text-align:center;">' + escapeHtml(user.role) + '</td>'
+                    + '<td style="text-align:center;"><span class="status-badge ' + statusBadge + '">' + statusLabel + '</span></td>'
+                    + '<td style="text-align:center;">' + formatLastActive(user.lastActive) + '</td></tr>';
             }
             tbody.innerHTML = html;
         }
@@ -2723,18 +2574,36 @@
         function updateInlinePagination() {
             const start = (currentPage - 1) * rowsPerPage + 1;
             const end = Math.min(currentPage * rowsPerPage, totalUsers);
-            paginationInfo.innerText = totalUsers === 0 ? 'Showing 0 of 0 users' : `Showing ${start}–${end} of ${totalUsers} users`;
+            paginationInfo.innerText = totalUsers === 0 ?
+                'Showing 0 of 0 users' :
+                'Showing ' + start + '–' + end + ' of ' + totalUsers + ' users';
             const totalPages = Math.ceil(totalUsers / rowsPerPage);
             prevBtn.disabled = currentPage === 1 || totalPages === 0;
             nextBtn.disabled = currentPage === totalPages || totalPages === 0;
         }
 
-        searchInput?.addEventListener('input', () => { currentPage = 1; fetchUsersInline(); });
-        roleFilter?.addEventListener('change', () => { currentPage = 1; fetchUsersInline(); });
-        statusFilter?.addEventListener('change', () => { currentPage = 1; fetchUsersInline(); });
-        resetBtn?.addEventListener('click', () => { searchInput.value = ''; roleFilter.value = 'all'; statusFilter.value = 'all'; currentPage = 1; fetchUsersInline(); });
-        prevBtn?.addEventListener('click', () => { if (currentPage > 1) { currentPage--; fetchUsersInline(); } });
-        nextBtn?.addEventListener('click', () => { const totalPages = Math.ceil(totalUsers / rowsPerPage); if (currentPage < totalPages) { currentPage++; fetchUsersInline(); } });
+        searchInput?.addEventListener('input', () => { currentPage = 1;
+            fetchUsersInline(); });
+        roleFilter?.addEventListener('change', () => { currentPage = 1;
+            fetchUsersInline(); });
+        statusFilter?.addEventListener('change', () => { currentPage = 1;
+            fetchUsersInline(); });
+        resetBtn?.addEventListener('click', () => {
+            searchInput.value = '';
+            roleFilter.value = 'all';
+            statusFilter.value = 'all';
+            currentPage = 1;
+            fetchUsersInline();
+        });
+        prevBtn?.addEventListener('click', () => {
+            if (currentPage > 1) { currentPage--;
+                fetchUsersInline(); }
+        });
+        nextBtn?.addEventListener('click', () => {
+            const totalPages = Math.ceil(totalUsers / rowsPerPage);
+            if (currentPage < totalPages) { currentPage++;
+                fetchUsersInline(); }
+        });
         document.getElementById('acmRowsPerPage')?.addEventListener('change', function() {
             rowsPerPage = parseInt(this.value);
             currentPage = 1;
@@ -2751,10 +2620,13 @@
         const deleteConfirmModal = document.getElementById('acmDeleteConfirmModal');
         const cancelDeleteBtn = document.getElementById('acmCancelDeleteBtn');
         const confirmDeleteBtn = document.getElementById('acmConfirmDeleteBtn');
-        let editUserId = null, deleteUserId = null;
+        let editUserId = null,
+            deleteUserId = null;
 
         async function fetchManageUsers() {
-            const search = manageSearch.value.trim(), role = manageRoleFilter.value, status = manageStatusFilter.value;
+            const search = manageSearch.value.trim(),
+                role = manageRoleFilter.value,
+                status = manageStatusFilter.value;
             const params = new URLSearchParams();
             if (search) params.append('search', search);
             if (role !== 'all') params.append('role', role);
@@ -2762,18 +2634,19 @@
             params.append('page', managePage);
             params.append('limit', manageRows);
             params.append('_', Date.now());
+
             try {
-                const res = await authenticatedFetch(`/api/admin/users?${params.toString()}`, { cache: 'no-store' });
+                const res = await authenticatedFetch('/api/admin/users?' + params.toString(), { cache: 'no-store' });
                 const data = await res.json();
                 manageUsers = data.users || [];
                 manageTotal = data.total || 0;
                 manageFiltered = manageUsers;
                 renderManageTable();
                 updateManagePagination();
-                if (manageTotalLabel) manageTotalLabel.textContent = `Total: ${manageTotal}`;
+                if (manageTotalLabel) manageTotalLabel.textContent = 'Total: ' + manageTotal;
             } catch (err) {
-                manageTbody.innerHTML = `<tr><td colspan="5" class="text-center py-8 text-rose-600">Unable to load users. Please refresh.</td></tr>`;
-                showAlertModal(err.message || 'Failed to load users. Please check your network.', 'error');
+                manageTbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-rose-600">Unable to load users. Please refresh.</td></tr>';
+                showAlertModal(err.message || 'Failed to load users.', 'error');
             }
         }
 
@@ -2782,36 +2655,26 @@
                 manageTbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">No users found</td></tr>';
                 return;
             }
+
             let html = '';
             for (const user of manageFiltered) {
                 const statusBadge = user.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
                     user.status === 'suspended' ? 'bg-rose-100 text-rose-700' :
                     user.status === 'locked' ? 'bg-amber-100 text-amber-700' : 'bg-amber-100 text-amber-700';
                 const statusLabel = user.status.charAt(0).toUpperCase() + user.status.slice(1);
-                html += `
-                    <tr class="hover:bg-slate-50 transition">
-                        <td style="text-align:center;">
-                            <div>
-                                <div class="text-sm font-medium text-slate-800">${escapeHtml(user.name || 'User')}</div>
-                                <div class="text-sm text-slate-500">${escapeHtml(user.email)}</div>
-                            </div>
-                        </td>
-                        <td style="text-align:center;">${escapeHtml(user.role)}</td>
-                        <td style="text-align:center;"><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
-                        <td style="text-align:center;">${formatLastActive(user.lastActive)}</td>
-                        <td style="text-align:center;">
-                            <button class="btn btn-sm btn-ghost manageActionDots" data-user-id="${user.id}">
-                                <i class="fas fa-ellipsis-v"></i>
-                            </button>
-                        </td>
-                    </tr>
-                `;
+
+                html += '<tr class="hover:bg-slate-50 transition">'
+                    + '<td style="text-align:center;"><div><div class="text-sm font-medium text-slate-800">' + escapeHtml(user.name || 'User') + '</div>'
+                    + '<div class="text-sm text-slate-500">' + escapeHtml(user.email) + '</div></div></td>'
+                    + '<td style="text-align:center;">' + escapeHtml(user.role) + '</td>'
+                    + '<td style="text-align:center;"><span class="status-badge ' + statusBadge + '">' + statusLabel + '</span></td>'
+                    + '<td style="text-align:center;">' + formatLastActive(user.lastActive) + '</td>'
+                    + '<td style="text-align:center;"><button class="btn btn-sm btn-ghost manageActionDots" data-user-id="' + user.id + '"><i class="fas fa-ellipsis-v"></i></button></td></tr>';
             }
             manageTbody.innerHTML = html;
             attachManageEvents();
         }
 
-        // ===== FIXED: attachManageEvents with portal menu and "Send Welcome Email" =====
         function attachManageEvents() {
             document.querySelectorAll('.manageActionDots').forEach(btn => {
                 btn.addEventListener('click', function(e) {
@@ -2819,16 +2682,14 @@
                     const userId = parseInt(this.dataset.userId);
                     const user = manageUsers.find(u => u.id === userId);
                     if (!user) return;
-                    
-                    const menuHtml = `
-                        <button class="menu-item" data-action="edit"><i class="fas fa-edit"></i> Edit</button>
-                        <button class="menu-item" data-action="suspend"><i class="fas fa-ban"></i> ${user.status === 'suspended' ? 'Unsuspend' : 'Suspend'}</button>
-                        ${user.status === 'locked' ? `<button class="menu-item" data-action="unlock"><i class="fas fa-unlock"></i> Unlock</button>` : ''}
-                        <button class="menu-item" data-action="send-welcome"><i class="fas fa-envelope"></i> Send Welcome Email</button>
-                        <div class="menu-divider"></div>
-                        <button class="menu-item danger" data-action="delete"><i class="fas fa-trash"></i> Delete</button>
-                    `;
-                    
+
+                    const menuHtml = '<button class="menu-item" data-action="edit"><i class="fas fa-edit"></i> Edit</button>'
+                        + '<button class="menu-item" data-action="suspend"><i class="fas fa-ban"></i> ' + (user.status === 'suspended' ? 'Unsuspend' : 'Suspend') + '</button>'
+                        + (user.status === 'locked' ? '<button class="menu-item" data-action="unlock"><i class="fas fa-unlock"></i> Unlock</button>' : '')
+                        + '<button class="menu-item" data-action="send-welcome"><i class="fas fa-envelope"></i> Send Welcome Email</button>'
+                        + '<div class="menu-divider"></div>'
+                        + '<button class="menu-item danger" data-action="delete"><i class="fas fa-trash"></i> Delete</button>';
+
                     openPortalMenu(this, menuHtml, (menu) => {
                         menu.querySelector('[data-action="edit"]')?.addEventListener('click', () => {
                             menu.remove();
@@ -2841,66 +2702,64 @@
                             userModal.classList.add('active');
                             manageModal.style.display = 'none';
                         });
-                        
+
                         menu.querySelector('[data-action="suspend"]')?.addEventListener('click', async () => {
                             menu.remove();
                             try {
-                                const res = await authenticatedFetch(`/api/admin/users/${user.id}/suspend`, { method: 'PATCH' });
+                                const res = await authenticatedFetch('/api/admin/users/' + user.id + '/suspend', { method: 'PATCH' });
                                 const data = await res.json();
-                                showAlertModal(`User ${user.name} ${data.status === 'suspended' ? 'suspended' : 'activated'}.`, 'success');
+                                showAlertModal('User ' + user.name + ' ' + (data.status === 'suspended' ? 'suspended' : 'activated') + '.', 'success');
                                 fetchManageUsers();
                                 fetchUsersInline();
                             } catch (err) {
                                 showAlertModal(err.message || 'Network error.', 'error');
                             }
                         });
-                        
+
                         menu.querySelector('[data-action="unlock"]')?.addEventListener('click', async () => {
                             menu.remove();
-                            const ok = await showConfirm(`Unlock account for ${user.name}?`, { 
-                                title: 'Unlock Account', 
-                                danger: false, 
-                                okLabel: 'Unlock' 
+                            const ok = await showConfirm('Unlock account for ' + user.name + '?', {
+                                title: 'Unlock Account',
+                                danger: false,
+                                okLabel: 'Unlock'
                             });
                             if (!ok) return;
                             try {
-                                await authenticatedFetch(`/api/admin/users/${user.id}/unlock`, { method: 'POST' });
-                                showAlertModal(`User ${user.name} unlocked.`, 'success');
+                                await authenticatedFetch('/api/admin/users/' + user.id + '/unlock', { method: 'POST' });
+                                showAlertModal('User ' + user.name + ' unlocked.', 'success');
                                 fetchManageUsers();
                                 fetchUsersInline();
                             } catch (err) {
                                 showAlertModal(err.message || 'Network error.', 'error');
                             }
                         });
-                        
-                        // ===== NEW: Send Welcome Email handler =====
+
                         menu.querySelector('[data-action="send-welcome"]')?.addEventListener('click', async () => {
                             menu.remove();
-                            const ok = await showConfirm(`Send welcome email to ${user.name} (${user.email})?`, { 
-                                title: 'Send Welcome Email', 
-                                danger: false, 
-                                okLabel: 'Send Email' 
+                            const ok = await showConfirm('Send welcome email to ' + user.name + ' (' + user.email + ')?', {
+                                title: 'Send Welcome Email',
+                                danger: false,
+                                okLabel: 'Send Email'
                             });
                             if (!ok) return;
                             try {
-                                const res = await authenticatedFetch(`/api/admin/users/${user.id}/send-welcome`, { 
-                                    method: 'POST' 
-                                });
+                                const res = await authenticatedFetch('/api/admin/users/' + user.id + '/send-welcome', { method: 'POST' });
                                 const data = await res.json();
                                 if (res.ok) {
                                     showAlertModal(data.message || 'Welcome email sent successfully.', 'success');
                                 } else {
-                                    showAlertModal(data.error || 'Failed to send email. Please try again.', 'error');
+                                    showAlertModal(data.error || 'Failed to send email.', 'error');
                                 }
                             } catch (err) {
                                 showAlertModal(err.message || 'Network error.', 'error');
                             }
                         });
-                        
+
                         menu.querySelector('[data-action="delete"]')?.addEventListener('click', () => {
                             menu.remove();
                             deleteUserId = user.id;
-                            document.getElementById('acmDeleteUserMessage').innerHTML = `Are you sure you want to delete <strong>${escapeHtml(user.name)}</strong>? This action cannot be undone.`;
+                            document.getElementById('acmDeleteUserMessage').innerHTML =
+                                'Are you sure you want to delete <strong>' + escapeHtml(user.name) + '</strong>? This action cannot be undone.';
                             deleteConfirmModal.classList.add('active');
                         });
                     });
@@ -2911,43 +2770,84 @@
         function updateManagePagination() {
             const start = (managePage - 1) * manageRows + 1;
             const end = Math.min(managePage * manageRows, manageTotal);
-            managePaginationInfo.innerText = manageTotal === 0 ? 'Showing 0 of 0 users' : `Showing ${start}–${end} of ${manageTotal} users`;
+            managePaginationInfo.innerText = manageTotal === 0 ?
+                'Showing 0 of 0 users' :
+                'Showing ' + start + '–' + end + ' of ' + manageTotal + ' users';
             const totalPages = Math.ceil(manageTotal / manageRows);
             managePrevBtn.disabled = managePage === 1 || totalPages === 0;
             manageNextBtn.disabled = managePage === totalPages || totalPages === 0;
         }
 
-        manageSearch?.addEventListener('input', () => { managePage = 1; fetchManageUsers(); });
-        manageRoleFilter?.addEventListener('change', () => { managePage = 1; fetchManageUsers(); });
-        manageStatusFilter?.addEventListener('change', () => { managePage = 1; fetchManageUsers(); });
-        manageResetBtn?.addEventListener('click', () => { manageSearch.value = ''; manageRoleFilter.value = 'all'; manageStatusFilter.value = 'all'; managePage = 1; fetchManageUsers(); });
-        managePrevBtn?.addEventListener('click', () => { if (managePage > 1) { managePage--; fetchManageUsers(); } });
-        manageNextBtn?.addEventListener('click', () => { const totalPages = Math.ceil(manageTotal / manageRows); if (managePage < totalPages) { managePage++; fetchManageUsers(); } });
+        manageSearch?.addEventListener('input', () => { managePage = 1;
+            fetchManageUsers(); });
+        manageRoleFilter?.addEventListener('change', () => { managePage = 1;
+            fetchManageUsers(); });
+        manageStatusFilter?.addEventListener('change', () => { managePage = 1;
+            fetchManageUsers(); });
+        manageResetBtn?.addEventListener('click', () => {
+            manageSearch.value = '';
+            manageRoleFilter.value = 'all';
+            manageStatusFilter.value = 'all';
+            managePage = 1;
+            fetchManageUsers();
+        });
+        managePrevBtn?.addEventListener('click', () => {
+            if (managePage > 1) { managePage--;
+                fetchManageUsers(); }
+        });
+        manageNextBtn?.addEventListener('click', () => {
+            const totalPages = Math.ceil(manageTotal / manageRows);
+            if (managePage < totalPages) { managePage++;
+                fetchManageUsers(); }
+        });
 
-        addUserFromManageBtn?.addEventListener('click', () => { resetForm(); openUserModal(); manageModal.style.display = 'none'; });
+        addUserFromManageBtn?.addEventListener('click', () => {
+            resetForm();
+            openUserModal();
+            manageModal.style.display = 'none';
+        });
 
         function closeUserModal() { userModal.classList.remove('active'); }
+
         function openUserModal() { userModal.classList.add('active'); }
-        function resetForm() { editUserId = null; document.getElementById('acmFullName').value = ''; document.getElementById('acmEmail').value = ''; document.getElementById('acmRole').value = ''; document.getElementById('acmStatus').value = 'active'; modalTitle.innerText = 'Add New User'; }
+
+        function resetForm() {
+            editUserId = null;
+            document.getElementById('acmFullName').value = '';
+            document.getElementById('acmEmail').value = '';
+            document.getElementById('acmRole').value = '';
+            document.getElementById('acmStatus').value = 'active';
+            modalTitle.innerText = 'Add New User';
+        }
 
         async function saveUser() {
             const name = document.getElementById('acmFullName').value.trim();
             const email = document.getElementById('acmEmail').value.trim();
             const role = document.getElementById('acmRole').value;
             const status = document.getElementById('acmStatus').value;
-            if (!name || !email) { showAlertModal('Name and email are required', 'error'); return; }
-            if (!role) { showAlertModal('Please select a role.', 'error'); return; }
+
+            if (!name || !email) {
+                showAlertModal('Name and email are required', 'error');
+                return;
+            }
+            if (!role) {
+                showAlertModal('Please select a role.', 'error');
+                return;
+            }
+
             saveUserBtn.disabled = true;
             saveUserBtn.innerText = 'Saving...';
+
             try {
                 const payload = { name, email, role, status };
                 let res;
                 if (editUserId) {
-                    res = await authenticatedFetch(`/api/admin/users/${editUserId}`, { method: 'PUT', body: JSON.stringify(payload) });
+                    res = await authenticatedFetch('/api/admin/users/' + editUserId, { method: 'PUT', body: JSON.stringify(payload) });
                 } else {
                     res = await authenticatedFetch('/api/admin/users', { method: 'POST', body: JSON.stringify(payload) });
                 }
                 const data = await res.json();
+
                 if (res.ok) {
                     await logAuditEvent(editUserId ? 'update_user' : 'create_user', 'user', data.id || editUserId, {
                         user_name: name,
@@ -2955,15 +2855,15 @@
                         role: role,
                         status: status
                     });
-                    showAlertModal(editUserId ? 'User updated successfully.' : `User ${data.name} created successfully.`, 'success');
+                    showAlertModal(editUserId ? 'User updated successfully.' : 'User ' + data.name + ' created successfully.', 'success');
                     closeUserModal();
                     fetchUsersInline();
                     fetchManageUsers();
                 } else {
-                    showAlertModal(data.error || 'Operation failed. Please try again.', 'error');
+                    showAlertModal(data.error || 'Operation failed.', 'error');
                 }
             } catch (err) {
-                showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                showAlertModal(err.message || 'Network error.', 'error');
             } finally {
                 saveUserBtn.disabled = false;
                 saveUserBtn.innerText = 'Save User';
@@ -2971,22 +2871,22 @@
         }
 
         function closeDeleteModal() { deleteConfirmModal.classList.remove('active'); }
+
         async function confirmDelete() {
             if (!deleteUserId) return;
             confirmDeleteBtn.disabled = true;
             confirmDeleteBtn.innerText = 'Deleting...';
+
             try {
-                await authenticatedFetch(`/api/admin/users/${deleteUserId}`, { method: 'DELETE' });
-                await logAuditEvent('delete_user', 'user', deleteUserId, {
-                    user_id: deleteUserId
-                });
+                await authenticatedFetch('/api/admin/users/' + deleteUserId, { method: 'DELETE' });
+                await logAuditEvent('delete_user', 'user', deleteUserId, { user_id: deleteUserId });
                 showAlertModal('User deleted successfully.', 'success');
                 closeDeleteModal();
                 deleteUserId = null;
                 fetchUsersInline();
                 fetchManageUsers();
             } catch (err) {
-                showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                showAlertModal(err.message || 'Network error.', 'error');
             } finally {
                 confirmDeleteBtn.disabled = false;
                 confirmDeleteBtn.innerText = 'Delete';
@@ -2998,8 +2898,12 @@
         saveUserBtn?.addEventListener('click', saveUser);
         cancelDeleteBtn?.addEventListener('click', closeDeleteModal);
         confirmDeleteBtn?.addEventListener('click', confirmDelete);
-        userModal?.addEventListener('click', (e) => { if (e.target === userModal) closeUserModal(); });
-        deleteConfirmModal?.addEventListener('click', (e) => { if (e.target === deleteConfirmModal) closeDeleteModal(); });
+        userModal?.addEventListener('click', (e) => {
+            if (e.target === userModal) closeUserModal();
+        });
+        deleteConfirmModal?.addEventListener('click', (e) => {
+            if (e.target === deleteConfirmModal) closeDeleteModal();
+        });
     }
 
     async function handleLogout() {
@@ -3012,7 +2916,7 @@
                 await fetch('/api/auth/logout', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${token}`,
+                        'Authorization': 'Bearer ' + token,
                         'Content-Type': 'application/json',
                         'Cache-Control': 'no-cache, no-store'
                     },
@@ -3118,11 +3022,9 @@
                     body: JSON.stringify(payload)
                 });
                 const data = await res.json();
+
                 if (res.ok) {
-                    await logAuditEvent('update_profile', 'user_profile', 'self', {
-                        name: name,
-                        email: email
-                    });
+                    await logAuditEvent('update_profile', 'user_profile', 'self', { name: name, email: email });
                     showAlertModal('Profile updated successfully.', 'success');
                     const user = getUser();
                     if (user) {
@@ -3133,10 +3035,10 @@
                     }
                     document.getElementById('profileModal').style.display = 'none';
                 } else {
-                    showAlertModal(data.error || 'Failed to update profile. Please try again.', 'error');
+                    showAlertModal(data.error || 'Failed to update profile.', 'error');
                 }
             } catch (err) {
-                showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                showAlertModal(err.message || 'Network error.', 'error');
             }
         });
 
@@ -3148,6 +3050,7 @@
                 document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
                 const panel = document.getElementById('tab-' + tabId);
                 if (panel) panel.classList.add('active');
+
                 if (tabId === 'security') {
                     const first = document.querySelector('#tab-security .sub-tab-button');
                     if (first) first.click();
@@ -3173,6 +3076,7 @@
                 document.querySelectorAll('.sub-tab-panel').forEach(p => p.classList.remove('active'));
                 const panel = document.getElementById('sub-' + this.dataset.subtab);
                 if (panel) panel.classList.add('active');
+
                 if (this.dataset.subtab === 'templates') loadTemplates();
                 if (this.dataset.subtab === 'settings') loadSettings();
                 if (this.dataset.subtab === 'admin-notifications') loadAdminRecipients();
@@ -3218,12 +3122,14 @@
             const action = currentAction;
             const id = currentRequestId;
             const endpoint = action === 'approve' ? '/api/admin/requests/approve' : '/api/admin/requests/deny';
+
             try {
                 const res = await authenticatedFetch(endpoint, {
                     method: 'POST',
                     body: JSON.stringify({ request_id: id, admin_notes: notes || null })
                 });
                 const data = await res.json();
+
                 if (res.ok) {
                     await logAuditEvent(action === 'approve' ? 'approve_request' : 'deny_request', 'request', id, {
                         admin_notes: notes || null
@@ -3234,10 +3140,10 @@
                     loadTransactions();
                     loadPendingReturns();
                 } else {
-                    showAlertModal(data.error || 'Action failed. Please try again.', 'error');
+                    showAlertModal(data.error || 'Action failed.', 'error');
                 }
             } catch (err) {
-                showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                showAlertModal(err.message || 'Network error.', 'error');
             }
         });
 
@@ -3271,15 +3177,21 @@
             loadTransactions();
         });
 
+        let searchTimeout = null;
         document.getElementById('inventorySearchInput')?.addEventListener('input', () => {
-            invPage = 1;
-            applyInventoryFilters();
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                invPage = 1;
+                applyInventoryFilters();
+            }, 300);
         });
+
         document.getElementById('inventoryResetFiltersBtn')?.addEventListener('click', () => {
             document.getElementById('inventorySearchInput').value = '';
             invPage = 1;
             applyInventoryFilters();
         });
+
         document.getElementById('inventoryPrevPageBtn')?.addEventListener('click', () => {
             if (invPage > 1) {
                 invPage--;
@@ -3287,6 +3199,7 @@
                 updateInventoryPagination();
             }
         });
+
         document.getElementById('inventoryNextPageBtn')?.addEventListener('click', () => {
             const totalPages = Math.ceil(invTotal / invRows);
             if (invPage < totalPages) {
@@ -3295,7 +3208,9 @@
                 updateInventoryPagination();
             }
         });
+
         document.getElementById('refreshInventoryBtn')?.addEventListener('click', loadInventory);
+
         document.getElementById('inventoryRowsPerPage')?.addEventListener('change', function() {
             invRows = parseInt(this.value);
             invPage = 1;
@@ -3303,6 +3218,7 @@
         });
 
         document.getElementById('manageKeysBtn')?.addEventListener('click', openKeyManageModal);
+
         document.getElementById('closeKeyManageModalBtn')?.addEventListener('click', () => {
             document.getElementById('keyManageModal').style.display = 'none';
         });
@@ -3319,11 +3235,13 @@
             manageKeyPage = 1;
             fetchManageKeys();
         });
+
         document.getElementById('resetManageKeyFilters')?.addEventListener('click', () => {
             document.getElementById('manageKeySearch').value = '';
             manageKeyPage = 1;
             fetchManageKeys();
         });
+
         document.getElementById('manageKeyPrevBtn')?.addEventListener('click', () => {
             if (manageKeyPage > 1) {
                 manageKeyPage--;
@@ -3331,6 +3249,7 @@
                 updateManageKeyPagination();
             }
         });
+
         document.getElementById('manageKeyNextBtn')?.addEventListener('click', () => {
             const totalPages = Math.ceil(manageKeyTotal / manageKeyRows);
             if (manageKeyPage < totalPages) {
@@ -3339,6 +3258,7 @@
                 updateManageKeyPagination();
             }
         });
+
         document.getElementById('addKeyFromManageBtn')?.addEventListener('click', () => {
             openKeyEditModal(null);
             document.getElementById('keyManageModal').style.display = 'none';
@@ -3397,11 +3317,12 @@
             };
 
             const method = id ? 'PUT' : 'POST';
-            const url = id ? `/api/admin/keys/${id}` : '/api/admin/keys';
+            const url = id ? '/api/admin/keys/' + id : '/api/admin/keys';
 
             try {
                 const res = await authenticatedFetch(url, { method, body: JSON.stringify(payload) });
                 const data = await res.json();
+
                 if (res.ok) {
                     await logAuditEvent(id ? 'update_key' : 'create_key', 'key', data.id || id, {
                         key_code: code,
@@ -3413,10 +3334,10 @@
                     loadInventory();
                     if (document.getElementById('keyManageModal').style.display === 'flex') fetchManageKeys();
                 } else {
-                    showAlertModal(data.error || 'Save failed. Please try again.', 'error');
+                    showAlertModal(data.error || 'Save failed.', 'error');
                 }
             } catch (err) {
-                showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                showAlertModal(err.message || 'Network error.', 'error');
             }
         });
 
@@ -3426,14 +3347,29 @@
             const section = btn.dataset.section;
             let containerId = '';
             switch (section) {
-                case 'transactions': containerId = 'transactionsCard'; break;
-                case 'requests': containerId = 'requestsCard'; break;
-                case 'inventory': containerId = 'inventoryCard'; break;
-                case 'audit': containerId = 'auditCard'; break;
-                case 'users': containerId = 'usersCard'; break;
-                case 'templates': containerId = 'templatesCard'; break;
-                case 'settings': containerId = 'settingsCard'; break;
-                default: return;
+                case 'transactions':
+                    containerId = 'transactionsCard';
+                    break;
+                case 'requests':
+                    containerId = 'requestsCard';
+                    break;
+                case 'inventory':
+                    containerId = 'inventoryCard';
+                    break;
+                case 'audit':
+                    containerId = 'auditCard';
+                    break;
+                case 'users':
+                    containerId = 'usersCard';
+                    break;
+                case 'templates':
+                    containerId = 'templatesCard';
+                    break;
+                case 'settings':
+                    containerId = 'settingsCard';
+                    break;
+                default:
+                    return;
             }
             printSection(containerId);
         });
@@ -3482,15 +3418,19 @@
             const body_html = document.getElementById('editTemplateBody').value.trim();
             const is_active = document.getElementById('editTemplateActive').checked;
             const finalKey = key || keyDisplay;
+
             if (!finalKey || !subject || !body_html) {
                 showAlertModal('Key, subject, and body are required.', 'error');
                 return;
             }
+
             const isNew = !key;
-            const url = isNew ? '/api/admin/email/templates' : `/api/admin/email/templates/${finalKey}`;
+            const url = isNew ? '/api/admin/email/templates' : '/api/admin/email/templates/' + finalKey;
             const method = isNew ? 'POST' : 'PUT';
+
             try {
                 const res = await authenticatedFetch(url, { method, body: JSON.stringify({ subject, body_html, is_active }) });
+
                 if (res.ok) {
                     await logAuditEvent(isNew ? 'create_email_template' : 'update_email_template', 'email_template', finalKey, {
                         subject: subject,
@@ -3502,50 +3442,49 @@
                     if (document.getElementById('templateManageModal').style.display === 'flex') openTemplateManageModal();
                 } else {
                     const data = await res.json();
-                    showAlertModal(data.error || 'Save failed. Please try again.', 'error');
+                    showAlertModal(data.error || 'Save failed.', 'error');
                 }
             } catch (err) {
-                showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                showAlertModal(err.message || 'Network error.', 'error');
             }
         });
 
         document.getElementById('saveSettingsBtn')?.addEventListener('click', async function() {
             const toggles = document.querySelectorAll('.setting-toggle');
             const updates = [];
+
             for (const toggle of toggles) {
                 const key = toggle.dataset.key;
                 const enabled = toggle.checked;
                 const config = {};
                 const configInputs = toggle.closest('.setting-control').querySelectorAll('[data-config]');
+
                 for (const input of configInputs) {
                     const configKey = input.dataset.config;
                     if (input.type === 'checkbox') {
                         config[configKey] = input.checked;
+                    } else if (configKey === 'reminder_days_before') {
+                        const val = input.value.trim();
+                        config[configKey] = val ? val.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
                     } else {
-                        if (configKey === 'reminder_days_before') {
-                            const val = input.value.trim();
-                            config[configKey] = val ? val.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
-                        } else {
-                            config[configKey] = input.value;
-                        }
+                        config[configKey] = input.value;
                     }
                 }
                 updates.push({ key, enabled, config });
             }
+
             try {
                 for (const update of updates) {
-                    await authenticatedFetch(`/api/admin/email/settings/${update.key}`, {
+                    await authenticatedFetch('/api/admin/email/settings/' + update.key, {
                         method: 'PUT',
                         body: JSON.stringify({ enabled: update.enabled, config: update.config })
                     });
                 }
-                await logAuditEvent('update_notification_settings', 'settings', 'all', {
-                    updates: updates
-                });
+                await logAuditEvent('update_notification_settings', 'settings', 'all', { updates: updates });
                 showAlertModal('All settings saved successfully.', 'success');
                 loadSettings();
             } catch (err) {
-                showAlertModal(err.message || 'Failed to save settings. Please check your network.', 'error');
+                showAlertModal(err.message || 'Failed to save settings.', 'error');
             }
         });
 
@@ -3565,19 +3504,20 @@
         document.getElementById('saveAdminRecipientBtn')?.addEventListener('click', async function() {
             const select = document.getElementById('adminRecipientSelect');
             const userId = parseInt(select.value);
+
             if (!userId) {
                 showAlertModal('Please select an admin user.', 'error');
                 return;
             }
+
             try {
                 const res = await authenticatedFetch('/api/admin/admin-notification-recipients', {
                     method: 'POST',
                     body: JSON.stringify({ user_id: userId, enabled: true })
                 });
+
                 if (res.ok) {
-                    await logAuditEvent('add_admin_recipient', 'admin_recipient', userId, {
-                        user_id: userId
-                    });
+                    await logAuditEvent('add_admin_recipient', 'admin_recipient', userId, { user_id: userId });
                     showAlertModal('Admin added to notification recipients.', 'success');
                     document.getElementById('addAdminRecipientModal').style.display = 'none';
                     loadAdminRecipients();
@@ -3628,7 +3568,7 @@
             }
 
             try {
-                const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/update`, {
+                const res = await authenticatedFetch('/api/admin/lost-keys/' + id + '/update', {
                     method: 'POST',
                     body: JSON.stringify({
                         reason: reason,
@@ -3636,11 +3576,9 @@
                         status: status
                     })
                 });
+
                 if (res.ok) {
-                    await logAuditEvent('update_lost_key', 'lost_key', id, {
-                        reason: reason,
-                        status: status
-                    });
+                    await logAuditEvent('update_lost_key', 'lost_key', id, { reason: reason, status: status });
                     showAlertModal('Lost key updated successfully.', 'success');
                     document.getElementById('lostKeyEditModal').style.display = 'none';
                     loadLostKeysManagement();
@@ -3661,6 +3599,7 @@
             document.getElementById('newRoleName').value = '';
             document.getElementById('addRoleModal').style.display = 'flex';
         });
+
         document.getElementById('closeAddRoleModalBtn')?.addEventListener('click', () => {
             document.getElementById('addRoleModal').style.display = 'none';
         });
@@ -3672,6 +3611,7 @@
                 document.getElementById('addRoleModal').style.display = 'none';
             }
         });
+
         document.getElementById('confirmAddRoleBtn')?.addEventListener('click', () => {
             const name = document.getElementById('newRoleName').value.trim();
             if (!name) {
@@ -3686,7 +3626,7 @@
             permissionsData.roles = Object.keys(permissionsData.roleMappings);
             renderPermissions();
             document.getElementById('addRoleModal').style.display = 'none';
-            showAlertModal(`Role "${name}" added.`, 'success');
+            showAlertModal('Role "' + name + '" added.', 'success');
         });
 
         document.getElementById('savePermissionsBtn')?.addEventListener('click', async function() {
@@ -3697,6 +3637,7 @@
                 if (!updates[role]) updates[role] = [];
                 if (cb.checked) updates[role].push(permId);
             });
+
             try {
                 for (const [roleName, permIds] of Object.entries(updates)) {
                     await authenticatedFetch('/api/permissions/roles', {
@@ -3704,13 +3645,11 @@
                         body: JSON.stringify({ role_name: roleName, permission_ids: permIds })
                     });
                 }
-                await logAuditEvent('update_permissions', 'permissions', 'all', {
-                    updates: updates
-                });
+                await logAuditEvent('update_permissions', 'permissions', 'all', { updates: updates });
                 showAlertModal('Permissions saved successfully.', 'success');
                 await loadPermissions();
             } catch (err) {
-                showAlertModal(err.message || 'Failed to save permissions. Please check your network.', 'error');
+                showAlertModal(err.message || 'Failed to save permissions.', 'error');
             }
         });
 
@@ -3730,6 +3669,7 @@
             document.getElementById('userManagementModal').style.display = 'flex';
             fetchManageUsers();
         });
+
         document.getElementById('closeUserManagementModalBtn')?.addEventListener('click', () => {
             document.getElementById('userManagementModal').style.display = 'none';
         });
@@ -3740,42 +3680,74 @@
         });
     }
 
+    // ===== OPTIMIZED INIT =====
+
     async function init() {
         const isAuthenticated = await checkAuth();
-        if (isAuthenticated) {
-            const loadingContainer = document.getElementById('loadingContainer');
-            const adminContentWrapper = document.getElementById('adminContentWrapper');
+        if (!isAuthenticated) return;
 
-            if (loadingContainer) {
-                loadingContainer.style.display = 'none';
-            }
-            if (adminContentWrapper) {
-                adminContentWrapper.style.display = 'block';
-            }
+        const loadingContainer = document.getElementById('loadingContainer');
+        const adminContentWrapper = document.getElementById('adminContentWrapper');
 
-            fetchCsrfToken();
-            updateUserDisplay();
-            initEventListeners();
-            initUserManagement();
+        if (loadingContainer) loadingContainer.style.display = 'none';
+        if (adminContentWrapper) adminContentWrapper.style.display = 'block';
 
-            await Promise.all([
-                loadTransactions(),
-                loadPendingRequests(),
-                loadPendingReturns(),
-                loadLostKeys(),
-                loadAuditHealth(),
-                loadPendingRegistrations(),
-                checkEmailPermissions()
-            ]);
+        fetchCsrfToken();
+        updateUserDisplay();
+        initEventListeners();
+        initUserManagement();
 
-            setInterval(() => {
+        // Load critical data first
+        await Promise.all([
+            loadTransactions(),
+            loadPendingRequests(),
+            loadPendingReturns()
+        ]);
+
+        // Load secondary data in background
+        setTimeout(() => {
+            loadLostKeys();
+            loadAuditHealth();
+            loadPendingRegistrations();
+            checkEmailPermissions();
+        }, 300);
+
+        // Page visibility tracking
+        document.addEventListener('visibilitychange', () => {
+            isPageVisible = !document.hidden;
+            if (isPageVisible) {
                 loadTransactions();
                 loadPendingRequests();
                 loadPendingReturns();
                 loadLostKeys();
                 loadAuditHealth();
-            }, 30000);
-        }
+                if (refreshInterval) {
+                    clearInterval(refreshInterval);
+                    refreshInterval = null;
+                }
+                startRefreshInterval();
+            } else {
+                if (refreshInterval) {
+                    clearInterval(refreshInterval);
+                    refreshInterval = null;
+                }
+            }
+        });
+
+        startRefreshInterval();
+    }
+
+    function startRefreshInterval() {
+        if (refreshInterval) clearInterval(refreshInterval);
+        refreshInterval = setInterval(() => {
+            if (isPageVisible) {
+                loadTransactions();
+                loadPendingRequests();
+                loadPendingReturns();
+                loadLostKeys();
+                loadAuditHealth();
+            }
+        }, 30000);
     }
 
     document.addEventListener('DOMContentLoaded', init);

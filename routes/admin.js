@@ -58,11 +58,19 @@ async function sendAdminNotification(db, subject, message) {
     }
 }
 
+// ===== OPTIMIZED: Transactions with Pagination =====
 router.get('/transactions', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
     await setAuditContext(req);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
-    const { giver, receiver, branch, action, status, from, to } = req.query;
+    
+    const { 
+        giver, receiver, branch, action, status, from, to,
+        page = 1, 
+        limit = 25 
+    } = req.query;
+    
     const db = req.db;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let query = `
         SELECT 
@@ -77,50 +85,84 @@ router.get('/transactions', requireAuth, authorize('admin'), requireReadOnly, as
         LEFT JOIN keys k ON t.key_id = k.id
         WHERE 1=1
     `;
+    
+    let countQuery = `
+        SELECT COUNT(*) AS total
+        FROM transactions t
+        LEFT JOIN keys k ON t.key_id = k.id
+        WHERE 1=1
+    `;
+    
     const params = [];
     let idx = 1;
 
+    // Build filter conditions
+    const filterConditions = [];
+    
     if (giver) {
-        query += ` AND (t.giver_email ILIKE $${idx} OR t.giver_signature_name ILIKE $${idx})`;
+        filterConditions.push(`(t.giver_email ILIKE $${idx} OR t.giver_signature_name ILIKE $${idx})`);
         params.push(`%${giver}%`);
         idx++;
     }
     if (receiver) {
-        query += ` AND (t.receiver_email ILIKE $${idx} OR t.receiver_signature_name ILIKE $${idx})`;
+        filterConditions.push(`(t.receiver_email ILIKE $${idx} OR t.receiver_signature_name ILIKE $${idx})`);
         params.push(`%${receiver}%`);
         idx++;
     }
     if (branch) {
-        query += ` AND (k.brand ILIKE $${idx} OR k.code ILIKE $${idx})`;
+        filterConditions.push(`(k.brand ILIKE $${idx} OR k.code ILIKE $${idx})`);
         params.push(`%${branch}%`);
         idx++;
     }
     if (action) {
-        query += ` AND t.action = $${idx}`;
+        filterConditions.push(`t.action = $${idx}`);
         params.push(action);
         idx++;
     }
     if (status) {
-        query += ` AND t.status = $${idx}`;
+        filterConditions.push(`t.status = $${idx}`);
         params.push(status);
         idx++;
     }
     if (from) {
-        query += ` AND t.borrowed_at >= $${idx}`;
+        filterConditions.push(`t.borrowed_at >= $${idx}`);
         params.push(from);
         idx++;
     }
     if (to) {
-        query += ` AND t.borrowed_at <= $${idx}`;
+        filterConditions.push(`t.borrowed_at <= $${idx}`);
         params.push(to);
         idx++;
     }
 
-    query += ` ORDER BY t.borrowed_at DESC`;
+    // Apply filters to both queries
+    if (filterConditions.length > 0) {
+        const whereClause = ' AND ' + filterConditions.join(' AND ');
+        query += whereClause;
+        countQuery += whereClause;
+    }
+
+    // Add pagination
+    query += ` ORDER BY t.borrowed_at DESC LIMIT $${idx} OFFSET $${idx + 1}`;
+    params.push(parseInt(limit), offset);
 
     try {
-        const result = await db.query(query, params);
-        res.json(result.rows);
+        const [dataResult, countResult] = await Promise.all([
+            db.query(query, params),
+            db.query(countQuery, params.slice(0, params.length - 2)) // Remove limit and offset params
+        ]);
+        
+        const total = parseInt(countResult.rows[0]?.total || 0);
+        
+        res.json({
+            data: dataResult.rows,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total: total,
+                totalPages: Math.ceil(total / parseInt(limit))
+            }
+        });
     } catch (err) {
         console.error('[admin] /transactions error:', err);
         res.status(500).json({ error: 'Failed to load transactions: ' + err.message });
@@ -170,37 +212,40 @@ router.post('/force-return', requireAuth, authorize('admin'), async (req, res) =
     }
 });
 
+// ===== OPTIMIZED: Pending Requests with JOIN to avoid N+1 =====
 router.get('/requests/pending', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
     await setAuditContext(req);
     const db = req.db;
     try {
         const result = await db.query(`
-            SELECT id, requester_name, requester_email, reason, intended_draw_date, planned_return, items, created_at
-            FROM key_requests
-            WHERE status = 'pending'
-            ORDER BY created_at ASC
+            SELECT 
+                kr.id, 
+                kr.requester_name, 
+                kr.requester_email, 
+                kr.reason, 
+                kr.intended_draw_date, 
+                kr.planned_return, 
+                kr.items, 
+                kr.created_at,
+                COALESCE(
+                    (SELECT json_agg(
+                        json_build_object(
+                            'key_id', k.id,
+                            'code', k.code,
+                            'brand', k.brand,
+                            'quantity', ki.quantity
+                        )
+                    )
+                    FROM jsonb_array_elements(kr.items) AS ki
+                    JOIN keys k ON k.id = (ki->>'key_id')::int
+                    ),
+                    '[]'::json
+                ) AS key_details
+            FROM key_requests kr
+            WHERE kr.status = 'pending'
+            ORDER BY kr.created_at ASC
         `);
-        const enriched = [];
-        for (const row of result.rows) {
-            let items = [];
-            try {
-                items = typeof row.items === 'string' ? JSON.parse(row.items) : (row.items || []);
-            } catch (e) { }
-            const keyDetails = [];
-            for (const item of items) {
-                const keyRes = await db.query('SELECT code, brand FROM keys WHERE id = $1', [item.key_id]);
-                if (keyRes.rows.length) {
-                    keyDetails.push({
-                        key_id: item.key_id,
-                        code: keyRes.rows[0].code,
-                        brand: keyRes.rows[0].brand,
-                        quantity: item.quantity
-                    });
-                }
-            }
-            enriched.push({ ...row, items, key_details: keyDetails });
-        }
-        res.json(enriched);
+        res.json(result.rows);
     } catch (err) {
         console.error('[admin] /requests/pending error:', err);
         res.status(500).json({ error: 'Failed to load pending requests: ' + err.message });
@@ -259,13 +304,11 @@ router.post('/requests/approve', requireAuth, authorize('admin'), async (req, re
         
         await client.query('COMMIT');
         
-        // ===== FIX: Send email with proper error handling =====
         try {
             await sendRequestApprovedEmail(request.requester_email, request.requester_name, items, request.planned_return);
             console.log(`✅ Approval email sent to ${request.requester_email}`);
         } catch (emailErr) {
             console.error('❌ Failed to send approval email:', emailErr.message);
-            // Don't fail the request if email fails
         }
         
         await sendAdminNotification(client,
@@ -1128,14 +1171,12 @@ router.post('/users', requireAuth, authorize('admin'), async (req, res) => {
             extraDetails: { action: 'create_user' }
         });
         
-        // ===== FIX: Send welcome email after user creation =====
         try {
             const changePasswordLink = `${process.env.APP_URL || 'https://kms-staging.onrender.com'}/change-password`;
             await sendWelcomeEmail(email, name, tempPassword, changePasswordLink);
             console.log(`✅ Welcome email sent to ${email}`);
         } catch (emailErr) {
             console.error('❌ Failed to send welcome email:', emailErr.message);
-            // Don't fail the user creation if email fails
         }
         
         await client.query('COMMIT');
@@ -1346,7 +1387,6 @@ router.post('/users/:id/unlock', requireAuth, authorize('admin'), async (req, re
     }
 });
 
-// ===== NEW: Manual Welcome Email Route =====
 router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), async (req, res) => {
     if (req.isReadOnly) {
         return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
@@ -1356,7 +1396,6 @@ router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), asyn
     const db = req.db;
     
     try {
-        // Get user details
         const userResult = await db.query(
             'SELECT id, name, email, status FROM users WHERE id = $1',
             [userId]
@@ -1368,20 +1407,16 @@ router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), asyn
         
         const user = userResult.rows[0];
         
-        // Check if user is active
         if (user.status !== 'active') {
             return res.status(400).json({ error: 'User is not active. Please activate the user first.' });
         }
         
-        // Generate a temporary password (optional - if you want to send a reset link instead)
         const tempPassword = Math.random().toString(36).slice(-8);
         const bcrypt = require('bcrypt');
         const hashed = await bcrypt.hash(tempPassword, 10);
         
-        // Update user's password (optional - only if you want to reset it)
         await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashed, userId]);
         
-        // Send welcome email using the manual function
         const changePasswordLink = `${process.env.APP_URL || 'https://kms-staging.onrender.com'}/change-password`;
         await sendManualWelcomeEmail(user.email, user.name, tempPassword, changePasswordLink);
         
@@ -1400,6 +1435,42 @@ router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), asyn
     } catch (err) {
         console.error('[admin] /users/:userId/send-welcome error:', err);
         res.status(500).json({ error: 'Failed to send welcome email: ' + err.message });
+    }
+});
+
+// ===== NEW: Reset password endpoint =====
+router.post('/users/:userId/reset-password', requireAuth, authorize('admin'), async (req, res) => {
+    if (req.isReadOnly) {
+        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
+    }
+    
+    const { userId } = req.params;
+    const db = req.db;
+    
+    try {
+        const userResult = await db.query(
+            'SELECT id, name, email FROM users WHERE id = $1',
+            [userId]
+        );
+        
+        if (userResult.rowCount === 0) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        
+        const user = userResult.rows[0];
+        const tempPassword = Math.random().toString(36).slice(-8);
+        const bcrypt = require('bcrypt');
+        const hashed = await bcrypt.hash(tempPassword, 10);
+        
+        await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashed, userId]);
+        
+        res.json({ 
+            message: 'Password reset successfully',
+            temporary_password: tempPassword
+        });
+    } catch (err) {
+        console.error('[admin] /users/:userId/reset-password error:', err);
+        res.status(500).json({ error: 'Failed to reset password: ' + err.message });
     }
 });
 

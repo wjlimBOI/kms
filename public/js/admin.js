@@ -83,6 +83,44 @@
         return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
     }
 
+    // ===== PORTAL MENU HELPER =====
+    function openPortalMenu(triggerEl, menuHtml, onRender) {
+        document.querySelectorAll('.portal-menu').forEach(m => m.remove());
+        const menu = document.createElement('div');
+        menu.className = 'portal-menu';
+        menu.innerHTML = menuHtml;
+        document.body.appendChild(menu);
+
+        const rect = triggerEl.getBoundingClientRect();
+        const menuWidth = menu.offsetWidth;
+        let left = rect.right - menuWidth;
+        if (left < 8) left = rect.left;
+        let top = rect.bottom + 6;
+        if (top + menu.offsetHeight > window.innerHeight - 8) {
+            top = rect.top - menu.offsetHeight - 6;
+        }
+        menu.style.left = `${Math.max(8, left)}px`;
+        menu.style.top = `${Math.max(8, top)}px`;
+
+        if (onRender) onRender(menu);
+
+        const closeMenu = (e) => {
+            if (!menu.contains(e.target) && e.target !== triggerEl && !triggerEl.contains(e.target)) {
+                menu.remove();
+                document.removeEventListener('click', closeMenu, true);
+                window.removeEventListener('scroll', reposition, true);
+                window.removeEventListener('resize', reposition);
+            }
+        };
+        const reposition = () => menu.remove();
+
+        setTimeout(() => document.addEventListener('click', closeMenu, true), 0);
+        window.addEventListener('scroll', reposition, true);
+        window.addEventListener('resize', reposition);
+
+        return menu;
+    }
+
     function formatDate(iso) {
         if (!iso) return '—';
         return new Date(iso).toLocaleString('en-SG', {
@@ -534,7 +572,6 @@
             const res = await authenticatedFetch(`/api/admin/email/templates/${templateKey}`);
             const template = await res.json();
             
-            // Remove any existing preview modal first
             const existingModal = document.getElementById('templatePreviewModal');
             if (existingModal) {
                 existingModal.remove();
@@ -574,7 +611,6 @@
             
             document.body.appendChild(modal);
             
-            // Close function
             const closeModal = function() {
                 const modalEl = document.getElementById('templatePreviewModal');
                 if (modalEl) {
@@ -582,14 +618,12 @@
                 }
             };
             
-            // Close on overlay click
             modal.addEventListener('click', function(e) {
                 if (e.target === this) {
                     closeModal();
                 }
             });
             
-            // Close button handlers
             const closeBtn = document.getElementById('templatePreviewCloseBtn');
             if (closeBtn) {
                 closeBtn.addEventListener('click', closeModal);
@@ -605,7 +639,6 @@
                 okBtn.addEventListener('click', closeModal);
             }
             
-            // Also close with Escape key
             const escHandler = function(e) {
                 if (e.key === 'Escape') {
                     closeModal();
@@ -770,8 +803,8 @@
                 <td>${formatDate(req.planned_return)}</td>
                 <td>
                     <div class="action-buttons">
-                        <button class="btn btn-success approveBtnModal" data-id="${req.id}"><i class="fas fa-check"></i> Approve</button>
-                        <button class="btn btn-danger denyBtnModal" data-id="${req.id}"><i class="fas fa-times"></i> Deny</button>
+                        <button class="btn btn-success btn-sm approveBtnModal" data-id="${req.id}"><i class="fas fa-check"></i> Approve</button>
+                        <button class="btn btn-danger btn-sm denyBtnModal" data-id="${req.id}"><i class="fas fa-times"></i> Deny</button>
                     </div>
                 </td>
             </tr>`;
@@ -817,7 +850,7 @@
                 <td>${formatDate(ret.created_at)}</td>
                 <td>
                     <div class="action-buttons">
-                        <button class="btn btn-success approveReturnModalBtn" data-id="${ret.id}"><i class="fas fa-check"></i> Verify</button>
+                        <button class="btn btn-success btn-sm approveReturnModalBtn" data-id="${ret.id}"><i class="fas fa-check"></i> Verify</button>
                     </div>
                 </td>
             </tr>`;
@@ -1273,6 +1306,7 @@
         updateInventoryPagination();
     }
 
+    // ===== FIXED: renderInventoryTable with portal menu =====
     function renderInventoryTable() {
         const tbody = document.getElementById('inventoryTableBody');
         const start = (invPage - 1) * invRows;
@@ -1288,79 +1322,82 @@
             if (key.sets && Array.isArray(key.sets) && key.sets.length) {
                 setsDisplay = key.sets.map(s => `${escapeHtml(s.owner_name || 'Unknown')} (${s.quantity || 1})`).join(', ');
             }
-            
             const status = key.status || 'unknown';
-            
             html += `
-                <tr class="inventory-row clickable" data-key-id="${key.id}" style="cursor:pointer;">
-                    <td><code>${escapeHtml(key.code)}</code></td>
-                    <td>${escapeHtml(key.brand)}</td>
+                <tr class="inventory-row" data-key-id="${key.id}">
+                    <td class="clickable-cell"><code>${escapeHtml(key.code)}</code></td>
+                    <td class="clickable-cell">${escapeHtml(key.brand)}</td>
                     <td>${statusBadgeHtml(status)}</td>
-                    <td>${escapeHtml(setsDisplay)}</td>
-                    <td>${escapeHtml(key.total_quantity || 0)}</td>
-                    <td>${escapeHtml(key.remarks || '—')}</td>
-                    <td onclick="event.stopPropagation()">
-                        <div class="actions-dropdown">
-                            <button class="dropdown-toggle">Actions <i class="fas fa-chevron-down"></i></button>
-                            <div class="dropdown-menu">
-                                ${status !== 'available' && status !== 'borrowed' ? `<div class="dropdown-item action-set-available" data-key-id="${key.id}" data-key-code="${escapeHtml(key.code)}"><i class="fas fa-check-circle"></i> Mark Available</div>` : ''}
-                                ${status === 'available' ? `<div class="dropdown-item action-set-unavailable" data-key-id="${key.id}" data-key-code="${escapeHtml(key.code)}"><i class="fas fa-ban"></i> Mark Unavailable</div>` : ''}
-                                ${status === 'borrowed' ? `<div class="dropdown-item" style="opacity:0.5;cursor:default;">Currently borrowed</div>` : ''}
-                            </div>
-                        </div>
+                    <td class="clickable-cell">${escapeHtml(setsDisplay)}</td>
+                    <td class="clickable-cell">${escapeHtml(key.total_quantity || 0)}</td>
+                    <td class="clickable-cell">${escapeHtml(key.remarks || '—')}</td>
+                    <td>
+                        <button class="btn btn-sm btn-ghost inventory-actions-btn" data-key-id="${key.id}">
+                            <i class="fas fa-ellipsis-v"></i>
+                        </button>
                     </td>
-                </tr>
-            `;
+                </tr>`;
         }
         tbody.innerHTML = html;
-        
-        tbody.querySelectorAll('.inventory-row').forEach(row => {
-            row.addEventListener('click', function(e) {
-                if (e.target.closest('.actions-dropdown')) return;
-                const id = parseInt(this.dataset.keyId);
-                showKeyDetailModal(id);
-            });
-        });
-        
-        document.querySelectorAll('.action-set-available').forEach(btn => {
-            btn.addEventListener('click', async function(e) {
-                e.stopPropagation();
-                const keyId = parseInt(this.dataset.keyId);
-                const keyCode = this.dataset.keyCode;
-                if (!confirm(`Mark key ${keyCode} as available?`)) return;
-                try {
-                    const res = await authenticatedFetch(`/api/admin/keys/${keyId}/available`, { method: 'POST' });
-                    if (res.ok) {
-                        showAlertModal(`Key ${keyCode} marked as available.`, 'success');
-                        loadInventory();
-                    } else {
-                        const data = await res.json();
-                        showAlertModal(data.error || 'Failed to update key.', 'error');
-                    }
-                } catch (err) {
-                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+
+        // Clickable cells for view details
+        tbody.querySelectorAll('.clickable-cell').forEach(cell => {
+            cell.style.cursor = 'pointer';
+            cell.addEventListener('click', function() {
+                const row = this.closest('tr');
+                if (row) {
+                    showKeyDetailModal(parseInt(row.dataset.keyId));
                 }
             });
         });
-        
-        document.querySelectorAll('.action-set-unavailable').forEach(btn => {
-            btn.addEventListener('click', async function(e) {
+
+        // Portal menu for actions
+        tbody.querySelectorAll('.inventory-actions-btn').forEach(btn => {
+            btn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                const keyId = parseInt(this.dataset.keyId);
-                const keyCode = this.dataset.keyCode;
-                if (!confirm(`Mark key ${keyCode} as unavailable?`)) return;
-                try {
-                    const res = await authenticatedFetch(`/api/admin/keys/${keyId}/unavailable`, { method: 'POST' });
-                    if (res.ok) {
-                        showAlertModal(`Key ${keyCode} marked as unavailable.`, 'success');
-                        loadInventory();
-                    } else {
-                        const data = await res.json();
-                        showAlertModal(data.error || 'Failed to update key.', 'error');
-                    }
-                } catch (err) {
-                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
-                }
+                const key = inventoryData.find(k => k.id === parseInt(this.dataset.keyId));
+                if (!key) return;
+                
+                const menuHtml = `
+                    ${key.status !== 'available' && key.status !== 'borrowed' ? `<button class="menu-item" data-action="available"><i class="fas fa-check-circle"></i> Mark Available</button>` : ''}
+                    ${key.status === 'available' ? `<button class="menu-item" data-action="unavailable"><i class="fas fa-ban"></i> Mark Unavailable</button>` : ''}
+                    ${key.status === 'borrowed' ? `<button class="menu-item disabled" disabled>Currently borrowed</button>` : ''}
+                    <div class="menu-divider"></div>
+                    <button class="menu-item" data-action="view"><i class="fas fa-eye"></i> View Details</button>
+                    <button class="menu-item" data-action="edit"><i class="fas fa-edit"></i> Edit Key</button>
+                `;
+                
+                openPortalMenu(this, menuHtml, (menu) => {
+                    menu.querySelectorAll('.menu-item[data-action]').forEach(item => {
+                        item.addEventListener('click', async () => {
+                            const action = item.dataset.action;
+                            menu.remove();
+                            
+                            if (action === 'view') {
+                                showKeyDetailModal(key.id);
+                                return;
+                            }
+                            if (action === 'edit') {
+                                openKeyEditModal(key);
+                                return;
+                            }
+                            
+                            const endpoint = action === 'available' ? 'available' : 'unavailable';
+                            try {
+                                const res = await authenticatedFetch(`/api/admin/keys/${key.id}/${endpoint}`, { method: 'POST' });
+                                const data = await res.json();
+                                if (res.ok) {
+                                    showAlertModal(`Key marked ${endpoint}.`, 'success');
+                                    loadInventory();
+                                } else {
+                                    showAlertModal(data.error || 'Update failed.', 'error');
+                                }
+                            } catch (err) {
+                                showAlertModal(err.message || 'Network error.', 'error');
+                            }
+                        });
+                    });
+                });
             });
         });
     }
@@ -1619,7 +1656,6 @@
         loadAdminRecipients();
     }
 
-    // ===== LOAD TEMPLATES WITH PREVIEW BUTTON =====
     async function loadTemplates() {
         const container = document.getElementById('templatesContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading templates...</div>';
@@ -1656,7 +1692,6 @@
             html += `</tbody></table>`;
             container.innerHTML = html;
             
-            // Preview button handlers - using the fixed previewTemplate function
             container.querySelectorAll('.preview-template-btn').forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -1665,7 +1700,6 @@
                 });
             });
             
-            // Edit button handlers
             container.querySelectorAll('.edit-template-btn').forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -1674,7 +1708,6 @@
                 });
             });
             
-            // Row click for edit
             container.querySelectorAll('.template-row').forEach(row => {
                 row.addEventListener('click', function(e) {
                     if (!e.target.closest('.action-buttons')) {
@@ -2494,6 +2527,7 @@
         }
     }
 
+    // ===== USER MANAGEMENT WITH PORTAL MENU FIX =====
     function initUserManagement() {
         const tbody = document.getElementById('acmUserTableBody');
         const searchInput = document.getElementById('acmSearchInput');
@@ -2662,28 +2696,9 @@
                         <td style="text-align:center;"><span class="status-badge ${statusBadge}">${statusLabel}</span></td>
                         <td style="text-align:center;">${formatLastActive(user.lastActive)}</td>
                         <td style="text-align:center;">
-                            <div class="actions-dropdown">
-                                <button class="dropdown-toggle manageActionDots" data-user-id="${user.id}">
-                                    Actions <i class="fas fa-chevron-down"></i>
-                                </button>
-                                <div class="dropdown-menu" data-user-id="${user.id}">
-                                    <button class="dropdown-item manageEditUserBtn" data-user-id="${user.id}">
-                                        <i class="fas fa-edit"></i> Edit
-                                    </button>
-                                    <button class="dropdown-item manageSuspendUserBtn" data-user-id="${user.id}" data-status="${user.status}">
-                                        <i class="fas fa-ban"></i> ${user.status === 'suspended' ? 'Unsuspend' : 'Suspend'}
-                                    </button>
-                                    ${user.status === 'locked' ? `
-                                        <button class="dropdown-item manageUnlockUserBtn" data-user-id="${user.id}">
-                                            <i class="fas fa-unlock"></i> Unlock
-                                        </button>
-                                    ` : ''}
-                                    <div class="dropdown-divider"></div>
-                                    <button class="dropdown-item manageDeleteUserBtn text-rose-600" data-user-id="${user.id}">
-                                        <i class="fas fa-trash"></i> Delete
-                                    </button>
-                                </div>
-                            </div>
+                            <button class="btn btn-sm btn-ghost manageActionDots" data-user-id="${user.id}">
+                                <i class="fas fa-ellipsis-v"></i>
+                            </button>
                         </td>
                     </tr>
                 `;
@@ -2692,94 +2707,69 @@
             attachManageEvents();
         }
 
+        // ===== FIXED: attachManageEvents with portal menu =====
         function attachManageEvents() {
             document.querySelectorAll('.manageActionDots').forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    const menu = this.closest('.actions-dropdown').querySelector('.dropdown-menu');
-                    document.querySelectorAll('.manage-action-menu, .dropdown-menu').forEach(m => {
-                        if (m !== menu) m.classList.remove('show');
+                    const userId = parseInt(this.dataset.userId);
+                    const user = manageUsers.find(u => u.id === userId);
+                    if (!user) return;
+                    
+                    const menuHtml = `
+                        <button class="menu-item" data-action="edit"><i class="fas fa-edit"></i> Edit</button>
+                        <button class="menu-item" data-action="suspend"><i class="fas fa-ban"></i> ${user.status === 'suspended' ? 'Unsuspend' : 'Suspend'}</button>
+                        ${user.status === 'locked' ? `<button class="menu-item" data-action="unlock"><i class="fas fa-unlock"></i> Unlock</button>` : ''}
+                        <div class="menu-divider"></div>
+                        <button class="menu-item danger" data-action="delete"><i class="fas fa-trash"></i> Delete</button>
+                    `;
+                    
+                    openPortalMenu(this, menuHtml, (menu) => {
+                        menu.querySelector('[data-action="edit"]')?.addEventListener('click', () => {
+                            menu.remove();
+                            editUserId = user.id;
+                            document.getElementById('acmFullName').value = user.name;
+                            document.getElementById('acmEmail').value = user.email;
+                            document.getElementById('acmRole').value = user.role;
+                            document.getElementById('acmStatus').value = user.status;
+                            modalTitle.innerText = 'Edit User';
+                            userModal.classList.add('active');
+                            manageModal.style.display = 'none';
+                        });
+                        
+                        menu.querySelector('[data-action="suspend"]')?.addEventListener('click', async () => {
+                            menu.remove();
+                            try {
+                                const res = await authenticatedFetch(`/api/admin/users/${user.id}/suspend`, { method: 'PATCH' });
+                                const data = await res.json();
+                                showAlertModal(`User ${user.name} ${data.status === 'suspended' ? 'suspended' : 'activated'}.`, 'success');
+                                fetchManageUsers();
+                                fetchUsersInline();
+                            } catch (err) {
+                                showAlertModal(err.message || 'Network error.', 'error');
+                            }
+                        });
+                        
+                        menu.querySelector('[data-action="unlock"]')?.addEventListener('click', async () => {
+                            menu.remove();
+                            if (!confirm(`Unlock account for ${user.name}?`)) return;
+                            try {
+                                await authenticatedFetch(`/api/admin/users/${user.id}/unlock`, { method: 'POST' });
+                                showAlertModal(`User ${user.name} unlocked.`, 'success');
+                                fetchManageUsers();
+                                fetchUsersInline();
+                            } catch (err) {
+                                showAlertModal(err.message || 'Network error.', 'error');
+                            }
+                        });
+                        
+                        menu.querySelector('[data-action="delete"]')?.addEventListener('click', () => {
+                            menu.remove();
+                            deleteUserId = user.id;
+                            document.getElementById('acmDeleteUserMessage').innerHTML = `Are you sure you want to delete <strong>${escapeHtml(user.name)}</strong>? This action cannot be undone.`;
+                            deleteConfirmModal.classList.add('active');
+                        });
                     });
-                    menu.classList.toggle('show');
-                });
-            });
-
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('.actions-dropdown')) {
-                    document.querySelectorAll('.manage-action-menu, .dropdown-menu').forEach(m => m.classList.remove('show'));
-                }
-            });
-
-            document.querySelectorAll('.manageEditUserBtn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const userId = parseInt(this.dataset.userId);
-                    const user = manageUsers.find(u => u.id === userId);
-                    if (!user) return;
-                    editUserId = userId;
-                    document.getElementById('acmFullName').value = user.name;
-                    document.getElementById('acmEmail').value = user.email;
-                    document.getElementById('acmRole').value = user.role;
-                    document.getElementById('acmStatus').value = user.status;
-                    modalTitle.innerText = 'Edit User';
-                    userModal.classList.add('active');
-                    manageModal.style.display = 'none';
-                    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
-                });
-            });
-
-            document.querySelectorAll('.manageSuspendUserBtn').forEach(btn => {
-                btn.addEventListener('click', async function() {
-                    const userId = parseInt(this.dataset.userId);
-                    const user = manageUsers.find(u => u.id === userId);
-                    if (!user) return;
-                    try {
-                        const res = await authenticatedFetch(`/api/admin/users/${userId}/suspend`, { method: 'PATCH' });
-                        const data = await res.json();
-                        await logAuditEvent('toggle_user_suspend', 'user', userId, {
-                            status: data.status,
-                            user_name: user.name
-                        });
-                        showAlertModal(`User ${user.name} ${data.status === 'suspended' ? 'suspended' : 'activated'}.`, 'success');
-                        fetchManageUsers();
-                        fetchUsersInline();
-                    } catch (err) {
-                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
-                    }
-                    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
-                });
-            });
-
-            document.querySelectorAll('.manageUnlockUserBtn').forEach(btn => {
-                btn.addEventListener('click', async function() {
-                    const userId = parseInt(this.dataset.userId);
-                    const user = manageUsers.find(u => u.id === userId);
-                    if (!user) return;
-                    if (!confirm(`Unlock account for ${user.name}?`)) return;
-                    try {
-                        await authenticatedFetch(`/api/admin/users/${userId}/unlock`, { method: 'POST' });
-                        await logAuditEvent('unlock_user', 'user', userId, {
-                            user_name: user.name
-                        });
-                        showAlertModal(`User ${user.name} unlocked successfully.`, 'success');
-                        fetchManageUsers();
-                        fetchUsersInline();
-                    } catch (err) {
-                        showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
-                    }
-                    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
-                });
-            });
-
-            document.querySelectorAll('.manageDeleteUserBtn').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const userId = parseInt(this.dataset.userId);
-                    const user = manageUsers.find(u => u.id === userId);
-                    if (user) {
-                        deleteUserId = userId;
-                        document.getElementById('acmDeleteUserMessage').innerHTML = `Are you sure you want to delete <strong>${escapeHtml(user.name)}</strong>? This action cannot be undone.`;
-                        deleteConfirmModal.classList.add('active');
-                    }
-                    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('show'));
                 });
             });
         }

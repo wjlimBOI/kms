@@ -166,12 +166,7 @@
                         </div>
                     </div>
                     <div class="nav-actions">
-                        <div class="admin-nav-link" id="returnPortalLink">
-                            <a href="/" id="portalReturnBtn" class="admin-portal-btn">
-                                <i class="fas fa-arrow-left"></i>
-                                <span>Return to Portal</span>
-                            </a>
-                        </div>
+                        <!-- Return to Portal removed from here - moved to hamburger menu -->
                         <div class="user-profile">
                             <button class="user-profile-btn" id="userProfileBtn">
                                 <div class="user-avatar" id="userAvatar">U</div>
@@ -200,6 +195,7 @@
                 </div>
                 <div class="mobile-menu" id="mobileMenu">
                     <div class="mobile-menu-items">
+                        <a href="/" class="mobile-menu-item" id="mobileReturnPortalLink"><i class="fas fa-arrow-left"></i> Return to Portal</a>
                         <button class="mobile-menu-item" id="mobileProfileBtn"><i class="fas fa-user"></i> Profile</button>
                         <button class="mobile-menu-item logout-item" id="mobileLogoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
                     </div>
@@ -343,6 +339,7 @@
                             </div>
                             <button id="inventoryResetFiltersBtn" class="btn btn-refresh btn-sm"><i class="fas fa-times"></i> Reset</button>
                         </div>
+                        <!-- Updated table with Status and Actions columns -->
                         <div class="overflow-x-auto">
                             <table class="table-clean inventory-table">
                                 <thead>
@@ -439,19 +436,18 @@
                                 </select>
                                 <button id="acmResetFiltersBtn" class="btn btn-refresh btn-sm"><i class="fas fa-times"></i> Reset</button>
                             </div>
-                            <div class="overflow-x-auto">
-                                <table class="table-clean">
-                                    <thead>
-                                        <tr>
-                                            <th style="text-align:center;width:35%;">User</th>
-                                            <th style="text-align:center;width:15%;">Role</th>
-                                            <th style="text-align:center;width:15%;">Status</th>
-                                            <th style="text-align:center;width:35%;">Last Active</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="acmUserTableBody"><tr><td colspan="4" class="text-center py-8 text-slate-400">Loading users...</td></tr></tbody>
-                                </table>
-                            </div>
+                            <!-- Removed overflow-x-auto wrapper -->
+                            <table class="table-clean user-table">
+                                <thead>
+                                    <tr>
+                                        <th style="text-align:center;width:35%;">User</th>
+                                        <th style="text-align:center;width:15%;">Role</th>
+                                        <th style="text-align:center;width:15%;">Status</th>
+                                        <th style="text-align:center;width:35%;">Last Active</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="acmUserTableBody"><tr><td colspan="4" class="text-center py-8 text-slate-400">Loading users...</td></tr></tbody>
+                            </table>
                             <div class="pagination-bar">
                                 <div class="pagination-left">
                                     <span class="pagination-info" id="acmPaginationInfo">Showing 0 of 0 users</span>
@@ -648,7 +644,7 @@
                     <p id="acmDeleteUserMessage" style="color:var(--text-secondary);font-size:0.9rem;">This action cannot be undone.</p>
                     <div class="flex gap-3 justify-center mt-5">
                         <button id="acmCancelDeleteBtn" class="btn btn-refresh">Cancel</button>
-                        <button id="acmConfirmDeleteBtn" class="btn btn-critical">Delete</button>
+                        <button id="acmConfirmDeleteBtn" class="btn btn-danger">Delete</button>
                     </div>
                 </div>
             </div>
@@ -768,14 +764,13 @@
                         </select>
                         <button id="resetManageUserFilters" class="btn btn-refresh"><i class="fas fa-times"></i> Reset</button>
                     </div>
-                    <div class="overflow-x-auto">
-                        <table class="table-clean user-table">
-                            <thead>
-                                <tr><th style="text-align:center;">User</th><th style="text-align:center;">Role</th><th style="text-align:center;">Status</th><th style="text-align:center;">Last Active</th><th style="text-align:center;">Actions</th></tr>
-                            </thead>
-                            <tbody id="manageUserTableBody"><tr><td colspan="5" class="text-center py-8 text-slate-400">Loading users...</td></tr></tbody>
-                        </table>
-                    </div>
+                    <!-- Removed overflow-x-auto wrapper -->
+                    <table class="table-clean user-table">
+                        <thead>
+                            <tr><th style="text-align:center;">User</th><th style="text-align:center;">Role</th><th style="text-align:center;">Status</th><th style="text-align:center;">Last Active</th><th style="text-align:center;">Actions</th></tr>
+                        </thead>
+                        <tbody id="manageUserTableBody"><tr><td colspan="5" class="text-center py-8 text-slate-400">Loading users...</td></tr></tbody>
+                    </table>
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
                         <div class="text-sm text-slate-500" id="manageUserPaginationInfo">Showing 0 of 0 users</div>
                         <div class="flex gap-2">

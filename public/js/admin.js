@@ -157,6 +157,17 @@
         return isNaN(num) ? fallback : num;
     }
 
+    function statusBadgeHtml(status) {
+        const map = {
+            available: ['returned', 'Available'],
+            borrowed:  ['borrowed', 'Borrowed'],
+            lost:      ['lost', 'Lost'],
+            unavailable: ['locked', 'Unavailable']
+        };
+        const [cls, label] = map[status] || ['pending', status || 'Unknown'];
+        return `<span class="status-badge ${cls}">${label}</span>`;
+    }
+
     async function authenticatedFetch(url, options = {}) {
         const token = getToken();
         if (!token) {
@@ -285,7 +296,6 @@
         msgEl.textContent = message;
         
         modal.classList.add('active');
-        // Ensure modal is visible
         modal.style.display = 'flex';
     }
 
@@ -1197,14 +1207,14 @@
 
     async function loadInventory() {
         const container = document.getElementById('inventoryTableBody');
-        container.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400"><div class="skeleton h-8 w-full"></div></td></tr>';
+        container.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-400"><div class="skeleton h-8 w-full"></div></td></tr>';
         try {
             const res = await authenticatedFetch('/api/admin/keys');
             const data = await res.json();
             inventoryData = Array.isArray(data) ? data : [];
             applyInventoryFilters();
         } catch (err) {
-            container.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-rose-600">Unable to load keys. Please refresh the page.</td></tr>';
+            container.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-rose-600">Unable to load keys. Please refresh the page.</td></tr>';
             showAlertModal(err.message || 'Failed to load inventory. Please check your network.', 'error');
         }
     }
@@ -1229,7 +1239,7 @@
         const end = Math.min(start + invRows, invTotal);
         const pageData = filteredInventory.slice(start, end);
         if (!pageData.length) {
-            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">No keys found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-400">No keys found.</td></tr>';
             return;
         }
         let html = '';
@@ -1238,21 +1248,79 @@
             if (key.sets && Array.isArray(key.sets) && key.sets.length) {
                 setsDisplay = key.sets.map(s => `${escapeHtml(s.owner_name || 'Unknown')} (${s.quantity || 1})`).join(', ');
             }
+            
+            const status = key.status || 'unknown';
+            
             html += `
                 <tr class="inventory-row clickable" data-key-id="${key.id}" style="cursor:pointer;">
                     <td><code>${escapeHtml(key.code)}</code></td>
                     <td>${escapeHtml(key.brand)}</td>
+                    <td>${statusBadgeHtml(status)}</td>
                     <td>${escapeHtml(setsDisplay)}</td>
                     <td>${escapeHtml(key.total_quantity || 0)}</td>
                     <td>${escapeHtml(key.remarks || '—')}</td>
+                    <td onclick="event.stopPropagation()">
+                        <div class="actions-dropdown">
+                            <button class="dropdown-toggle">Actions <i class="fas fa-chevron-down"></i></button>
+                            <div class="dropdown-menu">
+                                ${status !== 'available' && status !== 'borrowed' ? `<div class="dropdown-item action-set-available" data-key-id="${key.id}" data-key-code="${escapeHtml(key.code)}"><i class="fas fa-check-circle"></i> Mark Available</div>` : ''}
+                                ${status === 'available' ? `<div class="dropdown-item action-set-unavailable" data-key-id="${key.id}" data-key-code="${escapeHtml(key.code)}"><i class="fas fa-ban"></i> Mark Unavailable</div>` : ''}
+                                ${status === 'borrowed' ? `<div class="dropdown-item" style="opacity:0.5;cursor:default;">Currently borrowed</div>` : ''}
+                            </div>
+                        </div>
+                    </td>
                 </tr>
             `;
         }
         tbody.innerHTML = html;
+        
         tbody.querySelectorAll('.inventory-row').forEach(row => {
-            row.addEventListener('click', function() {
+            row.addEventListener('click', function(e) {
+                if (e.target.closest('.actions-dropdown')) return;
                 const id = parseInt(this.dataset.keyId);
                 showKeyDetailModal(id);
+            });
+        });
+        
+        document.querySelectorAll('.action-set-available').forEach(btn => {
+            btn.addEventListener('click', async function(e) {
+                e.stopPropagation();
+                const keyId = parseInt(this.dataset.keyId);
+                const keyCode = this.dataset.keyCode;
+                if (!confirm(`Mark key ${keyCode} as available?`)) return;
+                try {
+                    const res = await authenticatedFetch(`/api/admin/keys/${keyId}/available`, { method: 'POST' });
+                    if (res.ok) {
+                        showAlertModal(`Key ${keyCode} marked as available.`, 'success');
+                        loadInventory();
+                    } else {
+                        const data = await res.json();
+                        showAlertModal(data.error || 'Failed to update key.', 'error');
+                    }
+                } catch (err) {
+                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                }
+            });
+        });
+        
+        document.querySelectorAll('.action-set-unavailable').forEach(btn => {
+            btn.addEventListener('click', async function(e) {
+                e.stopPropagation();
+                const keyId = parseInt(this.dataset.keyId);
+                const keyCode = this.dataset.keyCode;
+                if (!confirm(`Mark key ${keyCode} as unavailable?`)) return;
+                try {
+                    const res = await authenticatedFetch(`/api/admin/keys/${keyId}/unavailable`, { method: 'POST' });
+                    if (res.ok) {
+                        showAlertModal(`Key ${keyCode} marked as unavailable.`, 'success');
+                        loadInventory();
+                    } else {
+                        const data = await res.json();
+                        showAlertModal(data.error || 'Failed to update key.', 'error');
+                    }
+                } catch (err) {
+                    showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+                }
             });
         });
     }
@@ -1309,6 +1377,7 @@
                     <div class="detail-grid">
                         <div><span class="detail-label">Code</span><div class="detail-value">${escapeHtml(key.code)}</div></div>
                         <div><span class="detail-label">Brand</span><div class="detail-value">${escapeHtml(key.brand)}</div></div>
+                        <div><span class="detail-label">Status</span><div class="detail-value">${statusBadgeHtml(key.status || 'unknown')}</div></div>
                         <div><span class="detail-label">Owner(s)</span><div class="detail-value">${escapeHtml(setsDisplay)}</div></div>
                         <div><span class="detail-label">Total Quantity</span><div class="detail-value">${escapeHtml(key.total_quantity || 0)}</div></div>
                         <div class="full-width"><span class="detail-label">Remarks</span><div class="detail-value">${escapeHtml(key.remarks || '—')}</div></div>
@@ -1340,7 +1409,7 @@
 
     async function fetchManageKeys() {
         const tbody = document.getElementById('manageKeyTableBody');
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">Loading keys...</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">Loading keys...</td></tr>';
         const search = safeLower(document.getElementById('manageKeySearch')?.value || '').trim();
         try {
             const res = await authenticatedFetch('/api/admin/keys');
@@ -1356,7 +1425,7 @@
             renderManageKeyTable();
             updateManageKeyPagination();
         } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-rose-600">Unable to load keys.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-rose-600">Unable to load keys.</td></tr>';
             showAlertModal(err.message || 'Failed to load keys for management.', 'error');
         }
     }
@@ -1367,7 +1436,7 @@
         const end = Math.min(start + manageKeyRows, manageKeyTotal);
         const pageData = manageKeyFiltered.slice(start, end);
         if (!pageData.length) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">No keys found.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">No keys found.</td></tr>';
             return;
         }
         let html = '';
@@ -1376,10 +1445,12 @@
             if (key.sets && Array.isArray(key.sets) && key.sets.length) {
                 setsDisplay = key.sets.map(s => `${escapeHtml(s.owner_name)} (${s.quantity})`).join(', ');
             }
+            const status = key.status || 'unknown';
             html += `
                 <tr>
                     <td class="text-left"><code>${escapeHtml(key.code)}</code></td>
                     <td class="text-left">${escapeHtml(key.brand)}</td>
+                    <td class="text-left">${statusBadgeHtml(status)}</td>
                     <td class="text-left">${escapeHtml(setsDisplay)}</td>
                     <td class="text-right">
                         <div class="action-buttons" style="justify-content:flex-end;">
@@ -1449,7 +1520,7 @@
         const setsField = document.getElementById('editKeySets');
         const dateOwnedField = document.getElementById('editKeyDateOwned');
         const remarksField = document.getElementById('editKeyRemarks');
-        const lostField = document.getElementById('editKeyLost');
+        const statusField = document.getElementById('editKeyStatus');
 
         if (key) {
             title.textContent = 'Edit Key';
@@ -1465,7 +1536,7 @@
             }
             dateOwnedField.value = key.date_owned || '';
             remarksField.value = key.remarks || '';
-            lostField.checked = key.is_lost || false;
+            statusField.value = key.status || 'available';
         } else {
             title.textContent = 'Add New Key';
             idField.value = '';
@@ -1475,7 +1546,7 @@
             setsField.value = '';
             dateOwnedField.value = '';
             remarksField.value = '';
-            lostField.checked = false;
+            statusField.value = 'available';
         }
         modal.style.display = 'flex';
     }
@@ -2293,6 +2364,7 @@
         }
     }
 
+    // ===== FIXED: loadPendingRegistrations with proper table markup =====
     async function loadPendingRegistrations() {
         const container = document.getElementById('pendingRequestsContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading requests...</div>';
@@ -2304,28 +2376,29 @@
                 return;
             }
             let html = `<table class="table-clean"><thead><tr>
-                <th class="text-left">Name</th>
-                <th class="text-left">Email</th>
+                <th style="text-align:center;">Name</th>
+                <th style="text-align:center;">Email</th>
                 <th style="text-align:center;">Username</th>
                 <th style="text-align:center;">Requested</th>
-                <th style="text-align:right;">Actions</th>
+                <th style="text-align:center;">Actions</th>
             </tr></thead><tbody>`;
             for (const req of requests) {
                 html += `<tr>
-                    <td class="text-left">${escapeHtml(req.name)}</td>
-                    <td class="text-left">${escapeHtml(req.email)}</td>
+                    <td style="text-align:center;">${escapeHtml(req.name)}</td>
+                    <td style="text-align:center;">${escapeHtml(req.email)}</td>
                     <td style="text-align:center;">${escapeHtml(req.username || '—')}</td>
                     <td style="text-align:center;">${formatDate(req.created_at)}</td>
-                    <td style="text-align:right;">
-                        <div class="action-buttons" style="justify-content:flex-end;">
-                            <button class="btn btn-success approveRequestBtn" data-id="${req.id}"><i class="fas fa-check"></i> Approve</button>
-                            <button class="btn btn-danger rejectRequestBtn" data-id="${req.id}"><i class="fas fa-times"></i> Reject</button>
+                    <td style="text-align:center;">
+                        <div class="action-buttons" style="justify-content:center;">
+                            <button class="btn btn-success btn-sm approveRequestBtn" data-id="${req.id}"><i class="fas fa-check"></i> Approve</button>
+                            <button class="btn btn-danger btn-sm rejectRequestBtn" data-id="${req.id}"><i class="fas fa-times"></i> Reject</button>
                         </div>
                     </td>
                 </tr>`;
             }
             html += `</tbody></table>`;
             container.innerHTML = html;
+            
             container.querySelectorAll('.approveRequestBtn').forEach(btn => {
                 btn.addEventListener('click', async function() {
                     const id = this.dataset.id;
@@ -2335,8 +2408,8 @@
                             const data = await res.json();
                             if (res.ok) {
                                 await logAuditEvent('registration_approved', 'registration_request', id, {
-                                    user_name: data.name,
-                                    user_email: data.email,
+                                    user_name: data.user?.name || data.name,
+                                    user_email: data.user?.email || data.email,
                                     approved_by: getUser()?.name || 'Admin'
                                 });
                                 showAlertModal(data.message || 'User approved. Password sent.', 'success');
@@ -2350,6 +2423,7 @@
                     }
                 });
             });
+            
             container.querySelectorAll('.rejectRequestBtn').forEach(btn => {
                 btn.addEventListener('click', async function() {
                     const id = this.dataset.id;
@@ -2444,7 +2518,7 @@
             }
         }
 
-        // ===== FIXED: renderInlineTable with proper avatar and centering =====
+        // ===== FIXED: renderInlineTable with avatar removed =====
         function renderInlineTable() {
             if (!filteredUsers.length) {
                 tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">No users found</td></tr>';
@@ -2456,17 +2530,12 @@
                     user.status === 'suspended' ? 'bg-rose-100 text-rose-700' :
                     user.status === 'locked' ? 'bg-amber-100 text-amber-700' : 'bg-amber-100 text-amber-700';
                 const statusLabel = user.status.charAt(0).toUpperCase() + user.status.slice(1);
-                const initials = user.name ? getInitials(user.name) : '?';
-                const avatarColor = getAvatarColor(user.name || 'User');
                 html += `
                     <tr class="hover:bg-slate-50 transition">
                         <td style="text-align:center;">
-                            <div class="flex items-center justify-center gap-3">
-                                <div class="acm-avatar-initials" style="background-color:${avatarColor};display:inline-flex;width:34px;height:34px;border-radius:50%;align-items:center;justify-content:center;color:#ffffff;font-weight:600;font-size:0.75rem;flex-shrink:0;">${escapeHtml(initials)}</div>
-                                <div style="text-align:left;">
-                                    <div class="text-sm font-medium text-slate-800">${escapeHtml(user.name || 'User')}</div>
-                                    <div class="text-sm text-slate-500">${escapeHtml(user.email)}</div>
-                                </div>
+                            <div>
+                                <div class="text-sm font-medium text-slate-800">${escapeHtml(user.name || 'User')}</div>
+                                <div class="text-sm text-slate-500">${escapeHtml(user.email)}</div>
                             </div>
                         </td>
                         <td style="text-align:center;">${escapeHtml(user.role)}</td>
@@ -2535,7 +2604,7 @@
             }
         }
 
-        // ===== FIXED: renderManageTable with proper avatar and centering =====
+        // ===== FIXED: renderManageTable with avatar removed =====
         function renderManageTable() {
             if (!manageFiltered.length) {
                 manageTbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">No users found</td></tr>';
@@ -2547,17 +2616,12 @@
                     user.status === 'suspended' ? 'bg-rose-100 text-rose-700' :
                     user.status === 'locked' ? 'bg-amber-100 text-amber-700' : 'bg-amber-100 text-amber-700';
                 const statusLabel = user.status.charAt(0).toUpperCase() + user.status.slice(1);
-                const initials = user.name ? getInitials(user.name) : '?';
-                const avatarColor = getAvatarColor(user.name || 'User');
                 html += `
                     <tr class="hover:bg-slate-50 transition">
                         <td style="text-align:center;">
-                            <div class="flex items-center justify-center gap-3">
-                                <div class="acm-avatar-initials" style="background-color:${avatarColor};display:inline-flex;width:34px;height:34px;border-radius:50%;align-items:center;justify-content:center;color:#ffffff;font-weight:600;font-size:0.75rem;flex-shrink:0;">${escapeHtml(initials)}</div>
-                                <div style="text-align:left;">
-                                    <div class="text-sm font-medium text-slate-800">${escapeHtml(user.name || 'User')}</div>
-                                    <div class="text-sm text-slate-500">${escapeHtml(user.email)}</div>
-                                </div>
+                            <div>
+                                <div class="text-sm font-medium text-slate-800">${escapeHtml(user.name || 'User')}</div>
+                                <div class="text-sm text-slate-500">${escapeHtml(user.email)}</div>
                             </div>
                         </td>
                         <td style="text-align:center;">${escapeHtml(user.role)}</td>
@@ -3019,9 +3083,503 @@
             }
         });
 
-        // Rest of event listeners remain the same...
-        // [The rest of the event listeners are identical to the original]
+        document.getElementById('modalCancelBtn')?.addEventListener('click', () => {
+            document.getElementById('adminModal').style.display = 'none';
+        });
+        document.getElementById('closeAdminModalBtn')?.addEventListener('click', () => {
+            document.getElementById('adminModal').style.display = 'none';
+        });
+        document.getElementById('adminModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('adminModal').style.display = 'none';
+            }
+        });
 
+        document.getElementById('searchBtn')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            loadTransactions();
+        });
+
+        document.getElementById('resetBtn')?.addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('filterGiver').value = '';
+            document.getElementById('filterReceiver').value = '';
+            document.getElementById('filterBranch').value = '';
+            document.getElementById('filterAction').value = '';
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterFrom').value = '';
+            document.getElementById('filterTo').value = '';
+            txPage = 1;
+            loadTransactions();
+        });
+
+        document.getElementById('inventorySearchInput')?.addEventListener('input', () => {
+            invPage = 1;
+            applyInventoryFilters();
+        });
+        document.getElementById('inventoryResetFiltersBtn')?.addEventListener('click', () => {
+            document.getElementById('inventorySearchInput').value = '';
+            invPage = 1;
+            applyInventoryFilters();
+        });
+        document.getElementById('inventoryPrevPageBtn')?.addEventListener('click', () => {
+            if (invPage > 1) {
+                invPage--;
+                renderInventoryTable();
+                updateInventoryPagination();
+            }
+        });
+        document.getElementById('inventoryNextPageBtn')?.addEventListener('click', () => {
+            const totalPages = Math.ceil(invTotal / invRows);
+            if (invPage < totalPages) {
+                invPage++;
+                renderInventoryTable();
+                updateInventoryPagination();
+            }
+        });
+        document.getElementById('refreshInventoryBtn')?.addEventListener('click', loadInventory);
+        document.getElementById('inventoryRowsPerPage')?.addEventListener('change', function() {
+            invRows = parseInt(this.value);
+            invPage = 1;
+            applyInventoryFilters();
+        });
+
+        document.getElementById('manageKeysBtn')?.addEventListener('click', openKeyManageModal);
+        document.getElementById('closeKeyManageModalBtn')?.addEventListener('click', () => {
+            document.getElementById('keyManageModal').style.display = 'none';
+        });
+        document.getElementById('closeKeyManageFooterBtn')?.addEventListener('click', () => {
+            document.getElementById('keyManageModal').style.display = 'none';
+        });
+        document.getElementById('keyManageModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('keyManageModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('manageKeySearch')?.addEventListener('input', () => {
+            manageKeyPage = 1;
+            fetchManageKeys();
+        });
+        document.getElementById('resetManageKeyFilters')?.addEventListener('click', () => {
+            document.getElementById('manageKeySearch').value = '';
+            manageKeyPage = 1;
+            fetchManageKeys();
+        });
+        document.getElementById('manageKeyPrevBtn')?.addEventListener('click', () => {
+            if (manageKeyPage > 1) {
+                manageKeyPage--;
+                renderManageKeyTable();
+                updateManageKeyPagination();
+            }
+        });
+        document.getElementById('manageKeyNextBtn')?.addEventListener('click', () => {
+            const totalPages = Math.ceil(manageKeyTotal / manageKeyRows);
+            if (manageKeyPage < totalPages) {
+                manageKeyPage++;
+                renderManageKeyTable();
+                updateManageKeyPagination();
+            }
+        });
+        document.getElementById('addKeyFromManageBtn')?.addEventListener('click', () => {
+            openKeyEditModal(null);
+            document.getElementById('keyManageModal').style.display = 'none';
+        });
+
+        document.getElementById('closeKeyEditModalBtn')?.addEventListener('click', () => {
+            document.getElementById('keyEditModal').style.display = 'none';
+        });
+        document.getElementById('cancelKeyEditBtn')?.addEventListener('click', () => {
+            document.getElementById('keyEditModal').style.display = 'none';
+        });
+        document.getElementById('keyEditModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('keyEditModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('saveKeyEditBtn')?.addEventListener('click', async function() {
+            const id = document.getElementById('editKeyId').value;
+            const code = document.getElementById('editKeyCode').value.trim();
+            const brand = document.getElementById('editKeyBrand').value.trim();
+            const ownerField = document.getElementById('editKeyOwner').value.trim();
+            const totalQuantity = parseInt(document.getElementById('editKeySets').value) || 1;
+            const dateOwned = document.getElementById('editKeyDateOwned').value;
+            const remarks = document.getElementById('editKeyRemarks').value.trim();
+            const status = document.getElementById('editKeyStatus').value;
+
+            if (!code || !brand) {
+                showAlertModal('Code and brand are required.', 'error');
+                return;
+            }
+
+            if (!['available', 'lost', 'unavailable'].includes(status)) {
+                showAlertModal('Invalid status. Cannot manually set to "borrowed".', 'error');
+                return;
+            }
+
+            let sets = [];
+            if (ownerField) {
+                const owners = ownerField.split(',').map(s => s.trim()).filter(Boolean);
+                const quantityPerOwner = Math.max(1, Math.floor(totalQuantity / owners.length));
+                sets = owners.map((owner, index) => ({
+                    owner_name: owner,
+                    quantity: index === owners.length - 1 ? totalQuantity - (quantityPerOwner * (owners.length - 1)) : quantityPerOwner,
+                    remarks: remarks || null
+                }));
+            }
+
+            const payload = {
+                code,
+                brand,
+                sets: sets,
+                date_owned: dateOwned || null,
+                remarks: remarks || null,
+                status: status
+            };
+
+            const method = id ? 'PUT' : 'POST';
+            const url = id ? `/api/admin/keys/${id}` : '/api/admin/keys';
+
+            try {
+                const res = await authenticatedFetch(url, { method, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (res.ok) {
+                    await logAuditEvent(id ? 'update_key' : 'create_key', 'key', data.id || id, {
+                        key_code: code,
+                        brand: brand,
+                        status: status
+                    });
+                    showAlertModal(id ? 'Key updated successfully.' : 'Key created successfully.', 'success');
+                    document.getElementById('keyEditModal').style.display = 'none';
+                    loadInventory();
+                    if (document.getElementById('keyManageModal').style.display === 'flex') fetchManageKeys();
+                } else {
+                    showAlertModal(data.error || 'Save failed. Please try again.', 'error');
+                }
+            } catch (err) {
+                showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            const btn = e.target.closest('.btn-print');
+            if (!btn) return;
+            const section = btn.dataset.section;
+            let containerId = '';
+            switch (section) {
+                case 'transactions': containerId = 'transactionsCard'; break;
+                case 'requests': containerId = 'requestsCard'; break;
+                case 'inventory': containerId = 'inventoryCard'; break;
+                case 'audit': containerId = 'auditCard'; break;
+                case 'users': containerId = 'usersCard'; break;
+                case 'templates': containerId = 'templatesCard'; break;
+                case 'settings': containerId = 'settingsCard'; break;
+                default: return;
+            }
+            printSection(containerId);
+        });
+
+        document.getElementById('manageTemplatesBtn')?.addEventListener('click', openTemplateManageModal);
+        document.getElementById('closeTemplateManageModalBtn')?.addEventListener('click', () => {
+            document.getElementById('templateManageModal').style.display = 'none';
+        });
+        document.getElementById('closeTemplateManageFooterBtn')?.addEventListener('click', () => {
+            document.getElementById('templateManageModal').style.display = 'none';
+        });
+        document.getElementById('templateManageModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('templateManageModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('addTemplateFromManageBtn')?.addEventListener('click', function() {
+            document.getElementById('editTemplateKey').value = '';
+            document.getElementById('editTemplateKeyDisplay').value = '';
+            document.getElementById('editTemplateKeyDisplay').disabled = false;
+            document.getElementById('editTemplateKeyDisplay').placeholder = 'Enter a unique key (e.g., welcome)';
+            document.getElementById('editTemplateSubject').value = '';
+            document.getElementById('editTemplateBody').value = '';
+            document.getElementById('editTemplateActive').checked = true;
+            document.getElementById('templateEditModalTitle').textContent = 'Add New Template';
+            document.getElementById('templateEditModal').style.display = 'flex';
+        });
+
+        document.getElementById('closeTemplateEditModalBtn')?.addEventListener('click', () => {
+            document.getElementById('templateEditModal').style.display = 'none';
+        });
+        document.getElementById('cancelTemplateEditBtn')?.addEventListener('click', () => {
+            document.getElementById('templateEditModal').style.display = 'none';
+        });
+        document.getElementById('templateEditModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('templateEditModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('saveTemplateEditBtn')?.addEventListener('click', async function() {
+            const key = document.getElementById('editTemplateKey').value.trim();
+            const keyDisplay = document.getElementById('editTemplateKeyDisplay').value.trim();
+            const subject = document.getElementById('editTemplateSubject').value.trim();
+            const body_html = document.getElementById('editTemplateBody').value.trim();
+            const is_active = document.getElementById('editTemplateActive').checked;
+            const finalKey = key || keyDisplay;
+            if (!finalKey || !subject || !body_html) {
+                showAlertModal('Key, subject, and body are required.', 'error');
+                return;
+            }
+            const isNew = !key;
+            const url = isNew ? '/api/admin/email/templates' : `/api/admin/email/templates/${finalKey}`;
+            const method = isNew ? 'POST' : 'PUT';
+            try {
+                const res = await authenticatedFetch(url, { method, body: JSON.stringify({ subject, body_html, is_active }) });
+                if (res.ok) {
+                    await logAuditEvent(isNew ? 'create_email_template' : 'update_email_template', 'email_template', finalKey, {
+                        subject: subject,
+                        is_active: is_active
+                    });
+                    showAlertModal(isNew ? 'Template created successfully.' : 'Template updated successfully.', 'success');
+                    document.getElementById('templateEditModal').style.display = 'none';
+                    loadTemplates();
+                    if (document.getElementById('templateManageModal').style.display === 'flex') openTemplateManageModal();
+                } else {
+                    const data = await res.json();
+                    showAlertModal(data.error || 'Save failed. Please try again.', 'error');
+                }
+            } catch (err) {
+                showAlertModal(err.message || 'Network error. Please check your connection.', 'error');
+            }
+        });
+
+        document.getElementById('saveSettingsBtn')?.addEventListener('click', async function() {
+            const toggles = document.querySelectorAll('.setting-toggle');
+            const updates = [];
+            for (const toggle of toggles) {
+                const key = toggle.dataset.key;
+                const enabled = toggle.checked;
+                const config = {};
+                const configInputs = toggle.closest('.setting-control').querySelectorAll('[data-config]');
+                for (const input of configInputs) {
+                    const configKey = input.dataset.config;
+                    if (input.type === 'checkbox') {
+                        config[configKey] = input.checked;
+                    } else {
+                        if (configKey === 'reminder_days_before') {
+                            const val = input.value.trim();
+                            config[configKey] = val ? val.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)) : [];
+                        } else {
+                            config[configKey] = input.value;
+                        }
+                    }
+                }
+                updates.push({ key, enabled, config });
+            }
+            try {
+                for (const update of updates) {
+                    await authenticatedFetch(`/api/admin/email/settings/${update.key}`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ enabled: update.enabled, config: update.config })
+                    });
+                }
+                await logAuditEvent('update_notification_settings', 'settings', 'all', {
+                    updates: updates
+                });
+                showAlertModal('All settings saved successfully.', 'success');
+                loadSettings();
+            } catch (err) {
+                showAlertModal(err.message || 'Failed to save settings. Please check your network.', 'error');
+            }
+        });
+
+        document.getElementById('addAdminRecipientBtn')?.addEventListener('click', openAddAdminRecipientModal);
+        document.getElementById('closeAddAdminRecipientModalBtn')?.addEventListener('click', () => {
+            document.getElementById('addAdminRecipientModal').style.display = 'none';
+        });
+        document.getElementById('cancelAddAdminRecipientBtn')?.addEventListener('click', () => {
+            document.getElementById('addAdminRecipientModal').style.display = 'none';
+        });
+        document.getElementById('addAdminRecipientModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('addAdminRecipientModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('saveAdminRecipientBtn')?.addEventListener('click', async function() {
+            const select = document.getElementById('adminRecipientSelect');
+            const userId = parseInt(select.value);
+            if (!userId) {
+                showAlertModal('Please select an admin user.', 'error');
+                return;
+            }
+            try {
+                const res = await authenticatedFetch('/api/admin/admin-notification-recipients', {
+                    method: 'POST',
+                    body: JSON.stringify({ user_id: userId, enabled: true })
+                });
+                if (res.ok) {
+                    await logAuditEvent('add_admin_recipient', 'admin_recipient', userId, {
+                        user_id: userId
+                    });
+                    showAlertModal('Admin added to notification recipients.', 'success');
+                    document.getElementById('addAdminRecipientModal').style.display = 'none';
+                    loadAdminRecipients();
+                } else {
+                    const data = await res.json();
+                    showAlertModal(data.error || 'Failed to add recipient.', 'error');
+                }
+            } catch (err) {
+                showAlertModal(err.message || 'Network error.', 'error');
+            }
+        });
+
+        document.getElementById('refreshLostKeysBtn')?.addEventListener('click', loadLostKeysManagement);
+
+        document.getElementById('closeLostKeyDetailModalBtn')?.addEventListener('click', () => {
+            document.getElementById('lostKeyDetailModal').style.display = 'none';
+        });
+        document.getElementById('closeLostKeyDetailFooterBtn')?.addEventListener('click', () => {
+            document.getElementById('lostKeyDetailModal').style.display = 'none';
+        });
+        document.getElementById('lostKeyDetailModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('lostKeyDetailModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('closeLostKeyEditModalBtn')?.addEventListener('click', () => {
+            document.getElementById('lostKeyEditModal').style.display = 'none';
+        });
+        document.getElementById('cancelLostKeyEditBtn')?.addEventListener('click', () => {
+            document.getElementById('lostKeyEditModal').style.display = 'none';
+        });
+        document.getElementById('lostKeyEditModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('lostKeyEditModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('saveLostKeyEditBtn')?.addEventListener('click', async function() {
+            const id = document.getElementById('editLostTransactionId').value;
+            const reason = document.getElementById('editLostReason').value.trim();
+            const lostAt = document.getElementById('editLostDate').value;
+            const status = document.getElementById('editLostStatus').value;
+
+            if (!reason) {
+                showAlertModal('Reason for loss is required.', 'error');
+                return;
+            }
+
+            try {
+                const res = await authenticatedFetch(`/api/admin/lost-keys/${id}/update`, {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        reason: reason,
+                        lost_at: lostAt || null,
+                        status: status
+                    })
+                });
+                if (res.ok) {
+                    await logAuditEvent('update_lost_key', 'lost_key', id, {
+                        reason: reason,
+                        status: status
+                    });
+                    showAlertModal('Lost key updated successfully.', 'success');
+                    document.getElementById('lostKeyEditModal').style.display = 'none';
+                    loadLostKeysManagement();
+                    loadLostKeys();
+                } else {
+                    const data = await res.json();
+                    showAlertModal(data.error || 'Update failed.', 'error');
+                }
+            } catch (err) {
+                showAlertModal(err.message || 'Network error.', 'error');
+            }
+        });
+
+        document.getElementById('refreshAdminRecipientsBtn')?.addEventListener('click', loadAdminRecipients);
+        document.getElementById('refreshAuditLogBtn')?.addEventListener('click', loadAuditLogs);
+
+        document.getElementById('addRoleBtn')?.addEventListener('click', () => {
+            document.getElementById('newRoleName').value = '';
+            document.getElementById('addRoleModal').style.display = 'flex';
+        });
+        document.getElementById('closeAddRoleModalBtn')?.addEventListener('click', () => {
+            document.getElementById('addRoleModal').style.display = 'none';
+        });
+        document.getElementById('cancelAddRoleBtn')?.addEventListener('click', () => {
+            document.getElementById('addRoleModal').style.display = 'none';
+        });
+        document.getElementById('addRoleModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('addRoleModal').style.display = 'none';
+            }
+        });
+        document.getElementById('confirmAddRoleBtn')?.addEventListener('click', () => {
+            const name = document.getElementById('newRoleName').value.trim();
+            if (!name) {
+                showAlertModal('Please enter a role name.', 'error');
+                return;
+            }
+            if (permissionsData.roleMappings[name]) {
+                showAlertModal('Role already exists.', 'error');
+                return;
+            }
+            permissionsData.roleMappings[name] = [];
+            permissionsData.roles = Object.keys(permissionsData.roleMappings);
+            renderPermissions();
+            document.getElementById('addRoleModal').style.display = 'none';
+            showAlertModal(`Role "${name}" added.`, 'success');
+        });
+
+        document.getElementById('savePermissionsBtn')?.addEventListener('click', async function() {
+            const updates = {};
+            document.querySelectorAll('.permission-checkbox').forEach(cb => {
+                const role = cb.dataset.role;
+                const permId = parseInt(cb.dataset.permId);
+                if (!updates[role]) updates[role] = [];
+                if (cb.checked) updates[role].push(permId);
+            });
+            try {
+                for (const [roleName, permIds] of Object.entries(updates)) {
+                    await authenticatedFetch('/api/permissions/roles', {
+                        method: 'POST',
+                        body: JSON.stringify({ role_name: roleName, permission_ids: permIds })
+                    });
+                }
+                await logAuditEvent('update_permissions', 'permissions', 'all', {
+                    updates: updates
+                });
+                showAlertModal('Permissions saved successfully.', 'success');
+                await loadPermissions();
+            } catch (err) {
+                showAlertModal(err.message || 'Failed to save permissions. Please check your network.', 'error');
+            }
+        });
+
+        document.getElementById('closeKeyDetailModalBtn')?.addEventListener('click', () => {
+            document.getElementById('keyDetailModal').style.display = 'none';
+        });
+        document.getElementById('closeKeyDetailFooterBtn')?.addEventListener('click', () => {
+            document.getElementById('keyDetailModal').style.display = 'none';
+        });
+        document.getElementById('keyDetailModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('keyDetailModal').style.display = 'none';
+            }
+        });
+
+        document.getElementById('openUserManagementBtn')?.addEventListener('click', () => {
+            document.getElementById('userManagementModal').style.display = 'flex';
+            fetchManageUsers();
+        });
+        document.getElementById('closeUserManagementModalBtn')?.addEventListener('click', () => {
+            document.getElementById('userManagementModal').style.display = 'none';
+        });
+        document.getElementById('userManagementModal')?.addEventListener('click', (e) => {
+            if (e.target === e.currentTarget) {
+                document.getElementById('userManagementModal').style.display = 'none';
+            }
+        });
     }
 
     async function init() {

@@ -174,7 +174,6 @@ function validateSession(token, res) {
   return session.email;
 }
 
-// ===== CHECK REGISTRATION STATUS =====
 router.post('/check-registration-status', async (req, res) => {
   try {
     const { email } = req.body;
@@ -184,14 +183,12 @@ router.post('/check-registration-status', async (req, res) => {
     
     const db = req.db;
     
-    // Check for pending requests
     const result = await db.query(
       `SELECT id, status FROM pending_users 
        WHERE email = $1 AND status = 'pending'`,
       [email]
     );
     
-    // Also check if user already exists
     const userCheck = await db.query(
       'SELECT id FROM users WHERE email = $1',
       [email]
@@ -208,7 +205,6 @@ router.post('/check-registration-status', async (req, res) => {
   }
 });
 
-// ===== CLEANUP REGISTRATION REQUESTS =====
 router.post('/admin/cleanup-registrations', requireAuth, authorize('admin'), async (req, res) => {
   try {
     const { email } = req.body;
@@ -218,7 +214,6 @@ router.post('/admin/cleanup-registrations', requireAuth, authorize('admin'), asy
     
     const db = req.db;
     
-    // Delete any pending registration requests with this email
     const result = await db.query(
       `DELETE FROM pending_users 
        WHERE email = $1 AND status = 'pending' 
@@ -226,7 +221,6 @@ router.post('/admin/cleanup-registrations', requireAuth, authorize('admin'), asy
       [email]
     );
     
-    // Also delete any rejected requests
     const rejectedResult = await db.query(
       `DELETE FROM pending_users 
        WHERE email = $1 AND status = 'rejected' 
@@ -251,7 +245,6 @@ router.post('/admin/cleanup-registrations', requireAuth, authorize('admin'), asy
   }
 });
 
-// ===== REGISTER REQUEST (UPDATED WITH FAST RESPONSE) =====
 router.post('/register-request', async (req, res) => {
   const { name, email, username } = req.body;
   const db = req.db;
@@ -264,7 +257,6 @@ router.post('/register-request', async (req, res) => {
   }
 
   try {
-    // Check if user already exists
     const userCheck = await db.query(
       'SELECT id FROM users WHERE email = $1',
       [email]
@@ -273,7 +265,6 @@ router.post('/register-request', async (req, res) => {
       return res.status(400).json({ error: 'Email already registered. Please login.' });
     }
     
-    // Check for pending requests
     const pendingCheck = await db.query(
       'SELECT id FROM pending_users WHERE email = $1 AND status = $2',
       [email, 'pending']
@@ -282,7 +273,6 @@ router.post('/register-request', async (req, res) => {
       return res.status(400).json({ error: 'You already have a pending request. Please wait for admin approval.' });
     }
 
-    // Generate unique username
     let finalUsername = username ? username.trim() : email.split('@')[0];
     let unique = false;
     let attempts = 0;
@@ -305,7 +295,6 @@ router.post('/register-request', async (req, res) => {
       return res.status(400).json({ error: 'Could not generate a unique username. Please provide one.' });
     }
 
-    // Create pending user
     const result = await db.query(
       `INSERT INTO pending_users (name, email, username, status, created_at, updated_at)
        VALUES ($1, $2, $3, 'pending', NOW(), NOW()) 
@@ -315,11 +304,9 @@ router.post('/register-request', async (req, res) => {
     
     const requestId = result.rows[0].id;
 
-    // Send email asynchronously (don't wait for it)
     try {
       const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
       if (adminEmail) {
-        // Non-blocking email send
         sendAdminRegistrationAlert(adminEmail, { name, email, username: candidate })
           .catch(err => console.error('Failed to send admin alert:', err));
       }
@@ -327,7 +314,6 @@ router.post('/register-request', async (req, res) => {
       console.error('Failed to send admin registration alert:', emailErr);
     }
 
-    // Return success immediately
     res.status(201).json({ 
       success: true,
       message: 'Registration request submitted. You will receive an email once approved.',
@@ -339,7 +325,6 @@ router.post('/register-request', async (req, res) => {
   }
 });
 
-// ===== GET PENDING REQUESTS =====
 router.get('/admin/pending-requests', requireAuth, authorize('admin'), async (req, res) => {
   const db = req.db;
   try {
@@ -356,7 +341,6 @@ router.get('/admin/pending-requests', requireAuth, authorize('admin'), async (re
   }
 });
 
-// ===== APPROVE REQUEST (UPDATED WITH WELCOME EMAIL) =====
 router.post('/admin/pending-requests/:id/approve', requireAuth, authorize('admin'), async (req, res) => {
   const { id } = req.params;
   const db = req.db;
@@ -416,7 +400,6 @@ router.post('/admin/pending-requests/:id/approve', requireAuth, authorize('admin
 
     await db.query('COMMIT');
 
-    // Send welcome email asynchronously (don't wait)
     try {
       const changePasswordLink = `${process.env.APP_URL || 'http://localhost:3000'}/change-password`;
       await sendWelcomeEmail(pending.email, pending.name, plainPassword, changePasswordLink);
@@ -449,7 +432,6 @@ router.post('/admin/pending-requests/:id/approve', requireAuth, authorize('admin
   }
 });
 
-// ===== REJECT REQUEST =====
 router.post('/admin/pending-requests/:id/reject', requireAuth, authorize('admin'), async (req, res) => {
   const { id } = req.params;
   const { reason } = req.body;
@@ -487,7 +469,6 @@ router.post('/admin/pending-requests/:id/reject', requireAuth, authorize('admin'
   }
 });
 
-// ===== LOGIN =====
 router.post('/login', loginLimiter, async (req, res) => {
   const { username, password } = req.body;
   const clientIp = req.ip || req.connection.remoteAddress;
@@ -659,7 +640,6 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 });
 
-// ===== CHANGE PASSWORD =====
 router.post('/change-password', requireAuth, async (req, res) => {
   const { current_password, new_password } = req.body;
   const userId = req.user?.id || req.session.userId;
@@ -722,7 +702,6 @@ router.post('/change-password', requireAuth, async (req, res) => {
   }
 });
 
-// ===== ADMIN CREATE USER =====
 router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) => {
   const { username, email, role = 'user', status = 'active' } = req.body;
   const adminId = req.user?.id || req.session.userId;
@@ -795,7 +774,6 @@ router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) =>
   }
 });
 
-// ===== LOGOUT =====
 router.post('/logout', async (req, res) => {
   const userId = req.user?.id || req.session.userId;
   const username = req.user?.username || req.session.username;
@@ -841,7 +819,6 @@ router.post('/logout', async (req, res) => {
   });
 });
 
-// ===== SESSION CHECK =====
 router.get('/session', requireAuth, (req, res) => {
   res.json({
     loggedIn: true,
@@ -851,7 +828,6 @@ router.get('/session', requireAuth, (req, res) => {
   });
 });
 
-// ===== VALIDATE PASSWORD TOKEN =====
 router.post('/validate-password-token', async (req, res) => {
   const { token } = req.body;
   if (!token) {
@@ -870,7 +846,6 @@ router.post('/validate-password-token', async (req, res) => {
   }
 });
 
-// ===== SET PASSWORD FROM TOKEN =====
 router.post('/set-password-from-token', async (req, res) => {
   const { token, new_password } = req.body;
 
@@ -927,7 +902,6 @@ router.post('/set-password-from-token', async (req, res) => {
   }
 });
 
-// ===== CHECK SESSION =====
 router.get('/check-session', async (req, res) => {
   try {
     const token = req.cookies?.token;

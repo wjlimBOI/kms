@@ -711,6 +711,56 @@ body {
 .table-clean .text-left { text-align: left !important; }
 .table-clean .text-right { text-align: right !important; }
 
+/* ===== STATUS BADGES ===== */
+.status-badge {
+    padding: 0.15rem 0.6rem;
+    border-radius: 40px;
+    font-size: 0.7rem;
+    font-weight: 500;
+    display: inline-block;
+    white-space: nowrap;
+}
+
+.status-badge.borrowed {
+    background: #DBEAFE;
+    color: #1E40AF;
+}
+
+.status-badge.returned {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.status-badge.available {
+    background: #D1FAE5;
+    color: #065F46;
+}
+
+.status-badge.lost {
+    background: #FEE2E2;
+    color: #991B1B;
+}
+
+.status-badge.unavailable {
+    background: #e2e8f0;
+    color: #475569;
+}
+
+.status-badge.overdue {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.status-badge.pending {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
+.status-badge.locked {
+    background: #FEF3C7;
+    color: #92400E;
+}
+
 /* ===== ACM AVATAR INITIALS - FIX ===== */
 .acm-avatar-initials {
     display: inline-flex !important;
@@ -729,6 +779,15 @@ body {
 /* Table cell with avatar - center alignment fix */
 .table-clean td .flex.items-center {
     justify-content: center !important;
+}
+
+/* ===== TABLE ACTION BUTTONS ===== */
+.table-action-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
 }
 
 /* ===== FORM ELEMENTS ===== */
@@ -987,6 +1046,36 @@ select { appearance: auto; }
     border-radius: 50%;
 }
 
+/* ===== MANAGE BUTTON (FIXED) ===== */
+.btn-manage {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.85rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-medium);
+    background: #fff;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+
+.btn-manage:hover { 
+    background: var(--bg-card-alt); 
+    border-color: #94a3b8; 
+    transform: translateY(-1px); 
+}
+
+.btn-manage:active { 
+    transform: scale(0.97) translateY(0); 
+}
+
 /* ===== DROPDOWN MENUS (Enhanced with Layer Fixes) ===== */
 .actions-dropdown {
     position: relative;
@@ -1132,6 +1221,30 @@ select { appearance: auto; }
 
 .bento-card {
     overflow: visible !important;
+}
+
+/* ===== FORCE CENTERED TABLES ACROSS ALL ADMIN SECTIONS ===== */
+#tab-requests .table-clean th, 
+#tab-requests .table-clean td,
+#sub-users .table-clean th, 
+#sub-users .table-clean td,
+#tab-inventory .table-clean th, 
+#tab-inventory .table-clean td,
+#sub-audit .table-clean th, 
+#sub-audit .table-clean td,
+#sub-templates .table-clean th, 
+#sub-templates .table-clean td,
+#userManagementModal .table-clean th, 
+#userManagementModal .table-clean td,
+#keyManageModal .table-clean th, 
+#keyManageModal .table-clean td,
+#templateManageModal .table-clean th, 
+#templateManageModal .table-clean td,
+#tab-lost .table-clean th, 
+#tab-lost .table-clean td,
+#sub-admin-notifications .table-clean th, 
+#sub-admin-notifications .table-clean td {
+    text-align: center !important;
 }
 
 /* ===== MODALS (Layer Fixes) ===== */
@@ -1868,6 +1981,17 @@ select { appearance: auto; }
     .action-buttons .btn-xs {
         min-height: 28px;
         font-size: 0.7rem;
+    }
+    
+    /* Table action buttons responsive */
+    .table-action-buttons {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.3rem;
+    }
+    .table-action-buttons .btn {
+        width: 100%;
+        justify-content: center;
     }
     
     #lostKeysManagementContainer .table-clean td {

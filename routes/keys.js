@@ -16,20 +16,19 @@ router.get('/', async (req, res) => {
         k.colour, 
         k.code,
         k.description,
-        k.is_lost,
+        k.status,
         k.owner,
         k.sets,
         k.date_owned,
         k.remarks,
         k.updated_at,
         k.updated_by,
-        NOT EXISTS (
-          SELECT 1 FROM transactions t
-          WHERE t.key_id = k.id AND t.status = 'borrowed'
-        ) AND NOT EXISTS (
-          SELECT 1 FROM key_requests r, jsonb_to_recordset(r.items) AS items(key_id INT)
-          WHERE r.status = 'pending' AND items.key_id = k.id
-        ) AND k.is_lost = false AS available,
+        (k.status = 'available'
+          AND NOT EXISTS (
+            SELECT 1 FROM key_requests r, jsonb_to_recordset(r.items) AS items(key_id INT)
+            WHERE r.status = 'pending' AND items.key_id = k.id
+          )
+        ) AS available,
         EXISTS (
           SELECT 1 FROM key_requests r, jsonb_to_recordset(r.items) AS items(key_id INT)
           WHERE r.status = 'pending' AND items.key_id = k.id
@@ -72,20 +71,19 @@ router.get('/:id', async (req, res) => {
         k.colour, 
         k.code,
         k.description,
-        k.is_lost,
+        k.status,
         k.owner,
         k.sets,
         k.date_owned,
         k.remarks,
         k.updated_at,
         k.updated_by,
-        NOT EXISTS (
-          SELECT 1 FROM transactions t
-          WHERE t.key_id = k.id AND t.status = 'borrowed'
-        ) AND NOT EXISTS (
-          SELECT 1 FROM key_requests r, jsonb_to_recordset(r.items) AS items(key_id INT)
-          WHERE r.status = 'pending' AND items.key_id = k.id
-        ) AND k.is_lost = false AS available,
+        (k.status = 'available'
+          AND NOT EXISTS (
+            SELECT 1 FROM key_requests r, jsonb_to_recordset(r.items) AS items(key_id INT)
+            WHERE r.status = 'pending' AND items.key_id = k.id
+          )
+        ) AS available,
         EXISTS (
           SELECT 1 FROM key_requests r, jsonb_to_recordset(r.items) AS items(key_id INT)
           WHERE r.status = 'pending' AND items.key_id = k.id
@@ -121,12 +119,13 @@ router.get('/:id', async (req, res) => {
 // POST - create a new key
 router.post('/', async (req, res) => {
   const db = req.db;
-  const { code, brand, colour, description, owner, sets, date_owned, remarks, is_lost } = req.body;
+  const { code, brand, colour, description, owner, sets, date_owned, remarks, status } = req.body;
 
   if (!code || !brand) {
     return res.status(400).json({ error: 'code and brand are required' });
   }
 
+  const finalStatus = ['available', 'lost', 'unavailable'].includes(status) ? status : 'available';
   const updated_by = getUpdatedBy(req);
 
   try {
@@ -137,10 +136,10 @@ router.post('/', async (req, res) => {
 
     const result = await db.query(
       `INSERT INTO keys 
-        (code, brand, colour, description, owner, sets, date_owned, remarks, is_lost, updated_at, updated_by)
+        (code, brand, colour, description, owner, sets, date_owned, remarks, status, updated_at, updated_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), $10)
        RETURNING *`,
-      [code, brand, colour || null, description || null, owner || null, sets || null, date_owned || null, remarks || null, is_lost || false, updated_by]
+      [code, brand, colour || null, description || null, owner || null, sets || null, date_owned || null, remarks || null, finalStatus, updated_by]
     );
 
     res.status(201).json(result.rows[0]);
@@ -156,7 +155,7 @@ router.put('/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   if (isNaN(id)) return res.status(400).json({ error: 'Invalid key ID' });
 
-  const { code, brand, colour, description, owner, sets, date_owned, remarks, is_lost } = req.body;
+  const { code, brand, colour, description, owner, sets, date_owned, remarks, status } = req.body;
 
   if (!code || !brand) {
     return res.status(400).json({ error: 'code and brand are required' });
@@ -165,10 +164,20 @@ router.put('/:id', async (req, res) => {
   const updated_by = getUpdatedBy(req);
 
   try {
-    const existing = await db.query('SELECT id FROM keys WHERE id = $1', [id]);
+    const existing = await db.query('SELECT id, status FROM keys WHERE id = $1', [id]);
     if (existing.rows.length === 0) {
       return res.status(404).json({ error: 'Key not found' });
     }
+
+    const currentStatus = existing.rows[0].status;
+
+    if (currentStatus === 'borrowed' && status && status !== 'borrowed') {
+      return res.status(409).json({ error: 'Key is currently borrowed. Process a return before changing its status.' });
+    }
+
+    const finalStatus = (status && ['available', 'lost', 'unavailable'].includes(status))
+      ? status
+      : currentStatus;
 
     const dup = await db.query('SELECT id FROM keys WHERE code = $1 AND id != $2', [code, id]);
     if (dup.rows.length > 0) {
@@ -179,10 +188,10 @@ router.put('/:id', async (req, res) => {
       `UPDATE keys
        SET code = $1, brand = $2, colour = $3, description = $4,
            owner = $5, sets = $6, date_owned = $7, remarks = $8,
-           is_lost = $9, updated_at = NOW(), updated_by = $10
+           status = $9, updated_at = NOW(), updated_by = $10
        WHERE id = $11
        RETURNING *`,
-      [code, brand, colour || null, description || null, owner || null, sets || null, date_owned || null, remarks || null, is_lost || false, updated_by, id]
+      [code, brand, colour || null, description || null, owner || null, sets || null, date_owned || null, remarks || null, finalStatus, updated_by, id]
     );
 
     res.json(result.rows[0]);
@@ -210,7 +219,7 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// POST /:id/unavailable - mark as lost
+// POST /:id/unavailable - mark as unavailable (lost)
 router.post('/:id/unavailable', async (req, res) => {
   const db = req.db;
   const id = parseInt(req.params.id);
@@ -220,11 +229,13 @@ router.post('/:id/unavailable', async (req, res) => {
 
   try {
     const result = await db.query(
-      `UPDATE keys SET is_lost = true, updated_at = NOW(), updated_by = $1 WHERE id = $2 RETURNING *`,
+      `UPDATE keys SET status = 'lost', updated_at = NOW(), updated_by = $1 
+       WHERE id = $2 AND status != 'borrowed' 
+       RETURNING *`,
       [updated_by, id]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Key not found' });
+      return res.status(409).json({ error: 'Key not found or currently borrowed' });
     }
     res.json(result.rows[0]);
   } catch (err) {
@@ -233,7 +244,7 @@ router.post('/:id/unavailable', async (req, res) => {
   }
 });
 
-// POST /:id/available - mark as available (not lost)
+// POST /:id/available - mark as available
 router.post('/:id/available', async (req, res) => {
   const db = req.db;
   const id = parseInt(req.params.id);
@@ -243,11 +254,13 @@ router.post('/:id/available', async (req, res) => {
 
   try {
     const result = await db.query(
-      `UPDATE keys SET is_lost = false, updated_at = NOW(), updated_by = $1 WHERE id = $2 RETURNING *`,
+      `UPDATE keys SET status = 'available', updated_at = NOW(), updated_by = $1 
+       WHERE id = $2 AND status != 'borrowed' 
+       RETURNING *`,
       [updated_by, id]
     );
     if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Key not found' });
+      return res.status(409).json({ error: 'Key not found or currently borrowed' });
     }
     res.json(result.rows[0]);
   } catch (err) {

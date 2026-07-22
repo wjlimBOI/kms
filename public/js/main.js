@@ -374,7 +374,6 @@
         } catch (error) {
             console.error('Logout error:', error);
         } finally {
-            // Always redirect to force-logout for complete cleanup
             window.location.replace('/force-logout');
         }
     }
@@ -616,11 +615,15 @@
         filtered.forEach(key => {
             const dotColor = getDotColour(key.colour);
             let statusBadge = '',
-                isAvailable = false,
-                isLost = key.is_lost || false;
+                isAvailable = false;
+            
+            // Determine status from key.status or fallback
+            const keyStatus = key.status || (key.is_lost ? 'lost' : 'available');
 
-            if (isLost) {
+            if (keyStatus === 'lost') {
                 statusBadge = `<span class="key-status" style="background:rgba(220,38,38,0.85);">Lost</span>`;
+            } else if (keyStatus === 'unavailable') {
+                statusBadge = `<span class="key-status" style="background:rgba(100,116,139,0.85);">Unavailable</span>`;
             } else if (key.pending) {
                 statusBadge = `<span class="key-status" style="background:rgba(245,158,11,0.85);">Pending</span>`;
             } else if (key.pending_return) {
@@ -639,14 +642,14 @@
             html += `
                 <div class="key-card" style="background-color:${dotColor}; color:${textColor}; text-shadow:${shadow};"
                      data-id="${key.id}" data-code="${escapeHtml(key.code)}" data-brand="${escapeHtml(key.brand)}"
-                     data-available="${key.available}" data-is-lost="${isLost}"
+                     data-available="${key.available}" data-status="${keyStatus}"
                      data-borrower-name="${escapeHtml(key.borrower_name || '')}" 
                      data-borrower-email="${escapeHtml(key.borrower_email || '')}" 
                      data-return-date="${key.planned_return || ''}">
                     <div class="key-code">${escapeHtml(key.code)}</div>
                     <div class="key-brand">${escapeHtml(key.brand)}</div>
                     ${statusBadge}
-                    ${isAvailable && !isLost ? `<button class="borrow-btn" data-key-id="${key.id}">Borrow</button>` : ''}
+                    ${isAvailable && keyStatus !== 'lost' && keyStatus !== 'unavailable' ? `<button class="borrow-btn" data-key-id="${key.id}">Borrow</button>` : ''}
                 </div>
             `;
         });
@@ -655,7 +658,7 @@
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const key = allKeys.find(k => k.id === parseInt(btn.dataset.keyId));
-                if (key && key.available && !key.is_lost) addToBasket(key);
+                if (key && key.available && key.status !== 'lost' && key.status !== 'unavailable') addToBasket(key);
             });
         });
         document.getElementById('keysGrid')?.addEventListener('click', (e) => {
@@ -696,7 +699,7 @@
     }
 
     function addToBasket(key) {
-        if (!key.available || key.is_lost) {
+        if (!key.available || key.status === 'lost' || key.status === 'unavailable') {
             showToast(`${key.code} is not available`, 'warning');
             return;
         }

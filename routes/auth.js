@@ -257,6 +257,7 @@ router.post('/register-request', async (req, res) => {
   }
 
   try {
+    // Check if user already exists
     const userCheck = await db.query(
       'SELECT id FROM users WHERE email = $1',
       [email]
@@ -265,14 +266,36 @@ router.post('/register-request', async (req, res) => {
       return res.status(400).json({ error: 'Email already registered. Please login.' });
     }
     
-    const pendingCheck = await db.query(
-      'SELECT id FROM pending_users WHERE email = $1 AND status = $2',
-      [email, 'pending']
+    // Check for ANY existing pending record for this email (regardless of status)
+    // This prevents the unique constraint violation
+    const existingPending = await db.query(
+      'SELECT id, status FROM pending_users WHERE email = $1',
+      [email]
     );
-    if (pendingCheck.rowCount > 0) {
-      return res.status(400).json({ error: 'You already have a pending request. Please wait for admin approval.' });
+    
+    if (existingPending.rowCount > 0) {
+      const record = existingPending.rows[0];
+      
+      // If it's pending, tell the user to wait
+      if (record.status === 'pending') {
+        return res.status(400).json({ error: 'You already have a pending request. Please wait for admin approval.' });
+      }
+      
+      // If it's rejected or approved, delete it so they can re-register
+      // This handles the case where a user was rejected and wants to try again,
+      // or where an approved user was deleted and wants to re-register
+      await db.query(
+        'DELETE FROM pending_users WHERE email = $1',
+        [email]
+      );
+      
+      logger.info('Cleaned up existing pending record for re-registration', { 
+        email, 
+        old_status: record.status 
+      });
     }
 
+    // Generate unique username
     let finalUsername = username ? username.trim() : email.split('@')[0];
     let unique = false;
     let attempts = 0;
@@ -295,6 +318,7 @@ router.post('/register-request', async (req, res) => {
       return res.status(400).json({ error: 'Could not generate a unique username. Please provide one.' });
     }
 
+    // Create pending user
     const result = await db.query(
       `INSERT INTO pending_users (name, email, username, status, created_at, updated_at)
        VALUES ($1, $2, $3, 'pending', NOW(), NOW()) 
@@ -304,6 +328,7 @@ router.post('/register-request', async (req, res) => {
     
     const requestId = result.rows[0].id;
 
+    // Send email asynchronously
     try {
       const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
       if (adminEmail) {
@@ -320,6 +345,21 @@ router.post('/register-request', async (req, res) => {
       requestId: requestId
     });
   } catch (err) {
+    // Check for unique constraint violation as a safety net
+    if (err.code === '23505' && err.constraint === 'pending_users_email_key') {
+      // This shouldn't happen now, but just in case, clean up and retry or return a friendly error
+      try {
+        await db.query('DELETE FROM pending_users WHERE email = $1', [email]);
+        logger.info('Cleaned up duplicate pending record on error', { email });
+        // Return a friendly error telling the user to try again
+        return res.status(400).json({ 
+          error: 'There was an issue with your registration. Please try again.' 
+        });
+      } catch (cleanupErr) {
+        logger.error('Failed to cleanup duplicate pending record', { error: cleanupErr.message, email });
+      }
+    }
+    
     logger.error('Registration request error:', err);
     res.status(500).json({ error: 'Internal server error.' });
   }

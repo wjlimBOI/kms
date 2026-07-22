@@ -528,11 +528,17 @@
         }
     }
 
-    // ===== TEMPLATE PREVIEW FUNCTION =====
+    // ===== FIXED: TEMPLATE PREVIEW FUNCTION WITH PROPER CLOSE HANDLERS =====
     async function previewTemplate(templateKey) {
         try {
             const res = await authenticatedFetch(`/api/admin/email/templates/${templateKey}`);
             const template = await res.json();
+            
+            // Remove any existing preview modal first
+            const existingModal = document.getElementById('templatePreviewModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
             
             const modal = document.createElement('div');
             modal.className = 'modal-overlay active';
@@ -544,7 +550,7 @@
                 <div class="modal-container" style="max-width:800px;max-height:90vh;">
                     <div class="modal-header">
                         <h3><i class="fas fa-eye"></i> Template Preview: ${escapeHtml(template.template_key)}</h3>
-                        <button class="close-btn" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+                        <button class="close-btn" id="templatePreviewCloseBtn">&times;</button>
                     </div>
                     <div class="modal-body" style="padding:0;overflow:hidden;">
                         <div style="padding:1rem 1.5rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
@@ -559,20 +565,54 @@
                             ${template.body_html}
                         </div>
                     </div>
-                    <div class="modal-footer">
-                        <button class="btn btn-secondary" onclick="this.closest('.modal-overlay').remove()">Close</button>
-                        <button class="btn btn-primary" onclick="this.closest('.modal-overlay').remove()">OK</button>
+                    <div class="modal-footer" style="gap:8px;justify-content:flex-end;">
+                        <button class="btn btn-refresh" id="templatePreviewCloseFooterBtn">Close</button>
+                        <button class="btn btn-primary" id="templatePreviewOkBtn">OK</button>
                     </div>
                 </div>
             `;
             
             document.body.appendChild(modal);
             
+            // Close function
+            const closeModal = function() {
+                const modalEl = document.getElementById('templatePreviewModal');
+                if (modalEl) {
+                    modalEl.remove();
+                }
+            };
+            
+            // Close on overlay click
             modal.addEventListener('click', function(e) {
                 if (e.target === this) {
-                    this.remove();
+                    closeModal();
                 }
             });
+            
+            // Close button handlers
+            const closeBtn = document.getElementById('templatePreviewCloseBtn');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', closeModal);
+            }
+            
+            const closeFooterBtn = document.getElementById('templatePreviewCloseFooterBtn');
+            if (closeFooterBtn) {
+                closeFooterBtn.addEventListener('click', closeModal);
+            }
+            
+            const okBtn = document.getElementById('templatePreviewOkBtn');
+            if (okBtn) {
+                okBtn.addEventListener('click', closeModal);
+            }
+            
+            // Also close with Escape key
+            const escHandler = function(e) {
+                if (e.key === 'Escape') {
+                    closeModal();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
             
         } catch (err) {
             showAlertModal('Failed to preview template: ' + err.message, 'error');
@@ -1579,7 +1619,7 @@
         loadAdminRecipients();
     }
 
-    // ===== UPDATED LOAD TEMPLATES WITH PREVIEW BUTTON =====
+    // ===== LOAD TEMPLATES WITH PREVIEW BUTTON =====
     async function loadTemplates() {
         const container = document.getElementById('templatesContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading templates...</div>';
@@ -1616,7 +1656,7 @@
             html += `</tbody></table>`;
             container.innerHTML = html;
             
-            // Preview button handlers
+            // Preview button handlers - using the fixed previewTemplate function
             container.querySelectorAll('.preview-template-btn').forEach(btn => {
                 btn.addEventListener('click', function(e) {
                     e.stopPropagation();
@@ -1896,7 +1936,6 @@
         }
     }
 
-    // ===== FIXED: handleCloseTicket with proper alert modal =====
     async function handleCloseTicket(id, key) {
         if (!confirm(`Close lost ticket for key ${key}? This will mark the issue as resolved.`)) return;
         const notes = prompt('Resolution notes (optional):');
@@ -1924,7 +1963,6 @@
         }
     }
 
-    // ===== FIXED: handleMakeAvailable with proper alert modal =====
     async function handleMakeAvailable(id, key) {
         if (!confirm(`Mark key ${key} as available again?`)) return;
         try {
@@ -2364,7 +2402,6 @@
         }
     }
 
-    // ===== FIXED: loadPendingRegistrations with proper table markup =====
     async function loadPendingRegistrations() {
         const container = document.getElementById('pendingRequestsContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading requests...</div>';
@@ -2457,7 +2494,6 @@
         }
     }
 
-    // ===== USER MANAGEMENT WITH FIXED AVATAR =====
     function initUserManagement() {
         const tbody = document.getElementById('acmUserTableBody');
         const searchInput = document.getElementById('acmSearchInput');
@@ -2518,7 +2554,6 @@
             }
         }
 
-        // ===== FIXED: renderInlineTable with avatar removed =====
         function renderInlineTable() {
             if (!filteredUsers.length) {
                 tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">No users found</td></tr>';
@@ -2604,7 +2639,6 @@
             }
         }
 
-        // ===== FIXED: renderManageTable with avatar removed =====
         function renderManageTable() {
             if (!manageFiltered.length) {
                 manageTbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">No users found</td></tr>';

@@ -222,9 +222,9 @@ body {
 .focus\:ring-2:focus { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5); }
 .focus\:ring-blue-500:focus { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5); }
 .focus\:ring-purple-500:focus { box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.5); }
-.outline-none { outline: 2px solid transparent; outline-offset: 2px; }
 .disabled\:opacity-50:disabled { opacity: 0.5; }
 
+/* ─── KEY CARDS ─── */
 .key-card {
   border-radius: 12px;
   overflow: hidden;
@@ -373,6 +373,7 @@ body {
   }
 }
 
+/* ─── TOAST ─── */
 .toast-notification {
   position: fixed;
   bottom: 24px;
@@ -412,6 +413,7 @@ body {
   }
 }
 
+/* ─── MODALS ─── */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -445,6 +447,7 @@ body {
   }
 }
 
+/* ─── FILTER PILLS ─── */
 .filter-pill.active {
   background-color: #3B82F6 !important;
   color: white !important;
@@ -477,6 +480,7 @@ body {
   display: none;
 }
 
+/* ─── TOP NAVIGATION ─── */
 .top-nav {
   background: linear-gradient(90deg, #ff6b35 0%, #4a90d9 20%, #9b59b6 40%, #ff6b81 60%, #1abc9c 80%, #f1c40f 100%);
   border-bottom: 3px solid #d4a843;
@@ -524,237 +528,95 @@ body {
   flex-wrap: nowrap;
 }
 
-.admin-nav-link {
-  display: none;
-  margin-right: 4px;
-}
-
-.admin-nav-link.visible {
+/* ─── MOBILE MENU BUTTON ─── */
+.mobile-menu-btn {
   display: block;
-}
-
-.admin-portal-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(4px);
-  border-radius: 40px;
+  background: none;
+  border: none;
   color: #1a2a4a;
-  font-weight: 600;
-  font-size: 0.8rem;
-  text-decoration: none;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  white-space: nowrap;
-}
-
-.admin-portal-btn:hover {
-  background: rgba(255, 255, 255, 1);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-}
-
-.admin-portal-btn:active {
-  transform: scale(0.96);
-}
-
-.admin-portal-btn i {
-  font-size: 0.85rem;
-  color: #d4a843;
-}
-
-.admin-portal-btn span {
-  font-size: 0.8rem;
-}
-
-.user-profile {
-  position: relative;
-  flex-shrink: 0;
-}
-
-.user-profile-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.25rem 0.5rem 0.25rem 0.25rem;
-  border-radius: 8px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
+  font-size: 1.6rem;
   cursor: pointer;
-  transition: all 0.15s ease;
-  color: #0f172a;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  white-space: nowrap;
-}
-
-.user-profile-btn:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
-}
-
-.user-avatar {
-  width: 32px;
-  height: 32px;
-  min-width: 32px;
-  border-radius: 50%;
-  background: #0f172a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
-  font-size: 0.75rem;
-  color: #ffffff;
+  padding: 8px 12px;
   flex-shrink: 0;
+  transition: opacity 0.15s ease;
 }
 
-.user-info {
+.mobile-menu-btn:hover {
+  opacity: 0.8;
+}
+
+/* ─── MOBILE MENU DROPDOWN ─── */
+.mobile-menu {
+  display: none;
+  position: absolute;
+  top: 72px;
+  left: 0;
+  right: 0;
+  background: #ffffff;
+  border-bottom: 2px solid #d4a843;
+  padding: 16px 24px 20px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  z-index: 999;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-menu.open {
+  display: flex;
+}
+
+.mobile-menu-items {
   display: flex;
   flex-direction: column;
-  line-height: 1.2;
-  text-align: left;
-  min-width: 0;
-  overflow: hidden;
+  gap: 4px;
 }
 
-.user-name {
-  font-weight: 600;
-  font-size: 0.8rem;
-  color: #0f172a;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 120px;
-}
-
-.user-role {
-  font-size: 0.6rem;
-  color: #64748b;
-  display: block;
-}
-
-.user-chevron {
-  font-size: 0.55rem;
-  color: #64748b;
-  margin-left: 0.125rem;
-  transition: transform 0.1s ease;
-  flex-shrink: 0;
-}
-
-.user-profile-btn.open .user-chevron {
-  transform: rotate(180deg);
-}
-
-.user-dropdown {
-  position: absolute;
-  top: calc(100% + 12px);
-  right: 0;
-  min-width: 240px;
-  max-width: min(280px, calc(100vw - 2rem));
-  background: #ffffff;
-  border-radius: 6px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-  border: 1px solid #e2e8f0;
-  padding: 6px 0;
-  display: none;
-  z-index: 999;
-  animation: fadeScaleUp 0.1s ease;
-}
-
-.user-dropdown.show {
-  display: block;
-}
-
-.dropdown-header {
+.mobile-menu-item {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px 10px 16px;
-}
-
-.dropdown-avatar {
-  width: 40px;
-  height: 40px;
-  min-width: 40px;
-  border-radius: 50%;
-  background: #0f172a;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 700;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: none;
+  background: rgba(0, 0, 0, 0.03);
+  color: #1a2a4a;
   font-size: 0.9rem;
-  color: #ffffff;
-  flex-shrink: 0;
+  cursor: pointer;
+  transition: background 0.1s ease;
+  font-family: inherit;
+  width: 100%;
+  text-align: left;
+  text-decoration: none;
 }
 
-.dropdown-user-info {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
-  min-width: 0;
+.mobile-menu-item:hover {
+  background: rgba(0, 0, 0, 0.06);
 }
 
-.dropdown-name {
-  font-weight: 600;
-  color: #0f172a;
-  font-size: 0.9rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.mobile-menu-item.logout-item {
+  color: #dc2626;
 }
 
-.dropdown-role {
-  font-size: 0.7rem;
-  color: #64748b;
+.mobile-menu-item.logout-item:hover {
+  background: rgba(239, 68, 68, 0.1);
 }
 
-.dropdown-divider {
+.mobile-menu-item i {
+  width: 20px;
+  color: rgba(26, 42, 74, 0.5);
+}
+
+.mobile-menu-item.logout-item i {
+  color: #dc2626;
+}
+
+.mobile-menu-divider {
   height: 1px;
   background: #e2e8f0;
   margin: 4px 8px;
 }
 
-.dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 8px 16px;
-  width: 100%;
-  border: none;
-  background: none;
-  cursor: pointer;
-  font-size: 0.85rem;
-  color: #334155;
-  font-family: inherit;
-  transition: background 0.1s ease;
-  text-align: left;
-}
-
-.dropdown-item:hover {
-  background: #f8fafc;
-  color: #0f172a;
-}
-
-.dropdown-item i {
-  width: 18px;
-  color: #64748b;
-  font-size: 0.85rem;
-}
-
-.dropdown-item.logout-item {
-  color: #dc2626;
-}
-
-.dropdown-item.logout-item i {
-  color: #dc2626;
-}
-
-.dropdown-item.logout-item:hover {
-  background: #fef2f2;
-}
-
+/* ─── MAIN CONTENT ─── */
 .main-content {
   max-width: 1280px;
   margin: 0 auto;
@@ -881,6 +743,7 @@ body {
   transform: scale(0.92);
 }
 
+/* ─── PROFILE MODAL ─── */
 .profile-field {
   margin-bottom: 1rem;
 }
@@ -968,6 +831,7 @@ body {
   display: none;
 }
 
+/* ─── RETURN DROPDOWN ─── */
 .return-dropdown-menu {
   position: absolute;
   top: calc(100% + 8px);
@@ -1107,6 +971,164 @@ body {
 .min-h-screen { min-height: 100vh; }
 .antialiased { -webkit-font-smoothing: antialiased; }
 
+/* ─── GLOBAL FIX: Remove all black outlines and borders ─── */
+
+/* Remove all focus outlines and borders globally */
+*:focus,
+*:focus-visible,
+*:focus-within {
+  outline: none !important;
+  outline-color: transparent !important;
+  outline-offset: 0 !important;
+}
+
+/* Specifically target all button-like elements */
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+a.btn,
+.btn,
+.filter-pill,
+.brand-pill,
+.mobile-menu-btn,
+.mobile-menu-item,
+.borrow-toggle-btn,
+.remove-item,
+.extension-item,
+.reportLostFromListBtn,
+#returnDropdownBtn,
+.close-btn,
+.profile-actions button,
+.key-card .borrow-btn,
+.modal-container .close-btn,
+#clearBasketBtn,
+.remove-btn,
+.basket-item .remove-btn {
+  outline: none !important;
+  outline-color: transparent !important;
+  outline-offset: 0 !important;
+  border-color: transparent !important;
+}
+
+/* Remove border from specific elements that might have black borders */
+#clearBasketBtn,
+.remove-btn,
+.basket-item .remove-btn,
+.close-btn,
+.modal-container .close-btn,
+button.close-btn {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Subtle focus indicator only for keyboard navigation */
+*:focus-visible:not(.no-focus-ring) {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+  border-radius: 4px;
+}
+
+/* Override for close buttons - no focus ring at all */
+.close-btn:focus-visible,
+.modal-container .close-btn:focus-visible,
+#clearBasketBtn:focus-visible,
+.remove-btn:focus-visible,
+.basket-item .remove-btn:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Ensure the clear all button has no outline */
+#clearBasketBtn {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+#clearBasketBtn:focus,
+#clearBasketBtn:focus-visible,
+#clearBasketBtn:active {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Fix for return dropdown button focus */
+#returnDropdownBtn:focus,
+#returnDropdownBtn:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.3) !important;
+}
+
+/* Fix for remove item buttons */
+.remove-item:focus,
+.remove-item:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+  border: none !important;
+}
+
+/* Fix for input fields */
+input:focus,
+input:focus-visible,
+select:focus,
+select:focus-visible,
+textarea:focus,
+textarea:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15) !important;
+  border-color: #3B82F6 !important;
+}
+
+/* Fix for modal close button X */
+.modal-container .close-btn {
+  background: none !important;
+  border: none !important;
+  color: #94a3b8 !important;
+  font-size: 1.5rem !important;
+  line-height: 1 !important;
+  padding: 4px 8px !important;
+  cursor: pointer !important;
+  transition: color 0.15s !important;
+}
+
+.modal-container .close-btn:hover {
+  color: #0f172a !important;
+}
+
+.modal-container .close-btn:focus,
+.modal-container .close-btn:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Fix for all square/rectangle buttons */
+.btn,
+.btn-sm,
+.btn-primary,
+.btn-secondary,
+.profile-actions button {
+  border: none !important;
+  outline: none !important;
+}
+
+.btn:focus,
+.btn:focus-visible,
+.btn-sm:focus,
+.btn-sm:focus-visible,
+.profile-actions button:focus,
+.profile-actions button:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+}
+
+/* ─── RESPONSIVE ─── */
 @media (max-width: 1023px) {
   .return-dropdown-menu {
     position: fixed;
@@ -1177,35 +1199,27 @@ body {
   .xl\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
+/* ─── MOBILE NAV RESPONSIVE ─── */
 @media (max-width: 768px) {
-  .admin-portal-btn span {
-    display: none;
+  .top-nav {
+    height: 64px;
   }
   
-  .admin-portal-btn {
-    padding: 8px 12px;
-    min-width: 40px;
-    justify-content: center;
+  .top-nav-inner {
+    padding: 0 16px;
   }
   
-  .admin-portal-btn i {
-    font-size: 1rem;
-    margin: 0;
+  .brand-name {
+    font-size: 0.95rem;
   }
   
-  .user-info {
-    display: none;
+  .mobile-menu {
+    top: 60px;
   }
   
-  .user-profile-btn {
-    padding: 4px;
-  }
-  
-  .user-avatar {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
-    font-size: 0.85rem;
+  .mobile-menu-btn {
+    font-size: 1.4rem;
+    padding: 6px 10px;
   }
   
   .nav-actions {
@@ -1214,41 +1228,84 @@ body {
 }
 
 @media (max-width: 640px) {
-  .top-nav { height: 64px; }
-  .top-nav-inner { padding: 0 16px; }
-  .brand-name { font-size: 0.95rem; }
-  .brand-badge { display: none; }
-  .user-profile-btn { padding: 2px; }
-  .user-avatar { width: 32px; height: 32px; font-size: 0.7rem; }
-  .user-dropdown { right: -10px; min-width: 200px; }
+  .top-nav { height: 60px; }
+  .brand-name { font-size: 0.85rem; }
+  .mobile-menu-btn { font-size: 1.3rem; padding: 4px 8px; }
+  .mobile-menu { top: 56px; padding: 12px 16px 16px; }
+  .mobile-menu-item { font-size: 0.85rem; padding: 8px 12px; }
   .borrow-toggle-group { flex-wrap: wrap; }
   .borrow-toggle-btn { flex: 1 0 40%; text-align: center; padding: 6px 8px; font-size: 0.7rem; }
   .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 480px) {
-  .brand-name { font-size: 0.85rem; }
-  .admin-portal-btn { padding: 6px 10px; min-width: 36px; }
-  .admin-portal-btn i { font-size: 0.9rem; }
-  .user-avatar { width: 32px; height: 32px; min-width: 32px; font-size: 0.75rem; }
+  .brand-name { font-size: 0.75rem; }
+  .mobile-menu-btn { font-size: 1.2rem; padding: 4px 6px; }
+  .mobile-menu { top: 52px; padding: 10px 12px 14px; }
+  .mobile-menu-item { font-size: 0.8rem; padding: 8px 10px; gap: 10px; }
+  .mobile-menu-item i { width: 18px; font-size: 0.9rem; }
   .modal-container { width: 95%; max-width: 95%; border-radius: 20px; }
   .key-card { padding: 10px 6px; min-height: 80px; }
   .key-card .key-code { font-size: 0.9rem; }
   .key-card .key-status { font-size: 0.45rem; padding: 2px 6px; top: 4px; right: 4px; }
 }
 
-@media (min-width: 769px) and (max-width: 1024px) {
-  .admin-portal-btn {
-    padding: 8px 14px;
-    font-size: 0.75rem;
-  }
-  
-  .admin-portal-btn span {
-    font-size: 0.75rem;
-  }
-  
-  .user-name {
-    max-width: 100px;
-    font-size: 0.75rem;
-  }
+@media (max-width: 360px) {
+  .brand-name { font-size: 0.7rem; }
+  .mobile-menu-btn { font-size: 1.1rem; padding: 3px 5px; }
+  .mobile-menu { top: 48px; }
+}
+
+/* ─── FIX: Spinner animation ─── */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e2e8f0;
+  border-radius: 50%;
+  border-top-color: #3b82f6;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─── FIX: Report lost key modal ─── */
+#reportLostKeysListContainer .border {
+  border: 1px solid #e5e7eb !important;
+}
+
+#reportLostKeysListContainer .rounded-xl {
+  border-radius: 12px !important;
+}
+
+#reportLostKeysListContainer .bg-rose-600 {
+  background-color: #dc2626 !important;
+}
+
+#reportLostKeysListContainer .bg-rose-600:hover {
+  background-color: #b91c1c !important;
+}
+
+/* ─── FIX: Confirm lost modal ─── */
+#confirmLostModal .modal-container {
+  max-width: 420px;
+}
+
+#confirmLostModal .bg-rose-100 {
+  background-color: #fee2e2 !important;
+}
+
+#confirmLostModal .text-rose-600 {
+  color: #dc2626 !important;
+}
+
+#confirmLostModal .bg-rose-600 {
+  background-color: #dc2626 !important;
+}
+
+#confirmLostModal .bg-rose-600:hover {
+  background-color: #b91c1c !important;
 }

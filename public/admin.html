@@ -18,6 +18,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
     
     <style>
+        /* ─── LOADING ─── */
         .loading-container {
             display: flex;
             flex-direction: column;
@@ -43,9 +44,16 @@
             font-family: 'Inter', sans-serif;
             font-size: 0.95rem;
         }
+
+        /* ─── ADMIN CONTENT WRAPPER ─── */
         .admin-content-wrapper {
             display: none;
+            flex: 1 0 auto;
+            flex-direction: column;
+            min-height: 100dvh;
         }
+
+        /* ─── ACCESS DENIED ─── */
         .access-denied {
             display: none;
             flex-direction: column;
@@ -87,6 +95,8 @@
         .access-denied .btn-back:hover {
             background: #0F1A2E;
         }
+
+        /* ─── STATUS BADGE ─── */
         .status-badge {
             padding: 0.15rem 0.6rem;
             border-radius: 40px;
@@ -119,8 +129,8 @@
             background: #FEF3C7;
             color: #92400E;
         }
-        
-        /* Enhanced action buttons */
+
+        /* ─── ACTION BUTTONS ─── */
         .action-btn-group {
             display: flex;
             gap: 4px;
@@ -157,43 +167,8 @@
         .btn-make-available i {
             font-size: 0.6rem;
         }
-        
-        /* Loading spinner for buttons */
-        .btn-loading {
-            position: relative;
-            pointer-events: none;
-            opacity: 0.7;
-        }
-        .btn-loading::after {
-            content: '';
-            position: absolute;
-            width: 14px;
-            height: 14px;
-            top: 50%;
-            left: 50%;
-            margin-top: -7px;
-            margin-left: -7px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: #fff;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-        .btn-loading .btn-text {
-            visibility: hidden;
-        }
-        
-        /* Improved lost keys table */
-        .lost-keys-table td {
-            vertical-align: middle;
-        }
-        .lost-keys-table .status-cell {
-            min-width: 80px;
-        }
-        .lost-keys-table .actions-cell {
-            min-width: 180px;
-        }
-        
-        /* Toast enhancements */
+
+        /* ─── TOAST ─── */
         #toastRoot {
             position: fixed;
             bottom: 24px;
@@ -231,9 +206,6 @@
             font-size: 1.2rem;
             font-weight: 600;
         }
-        .toast-message {
-            flex: 1;
-        }
         .toast-close {
             background: none;
             border: none;
@@ -250,59 +222,468 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-        
-        /* Empty state */
-        .empty-state {
-            text-align: center;
-            padding: 3rem 1.5rem;
+
+        /* ─── AUDIT TABLE ─── */
+        .audit-table-wrap {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
-        .empty-state i {
-            font-size: 3rem;
-            color: #CBD5E1;
+
+        .audit-table {
+            width: 100%;
+            min-width: 600px;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .audit-table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .audit-table thead th {
+            background: #f1f5f9;
+            padding: 0.6rem 0.75rem;
+            text-align: left;
+            font-weight: 600;
+            color: #1e293b;
+            border-bottom: 2px solid #e2e8f0;
+            white-space: nowrap;
+        }
+
+        .audit-table tbody td {
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: middle;
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .audit-table tbody tr {
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .audit-table tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .audit-table .action-cell {
+            font-weight: 500;
+            color: #0f172a;
+        }
+
+        .audit-table .target-cell {
+            color: #475569;
+        }
+
+        .audit-table .user-cell {
+            color: #334155;
+        }
+
+        .audit-table .time-cell {
+            color: #64748b;
+            font-size: 0.8rem;
+        }
+
+        .audit-filters {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 0.75rem;
             margin-bottom: 1rem;
         }
-        .empty-state h4 {
-            color: #1E2A3E;
-            font-size: 1.1rem;
-            margin-bottom: 0.25rem;
+
+        .audit-filters .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
         }
-        .empty-state p {
-            color: #64748B;
-            font-size: 0.9rem;
+
+        .audit-filters label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #64748b;
         }
-        
-        /* ACM Avatar Initials */
-        .acm-avatar-initials {
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
+
+        .audit-filters input,
+        .audit-filters select {
+            padding: 0.4rem 0.6rem;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-family: inherit;
+            transition: border-color 0.15s;
+            width: 100%;
+        }
+
+        .audit-filters input:focus,
+        .audit-filters select:focus {
+            outline: none;
+            border-color: #1e293b;
+        }
+
+        .audit-actions {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-top: 0.5rem;
+        }
+
+        .audit-actions .btn {
+            padding: 0.4rem 1rem;
+            font-size: 0.8rem;
+            border-radius: 6px;
+            border: 1.5px solid #e2e8f0;
+            background: white;
+            cursor: pointer;
+            transition: all 0.15s;
             display: inline-flex;
             align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: #ffffff;
-            flex-shrink: 0;
+            gap: 0.4rem;
         }
-        
-        @media (max-width: 640px) {
-            .status-badge {
-                font-size: 0.6rem;
-                padding: 0.1rem 0.4rem;
+
+        .audit-actions .btn-primary {
+            background: #1e293b;
+            color: white;
+            border-color: #1e293b;
+        }
+
+        .audit-actions .btn-primary:hover {
+            background: #0f172a;
+        }
+
+        .audit-actions .btn-secondary {
+            background: white;
+            color: #475569;
+        }
+
+        .audit-actions .btn-secondary:hover {
+            background: #f1f5f9;
+        }
+
+        .audit-pagination {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.75rem;
+            padding-top: 1rem;
+            border-top: 1px solid #e2e8f0;
+            margin-top: 1rem;
+        }
+
+        .audit-pagination .pagination-info {
+            font-size: 0.8rem;
+            color: #64748b;
+        }
+
+        .audit-pagination .pagination-controls {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        .audit-pagination .pagination-controls select {
+            padding: 0.3rem 0.5rem;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-family: inherit;
+        }
+
+        .audit-pagination .pagination-controls button {
+            padding: 0.3rem 0.8rem;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 6px;
+            background: white;
+            cursor: pointer;
+            font-size: 0.8rem;
+            transition: all 0.15s;
+        }
+
+        .audit-pagination .pagination-controls button:hover:not(:disabled) {
+            background: #f1f5f9;
+        }
+
+        .audit-pagination .pagination-controls button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .audit-detail-content {
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+
+        .audit-detail-content .detail-row {
+            display: flex;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .audit-detail-content .detail-label {
+            font-weight: 600;
+            min-width: 100px;
+            color: #475569;
+            font-size: 0.85rem;
+        }
+
+        .audit-detail-content .detail-value {
+            flex: 1;
+            color: #0f172a;
+            font-size: 0.85rem;
+            word-break: break-word;
+        }
+
+        .audit-detail-content .detail-value pre {
+            background: #f1f5f9;
+            padding: 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            overflow-x: auto;
+            max-height: 200px;
+            margin: 0.25rem 0;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        /* ─── FOOTER ─── */
+        .app-footer {
+            background: #1e293b;
+            border-top: 3px solid #d4a843;
+            padding: 1rem 1.5rem;
+            flex-shrink: 0;
+            width: 100%;
+            margin-top: auto;
+            position: relative;
+            bottom: 0;
+        }
+
+        .app-footer-inner {
+            max-width: 1440px;
+            margin: 0 auto;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            font-size: 0.8rem;
+            color: #ffffff;
+        }
+
+        .app-footer-inner a {
+            color: #ffffff;
+            text-decoration: underline;
+            text-decoration-color: rgba(255,255,255,0.3);
+            text-underline-offset: 2px;
+            transition: color 0.15s;
+        }
+
+        .app-footer-inner a:hover {
+            color: #d4a843;
+            text-decoration-color: #d4a843;
+        }
+
+        .footer-divider {
+            color: rgba(255,255,255,0.3);
+        }
+
+        /* ─── RESPONSIVE ─── */
+        @media (max-width: 768px) {
+            .audit-filters {
+                grid-template-columns: 1fr 1fr;
             }
-            .action-btn-group .btn-sm {
-                font-size: 0.6rem;
-                padding: 0.1rem 0.4rem;
+            .audit-pagination {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 0.5rem;
             }
-            .lost-keys-table .actions-cell {
-                min-width: 120px;
+            .audit-pagination .pagination-controls {
+                justify-content: center;
             }
-            #toastRoot {
-                bottom: 12px;
-                right: 12px;
-                left: 12px;
-                max-width: 100%;
+            .app-footer-inner {
+                flex-direction: column;
+                text-align: center;
             }
+            .footer-divider {
+                display: none;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .audit-filters {
+                grid-template-columns: 1fr;
+            }
+            .audit-table {
+                font-size: 0.75rem;
+                min-width: 500px;
+            }
+            .audit-table thead th,
+            .audit-table tbody td {
+                padding: 0.4rem 0.5rem;
+            }
+        }
+
+        @media (min-width: 640px) {
+            .app-footer-inner {
+                flex-direction: row;
+                justify-content: center;
+                gap: 0.75rem;
+            }
+            .app-footer-inner .footer-divider {
+                display: inline;
+            }
+        }
+
+        /* ─── GLOBAL FIX: Remove all black outlines and borders ─── */
+        *:focus,
+        *:focus-visible,
+        *:focus-within {
+            outline: none !important;
+            outline-color: transparent !important;
+            outline-offset: 0 !important;
+        }
+
+        button,
+        [role="button"],
+        input[type="button"],
+        input[type="submit"],
+        input[type="reset"],
+        a.btn,
+        .btn,
+        .filter-pill,
+        .brand-pill,
+        .mobile-menu-btn,
+        .mobile-menu-item,
+        .borrow-toggle-btn,
+        .remove-item,
+        .extension-item,
+        #returnDropdownBtn,
+        .close-btn,
+        .profile-actions button,
+        .key-card .borrow-btn,
+        .modal-container .close-btn,
+        #clearBasketBtn,
+        .remove-btn,
+        .basket-item .remove-btn {
+            outline: none !important;
+            outline-color: transparent !important;
+            outline-offset: 0 !important;
+            border-color: transparent !important;
+        }
+
+        #clearBasketBtn,
+        .remove-btn,
+        .basket-item .remove-btn,
+        .close-btn,
+        .modal-container .close-btn,
+        button.close-btn {
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        *:focus-visible:not(.no-focus-ring) {
+            outline: none !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+            border-radius: 4px;
+        }
+
+        .close-btn:focus-visible,
+        .modal-container .close-btn:focus-visible,
+        #clearBasketBtn:focus-visible,
+        .remove-btn:focus-visible,
+        .basket-item .remove-btn:focus-visible {
+            outline: none !important;
+            box-shadow: none !important;
+            border: none !important;
+        }
+
+        #clearBasketBtn {
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        #clearBasketBtn:focus,
+        #clearBasketBtn:focus-visible,
+        #clearBasketBtn:active {
+            outline: none !important;
+            box-shadow: none !important;
+            border: none !important;
+        }
+
+        #returnDropdownBtn:focus,
+        #returnDropdownBtn:focus-visible {
+            outline: none !important;
+            box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.3) !important;
+        }
+
+        .remove-item:focus,
+        .remove-item:focus-visible {
+            outline: none !important;
+            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+            border: none !important;
+        }
+
+        input:focus,
+        input:focus-visible,
+        select:focus,
+        select:focus-visible,
+        textarea:focus,
+        textarea:focus-visible {
+            outline: none !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15) !important;
+            border-color: #3B82F6 !important;
+        }
+
+        .modal-container .close-btn {
+            background: none !important;
+            border: none !important;
+            color: #94a3b8 !important;
+            font-size: 1.5rem !important;
+            line-height: 1 !important;
+            padding: 4px 8px !important;
+            cursor: pointer !important;
+            transition: color 0.15s !important;
+        }
+
+        .modal-container .close-btn:hover {
+            color: #0f172a !important;
+        }
+
+        .modal-container .close-btn:focus,
+        .modal-container .close-btn:focus-visible {
+            outline: none !important;
+            box-shadow: none !important;
+            border: none !important;
+        }
+
+        .btn,
+        .btn-sm,
+        .btn-primary,
+        .btn-secondary,
+        .profile-actions button {
+            border: none !important;
+            outline: none !important;
+        }
+
+        .btn:focus,
+        .btn:focus-visible,
+        .btn-sm:focus,
+        .btn-sm:focus-visible,
+        .profile-actions button:focus,
+        .profile-actions button:focus-visible {
+            outline: none !important;
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
         }
     </style>
 </head>
@@ -325,43 +706,22 @@
                 <div class="top-nav-inner">
                     <div class="brand">
                         <div class="brand-text">
-                            <a href="#" id="brandHomeLink" style="color:#ffffff;text-decoration:none;">
+                            <a href="/" style="color:#ffffff;text-decoration:none;">
                                 <span class="brand-name">Key Management System</span>
                                 <span class="brand-badge">ADMIN</span>
                             </a>
                         </div>
                     </div>
                     <div class="nav-actions">
-                        <div class="user-profile">
-                            <button class="user-profile-btn" id="userProfileBtn">
-                                <div class="user-avatar" id="userAvatar">U</div>
-                                <div class="user-info">
-                                    <span class="user-name" id="userDisplay">User</span>
-                                    <span class="user-role">Administrator</span>
-                                </div>
-                                <i class="fas fa-chevron-down user-chevron"></i>
-                            </button>
-                            <div class="user-dropdown" id="userDropdown">
-                                <div class="dropdown-header">
-                                    <div class="dropdown-avatar" id="dropdownAvatar">U</div>
-                                    <div class="dropdown-user-info">
-                                        <span class="dropdown-name" id="dropdownUserName">User</span>
-                                        <span class="dropdown-role">Administrator</span>
-                                    </div>
-                                </div>
-                                <div class="dropdown-divider"></div>
-                                <button class="dropdown-item" id="myProfileBtn"><i class="fas fa-user"></i> My Profile</button>
-                                <div class="dropdown-divider"></div>
-                                <button class="dropdown-item logout-item" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
-                            </div>
-                        </div>
+                        <button class="mobile-menu-btn" id="mobileMenuBtn">
+                            <i class="fas fa-bars"></i>
+                        </button>
                     </div>
-                    <button class="mobile-menu-btn" id="mobileMenuBtn"><i class="fas fa-bars"></i></button>
                 </div>
                 <div class="mobile-menu" id="mobileMenu">
                     <div class="mobile-menu-items">
-                        <a href="/" class="mobile-menu-item" id="mobileReturnPortalLink"><i class="fas fa-arrow-left"></i> Return to Portal</a>
-                        <button class="mobile-menu-item" id="mobileProfileBtn"><i class="fas fa-user"></i> Profile</button>
+                        <a href="/" class="mobile-menu-item"><i class="fas fa-home"></i> Home</a>
+                        <button class="mobile-menu-item" id="mobileProfileBtn"><i class="fas fa-user"></i> My Profile</button>
                         <button class="mobile-menu-item logout-item" id="mobileLogoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
                     </div>
                 </div>
@@ -500,7 +860,7 @@
                         <div class="search-bar mb-4">
                             <div class="search-input relative">
                                 <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                                <input type="text" id="inventorySearchInput" placeholder="Search by code, brand, owner, or remarks..." class="pl-9 pr-4" />
+                                <input type="text" id="inventorySearchInput" placeholder="Search by code, brand, owner, or remarks..." class="pl-9 pr-4" style="padding-left: 2.25rem !important;" />
                             </div>
                             <button id="inventoryResetFiltersBtn" class="btn btn-refresh btn-sm"><i class="fas fa-times"></i> Reset</button>
                         </div>
@@ -539,7 +899,6 @@
                 </div>
             </div>
 
-            <!-- UPDATED: Lost Keys Tab with enhanced table and Make Available button -->
             <div id="tab-lost" class="tab-panel">
                 <div class="bento-card" id="lostKeysManagementCard">
                     <div class="card-header">
@@ -591,7 +950,7 @@
                             <div class="search-bar mb-4">
                                 <div class="search-input relative">
                                     <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                                    <input type="text" id="acmSearchInput" placeholder="Search by name or email..." class="pl-9 pr-4" />
+                                    <input type="text" id="acmSearchInput" placeholder="Search by name or email..." class="pl-9 pr-4" style="padding-left: 2.25rem !important;" />
                                 </div>
                                 <select id="acmRoleFilter" class="filter-select"><option value="all">All roles</option></select>
                                 <select id="acmStatusFilter" class="filter-select-sm">
@@ -644,6 +1003,7 @@
                             <div id="auditLastCheck" class="text-xs text-slate-500 mt-1">Last check: --</div>
                         </div>
                     </div>
+
                     <div class="bento-card" id="auditCard" style="margin-top:1.25rem;">
                         <div class="card-header">
                             <h3><i class="fas fa-history"></i> Audit Logs</h3>
@@ -652,21 +1012,68 @@
                                 <button id="refreshAuditLogBtn" class="btn btn-refresh btn-sm"><i class="fas fa-sync-alt"></i> Refresh</button>
                             </div>
                         </div>
-                        <div class="card-body max-h-96 overflow-y-auto custom-scroll">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                                <input type="text" id="auditFilterAction" placeholder="Action" />
-                                <input type="text" id="auditFilterUser" placeholder="User" />
-                                <input type="date" id="auditFilterFrom" />
-                                <input type="date" id="auditFilterTo" />
+                        <div class="card-body">
+                            <div class="audit-filters">
+                                <div class="filter-group">
+                                    <label for="auditFilterAction">Action</label>
+                                    <input type="text" id="auditFilterAction" placeholder="e.g., login, update..." />
+                                </div>
+                                <div class="filter-group">
+                                    <label for="auditFilterUser">User</label>
+                                    <input type="text" id="auditFilterUser" placeholder="Search by name or email..." />
+                                </div>
+                                <div class="filter-group">
+                                    <label for="auditFilterTarget">Target</label>
+                                    <input type="text" id="auditFilterTarget" placeholder="e.g., key, user..." />
+                                </div>
+                                <div class="filter-group">
+                                    <label for="auditFilterFrom">From Date</label>
+                                    <input type="date" id="auditFilterFrom" />
+                                </div>
+                                <div class="filter-group">
+                                    <label for="auditFilterTo">To Date</label>
+                                    <input type="date" id="auditFilterTo" />
+                                </div>
                             </div>
-                            <div class="flex gap-2 justify-end mb-4">
+                            
+                            <div class="audit-actions">
                                 <button id="auditSearchBtn" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
-                                <button id="auditResetBtn" class="btn btn-refresh"><i class="fas fa-times"></i> Reset</button>
+                                <button id="auditResetBtn" class="btn btn-secondary"><i class="fas fa-times"></i> Reset</button>
+                                <span style="margin-left:auto;font-size:0.8rem;color:#64748b;" id="auditTotalCount">Total: 0 entries</span>
                             </div>
-                            <table class="table-clean audit-table">
-                                <thead><tr><th>Action</th><th>Target</th><th>User</th><th>Timestamp</th></tr></thead>
-                                <tbody id="auditLogContainer"><tr><td colspan="4" class="text-center py-8 text-slate-400">Loading audit logs...</td></tr></tbody>
-                            </table>
+
+                            <div class="audit-table-wrap" style="margin-top:1rem;">
+                                <table class="audit-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width:20%;">Action</th>
+                                            <th style="width:20%;">Target</th>
+                                            <th style="width:25%;">User</th>
+                                            <th style="width:35%;">Timestamp</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="auditLogContainer">
+                                        <tr>
+                                            <td colspan="4" class="text-center py-8 text-slate-400">Loading audit logs...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div class="audit-pagination">
+                                <div class="pagination-info" id="auditPaginationInfo">Showing 0 of 0 entries</div>
+                                <div class="pagination-controls">
+                                    <select id="auditRowsPerPage">
+                                        <option value="10">10 per page</option>
+                                        <option value="25" selected>25 per page</option>
+                                        <option value="50">50 per page</option>
+                                        <option value="100">100 per page</option>
+                                    </select>
+                                    <button id="auditPrevPageBtn" disabled><i class="fas fa-chevron-left"></i> Prev</button>
+                                    <span id="auditPageInfo" style="font-size:0.8rem;color:#64748b;padding:0 0.5rem;">Page 1</span>
+                                    <button id="auditNextPageBtn">Next <i class="fas fa-chevron-right"></i></button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -723,7 +1130,7 @@
             </div>
         </div>
 
-        <!-- Detail Modal -->
+        <!-- ─── MODALS ─── -->
         <div id="detailModal" class="modal-overlay">
             <div class="modal-container">
                 <div class="modal-header"><h3 id="detailModalTitle">Details</h3><button id="closeDetailModalBtn" class="close-btn">&times;</button></div>
@@ -732,7 +1139,6 @@
             </div>
         </div>
 
-        <!-- Admin Modal -->
         <div id="adminModal" class="modal-overlay">
             <div class="modal-container">
                 <div class="modal-header"><h3 id="modalTitle">Approve request</h3><button id="closeAdminModalBtn" class="close-btn">&times;</button></div>
@@ -747,7 +1153,6 @@
             </div>
         </div>
 
-        <!-- Alert Modal -->
         <div id="alertModal" class="modal-overlay alert-modal">
             <div class="modal-container">
                 <div class="modal-body">
@@ -759,7 +1164,6 @@
             </div>
         </div>
 
-        <!-- Generic Confirm Modal -->
         <div id="execConfirmModal" class="modal-overlay">
             <div class="modal-container" style="max-width:420px;">
                 <div class="modal-body" style="text-align:center;padding:2rem 1.75rem 1.5rem;">
@@ -774,7 +1178,6 @@
             </div>
         </div>
 
-        <!-- Generic Prompt Modal -->
         <div id="execPromptModal" class="modal-overlay">
             <div class="modal-container" style="max-width:460px;">
                 <div class="modal-header">
@@ -792,7 +1195,6 @@
             </div>
         </div>
 
-        <!-- Add Role Modal -->
         <div id="addRoleModal" class="modal-overlay">
             <div class="modal-container" style="max-width:420px;">
                 <div class="modal-header"><h3>Add New Role</h3><button id="closeAddRoleModalBtn" class="close-btn">&times;</button></div>
@@ -808,7 +1210,6 @@
             </div>
         </div>
 
-        <!-- ACM User Modal -->
         <div id="acmUserModal" class="modal-overlay">
             <div class="modal-container" style="max-width:460px;">
                 <div class="modal-header"><h3 id="acmModalTitle">Add New User</h3><button id="acmCloseModalBtn" class="close-btn">&times;</button></div>
@@ -834,7 +1235,6 @@
             </div>
         </div>
 
-        <!-- ACM Delete Confirm Modal -->
         <div id="acmDeleteConfirmModal" class="modal-overlay">
             <div class="modal-container" style="max-width:400px;">
                 <div class="modal-body" style="text-align:center;padding:2rem 1.5rem;">
@@ -849,7 +1249,6 @@
             </div>
         </div>
 
-        <!-- Lost Key Edit Modal -->
         <div id="lostKeyEditModal" class="modal-overlay">
             <div class="modal-container" style="max-width:600px;">
                 <div class="modal-header">
@@ -897,7 +1296,6 @@
             </div>
         </div>
 
-        <!-- Lost Key Detail Modal -->
         <div id="lostKeyDetailModal" class="modal-overlay">
             <div class="modal-container" style="max-width:780px;">
                 <div class="modal-header">
@@ -913,7 +1311,24 @@
             </div>
         </div>
 
-        <!-- Profile Modal -->
+        <!-- ─── REPORT LOST KEY MODAL ─── -->
+        <div id="reportLostModal" class="modal-overlay">
+            <div class="modal-container max-w-2xl">
+                <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <div>
+                        <h3 class="text-lg font-semibold text-slate-900">Report Lost Key</h3>
+                        <p class="text-xs text-slate-600 mt-0.5">Select the key you have lost. A Key Replacement Fee of 50 SGD will be levied.</p>
+                    </div>
+                    <button id="closeReportLostModalBtn" class="close-btn">&times;</button>
+                </div>
+                <div class="p-5">
+                    <div id="reportLostKeysListContainer" class="max-h-80 overflow-y-auto custom-scroll space-y-3 mt-4">
+                        <div class="text-center py-8 text-slate-400">Loading your borrowed keys...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="profileModal" class="modal-overlay">
             <div class="modal-container" style="max-width:480px;">
                 <div class="modal-header">
@@ -933,7 +1348,6 @@
             </div>
         </div>
 
-        <!-- User Management Modal -->
         <div id="userManagementModal" class="modal-overlay">
             <div class="modal-container" style="max-width:960px;">
                 <div class="modal-header">
@@ -951,7 +1365,7 @@
                     <div class="search-bar mb-4">
                         <div class="search-input relative">
                             <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <input type="text" id="manageUserSearch" placeholder="Search..." class="pl-9 pr-4" />
+                            <input type="text" id="manageUserSearch" placeholder="Search..." class="pl-9 pr-4" style="padding-left: 2.25rem !important;" />
                         </div>
                         <select id="manageUserRoleFilter" class="filter-select"><option value="all">All roles</option></select>
                         <select id="manageUserStatusFilter" class="filter-select-sm">
@@ -980,7 +1394,6 @@
             </div>
         </div>
 
-        <!-- Template Manage Modal -->
         <div id="templateManageModal" class="modal-overlay">
             <div class="modal-container" style="max-width:960px;">
                 <div class="modal-header">
@@ -999,7 +1412,6 @@
             </div>
         </div>
 
-        <!-- Template Edit Modal -->
         <div id="templateEditModal" class="modal-overlay">
             <div class="modal-container" style="max-width:760px;">
                 <div class="modal-header">
@@ -1034,7 +1446,6 @@
             </div>
         </div>
 
-        <!-- Key Edit Modal -->
         <div id="keyEditModal" class="modal-overlay">
             <div class="modal-container" style="max-width:600px;">
                 <div class="modal-header">
@@ -1089,7 +1500,6 @@
             </div>
         </div>
 
-        <!-- Key Detail Modal -->
         <div id="keyDetailModal" class="modal-overlay">
             <div class="modal-container" style="max-width:780px;">
                 <div class="modal-header">
@@ -1105,7 +1515,6 @@
             </div>
         </div>
 
-        <!-- Key Manage Modal -->
         <div id="keyManageModal" class="modal-overlay">
             <div class="modal-container" style="max-width:960px;">
                 <div class="modal-header">
@@ -1119,7 +1528,7 @@
                     <div class="search-bar mb-4">
                         <div class="search-input relative">
                             <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                            <input type="text" id="manageKeySearch" placeholder="Search keys..." class="pl-9 pr-4" />
+                            <input type="text" id="manageKeySearch" placeholder="Search keys..." class="pl-9 pr-4" style="padding-left: 2.25rem !important;" />
                         </div>
                         <button id="resetManageKeyFilters" class="btn btn-refresh"><i class="fas fa-times"></i> Reset</button>
                     </div>
@@ -1151,7 +1560,6 @@
             </div>
         </div>
 
-        <!-- Add Admin Recipient Modal -->
         <div id="addAdminRecipientModal" class="modal-overlay">
             <div class="modal-container" style="max-width:460px;">
                 <div class="modal-header">
@@ -1175,15 +1583,17 @@
         </div>
 
         <div id="toastRoot"></div>
-
-        <footer class="app-footer">
-            <div class="app-footer-inner">
-                <span>&copy; 2026 Beauty One International Pte Ltd. All rights reserved.</span>
-                <span class="footer-divider">|</span>
-                <a href="/privacy-policy">Privacy Policy &amp; Terms of Service</a>
-            </div>
-        </footer>
     </div>
+
+    <!-- ─── FOOTER ─── -->
+    <footer class="app-footer">
+        <div class="app-footer-inner">
+            <span>&copy; 2026 Beauty One International Pte Ltd. All rights reserved.</span>
+            <span class="footer-divider">|</span>
+            <a href="/privacy-policy">Privacy Policy &amp; Terms of Service</a>
+        </div>
+    </footer>
+
     <script src="/js/force-logout.js?v=d48646c8860ce954"></script>
     <script src="/js/admin.js?v=d48646c8860ce954"></script>
 </body>

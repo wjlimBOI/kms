@@ -1,1527 +1,905 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="build-hash" content="d48646c8860ce954" />
-  <meta name="build-version" content="1.0.0" />
-  <meta name="csrf-token" content="<%= csrfToken %>" />
-  <meta name="description" content="Privacy Policy and Terms of Service for Key Master System - Key borrowing and management platform" />
-  <meta name="theme-color" content="#4f46e5" />
-  
-  <title>Privacy Policy &amp; Terms of Service | Key Master System</title>
-  
-  <!-- Preconnect to critical third-party domains -->
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
-  
-  <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  
-  <!-- Inline critical CSS for performance -->
-  <style>
-    /* Critical CSS for above-the-fold content */
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    <meta charset="UTF-8" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="build-hash" content="d48646c8860ce954" />
+    <meta name="build-version" content="3.0.0" />
+    <meta name="csrf-token" content="<%= csrfToken %>" />
+    <meta name="description" content="Privacy Policy and Terms of Service for Key Master System" />
+    <meta name="theme-color" content="#4f46e5" />
 
-    body {
-      font-family: 'Inter', -apple-system, system-ui, sans-serif;
-      background: #f2f4f8;
-      color: #0f172a;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-      opacity: 0;
-      animation: fadeInBody 0.3s ease forwards;
-    }
+    <meta http-equiv="Content-Security-Policy" content="script-src 'self' https://cdnjs.cloudflare.com https://kit.fontawesome.com;">
 
-    @keyframes fadeInBody {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
+    <title>Privacy Policy &amp; Terms of Service | Key Master System</title>
 
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-      padding: 1.5rem 1.5rem 0;
-      flex: 1;
-      width: 100%;
-    }
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
-    /* Skip to content link for accessibility */
-    .skip-link {
-      position: absolute;
-      top: -999px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: #4f46e5;
-      color: white;
-      padding: 0.75rem 1.5rem;
-      border-radius: 0.5rem;
-      z-index: 1000;
-      text-decoration: none;
-      font-weight: 500;
-      transition: top 0.2s ease;
-    }
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-    .skip-link:focus {
-      top: 1rem;
-    }
+        body {
+            font-family: 'Inter', -apple-system, system-ui, sans-serif;
+            background: #f2f4f8;
+            color: #0f172a;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
 
-    /* Full styles */
-    .content-card {
-      background: #ffffff;
-      border: 1px solid #e9edf2;
-      border-radius: 1.25rem;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02), 0 1px 2px rgba(0, 0, 0, 0.03);
-      padding: 2.5rem 3rem;
-      transition: box-shadow 0.2s ease;
-      word-wrap: break-word;
-      margin-bottom: 2rem;
-    }
-    .content-card:hover {
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.04);
-    }
-    @media (max-width: 640px) {
-      .content-card {
-        padding: 1.5rem;
-      }
-    }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 1.5rem 1.5rem 0;
+            flex: 1;
+            width: 100%;
+        }
 
-    .policy-content h1 {
-      font-size: 2rem;
-      font-weight: 700;
-      letter-spacing: -0.02em;
-      color: #0f172a;
-      margin-bottom: 1.25rem;
-    }
-    .policy-content h2 {
-      font-size: 1.25rem;
-      font-weight: 600;
-      color: #0f172a;
-      margin-top: 2.25rem;
-      margin-bottom: 0.75rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid #f1f4f9;
-    }
-    .policy-content h3 {
-      font-size: 1rem;
-      font-weight: 600;
-      color: #1e293b;
-      margin-top: 1.25rem;
-      margin-bottom: 0.5rem;
-    }
-    .policy-content p {
-      color: #334155;
-      line-height: 1.75;
-      font-size: 0.95rem;
-      margin-bottom: 0.75rem;
-    }
-    .policy-content ul,
-    .policy-content ol {
-      padding-left: 1.25rem;
-      margin-bottom: 0.75rem;
-      color: #334155;
-      font-size: 0.95rem;
-    }
-    .policy-content li {
-      margin-bottom: 0.25rem;
-      list-style-type: disc;
-    }
-    .policy-content li::marker {
-      color: #94a3b8;
-    }
-    .policy-content a {
-      color: #4f46e5;
-      text-decoration: none;
-      transition: color 0.15s ease;
-      position: relative;
-    }
-    .policy-content a:hover {
-      color: #4338ca;
-      text-decoration: underline;
-    }
-    .policy-content a:focus-visible {
-      outline: 2px solid #4f46e5;
-      outline-offset: 2px;
-    }
+        .skip-link {
+            position: absolute;
+            top: -999px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #4f46e5;
+            color: #fff;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            z-index: 1000;
+            text-decoration: none;
+            font-weight: 500;
+            transition: top 0.2s;
+        }
+        .skip-link:focus {
+            top: 1rem;
+        }
 
-    .callout-enterprise {
-      background: #fef9f0;
-      border: 1px solid #fde68a;
-      border-radius: 0.75rem;
-      padding: 1.25rem 1.5rem;
-      margin: 1.5rem 0;
-      display: flex;
-      align-items: flex-start;
-      gap: 1rem;
-    }
-    .callout-enterprise .icon {
-      flex-shrink: 0;
-      width: 2rem;
-      height: 2rem;
-      background: #fef3c7;
-      border-radius: 9999px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #b45309;
-      font-weight: 700;
-      font-size: 0.9rem;
-    }
-    .callout-enterprise .icon svg {
-      width: 1.1rem;
-      height: 1.1rem;
-    }
-    .callout-enterprise h4 {
-      font-weight: 600;
-      color: #0f172a;
-      font-size: 0.95rem;
-      margin-bottom: 0.25rem;
-    }
-    .callout-enterprise p {
-      font-size: 0.9rem;
-      color: #475569;
-      margin-bottom: 0;
-    }
-    .callout-enterprise strong {
-      color: #b45309;
-    }
+        .content-card {
+            background: #fff;
+            border: 1px solid #e9edf2;
+            border-radius: 1.25rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.02), 0 1px 2px rgba(0,0,0,0.03);
+            padding: 2.5rem 3rem;
+            transition: box-shadow 0.2s;
+            word-wrap: break-word;
+            margin-bottom: 2rem;
+        }
+        .content-card:hover {
+            box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+        }
 
-    .doc-header {
-      margin-bottom: 2rem;
-    }
+        .policy-content h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #0f172a;
+            margin-bottom: 1.25rem;
+        }
+        .policy-content h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #0f172a;
+            margin-top: 2.25rem;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #f1f4f9;
+        }
+        .policy-content h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-top: 1.25rem;
+            margin-bottom: 0.5rem;
+        }
+        .policy-content p {
+            color: #334155;
+            line-height: 1.75;
+            font-size: 0.95rem;
+            margin-bottom: 0.75rem;
+        }
+        .policy-content ul,
+        .policy-content ol {
+            padding-left: 1.25rem;
+            margin-bottom: 0.75rem;
+            color: #334155;
+            font-size: 0.95rem;
+        }
+        .policy-content li {
+            margin-bottom: 0.25rem;
+            list-style-type: disc;
+        }
+        .policy-content li::marker {
+            color: #94a3b8;
+        }
+        .policy-content a {
+            color: #4f46e5;
+            text-decoration: none;
+            transition: color 0.15s;
+        }
+        .policy-content a:hover {
+            color: #4338ca;
+            text-decoration: underline;
+        }
+        .policy-content a:focus-visible {
+            outline: 2px solid #4f46e5;
+            outline-offset: 2px;
+        }
 
-    .doc-header-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 0 1rem 0;
-      border-bottom: 1px solid #e9edf2;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
+        .callout-enterprise {
+            background: #fef9f0;
+            border: 1px solid #fde68a;
+            border-radius: 0.75rem;
+            padding: 1.25rem 1.5rem;
+            margin: 1.5rem 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+        }
+        .callout-enterprise .icon {
+            flex-shrink: 0;
+            width: 2rem;
+            height: 2rem;
+            background: #fef3c7;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #b45309;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        .callout-enterprise .icon svg {
+            width: 1.1rem;
+            height: 1.1rem;
+        }
+        .callout-enterprise h4 {
+            font-weight: 600;
+            color: #0f172a;
+            font-size: 0.95rem;
+            margin-bottom: 0.25rem;
+        }
+        .callout-enterprise p {
+            font-size: 0.9rem;
+            color: #475569;
+            margin-bottom: 0;
+        }
+        .callout-enterprise strong {
+            color: #b45309;
+        }
 
-    .doc-header-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      flex-shrink: 0;
-    }
+        .doc-header {
+            margin-bottom: 2rem;
+        }
 
-    .doc-header-title-section {
-      padding: 1.25rem 0 0 0;
-    }
+        /* ─── FIXED HEADER LAYOUT ─── */
+        .doc-header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 0 1rem 0;
+            border-bottom: 1px solid #e9edf2;
+            gap: 0.75rem;
+            flex-wrap: nowrap;
+            min-height: 3.5rem;
+        }
 
-    .doc-header-title-section h1 {
-      font-size: 1.8rem;
-      font-weight: 700;
-      color: #0f172a;
-      letter-spacing: -0.02em;
-      margin: 0 0 0.5rem 0;
-      line-height: 1.2;
-    }
+        .doc-header-left {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-shrink: 0;
+        }
 
-    .doc-header-meta {
-      font-size: 0.8rem;
-      color: #64748b;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      flex-wrap: wrap;
-    }
+        .doc-header-right {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-shrink: 0;
+        }
 
-    .doc-header-meta .badge {
-      background: #f1f4f9;
-      padding: 0.15rem 0.7rem;
-      border-radius: 9999px;
-      font-size: 0.7rem;
-      font-weight: 500;
-      color: #475569;
-    }
+        /* ─── FIXED BUTTON SIZING ─── */
+        .btn-outline,
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1.125rem;
+            border: 1px solid #d1d9e6;
+            border-radius: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #334155;
+            background: #fff;
+            transition: all 0.15s;
+            cursor: pointer;
+            white-space: nowrap;
+            text-decoration: none;
+            font-family: inherit;
+            line-height: 1.4;
+            position: relative;
+            user-select: none;
+            flex-shrink: 0;
+        }
+        .btn-outline:hover,
+        .back-link:hover {
+            background: #f8fafc;
+            border-color: #b0c0d4;
+            color: #0f172a;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .btn-outline:active,
+        .back-link:active {
+            transform: translateY(0);
+        }
+        .btn-outline svg,
+        .back-link svg {
+            width: 1rem;
+            height: 1rem;
+            flex-shrink: 0;
+        }
+        .btn-outline:focus-visible,
+        .back-link:focus-visible {
+            outline: 2px solid #4f46e5;
+            outline-offset: 2px;
+        }
 
-    .btn-outline {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 1.125rem;
-      border: 1px solid #d1d9e6;
-      border-radius: 0.5rem;
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: #334155;
-      background: #ffffff;
-      transition: all 0.15s ease;
-      cursor: pointer;
-      white-space: nowrap;
-      text-decoration: none;
-      font-family: inherit;
-      line-height: 1.4;
-      position: relative;
-    }
-    .btn-outline:hover {
-      background: #f8fafc;
-      border-color: #b0c0d4;
-      color: #0f172a;
-    }
-    .btn-outline svg {
-      width: 1rem;
-      height: 1rem;
-      flex-shrink: 0;
-    }
-    .btn-outline:focus-visible {
-      outline: 2px solid #4f46e5;
-      outline-offset: 2px;
-    }
+        .btn-outline.loading {
+            opacity: 0.7;
+            cursor: wait;
+            pointer-events: none;
+        }
+        .btn-outline.loading svg {
+            animation: spin 1s linear infinite;
+        }
 
-    .btn-outline.loading {
-      opacity: 0.7;
-      cursor: wait;
-      pointer-events: none;
-    }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
 
-    .btn-outline.loading svg {
-      animation: spin 1s linear infinite;
-    }
+        .btn-outline .tooltip {
+            position: absolute;
+            bottom: calc(100% + 0.5rem);
+            left: 50%;
+            transform: translateX(-50%);
+            background: #1e293b;
+            color: #fff;
+            padding: 0.25rem 0.75rem;
+            border-radius: 0.25rem;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+        .btn-outline:hover .tooltip {
+            opacity: 1;
+        }
 
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
+        .doc-header-title-section {
+            padding: 1.25rem 0 0 0;
+            width: 100%;
+        }
+        .doc-header-title-section h1 {
+            font-size: clamp(1.4rem, 3vw, 1.8rem);
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.02em;
+            margin: 0 0 0.5rem 0;
+            line-height: 1.2;
+        }
+        .doc-header-meta {
+            font-size: clamp(0.7rem, 1.5vw, 0.8rem);
+            color: #64748b;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+        }
+        .doc-header-meta .badge {
+            background: #f1f4f9;
+            padding: 0.15rem 0.7rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 500;
+            color: #475569;
+        }
 
-    .btn-outline .tooltip {
-      position: absolute;
-      bottom: calc(100% + 0.5rem);
-      left: 50%;
-      transform: translateX(-50%);
-      background: #1e293b;
-      color: white;
-      padding: 0.25rem 0.75rem;
-      border-radius: 0.25rem;
-      font-size: 0.7rem;
-      white-space: nowrap;
-      opacity: 0;
-      pointer-events: none;
-      transition: opacity 0.2s ease;
-    }
+        .tab-bar {
+            display: flex;
+            border-bottom: 2px solid #e9edf2;
+            margin-bottom: 2rem;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+        }
+        .tab-btn {
+            padding: clamp(0.4rem, 1vw, 0.75rem) clamp(0.75rem, 1.5vw, 1.5rem);
+            font-size: clamp(0.8rem, 1.2vw, 0.95rem);
+            font-weight: 600;
+            color: #64748b;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: inherit;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            position: relative;
+        }
+        .tab-btn:hover {
+            color: #0f172a;
+        }
+        .tab-btn.active {
+            color: #1e293b;
+            border-bottom-color: #4f46e5;
+        }
 
-    .btn-outline:hover .tooltip {
-      opacity: 1;
-    }
+        .tab-panel {
+            display: none;
+            animation: fadeIn 0.3s;
+        }
+        .tab-panel.active {
+            display: block;
+        }
 
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 1.125rem;
-      border: 1px solid #d1d9e6;
-      border-radius: 0.5rem;
-      font-size: 0.8rem;
-      font-weight: 500;
-      color: #334155;
-      background: #ffffff;
-      transition: all 0.15s ease;
-      cursor: pointer;
-      white-space: nowrap;
-      text-decoration: none;
-      font-family: inherit;
-      line-height: 1.4;
-    }
-    .back-link:hover {
-      background: #f8fafc;
-      border-color: #b0c0d4;
-      color: #0f172a;
-      text-decoration: none;
-    }
-    .back-link svg {
-      width: 1rem;
-      height: 1rem;
-      flex-shrink: 0;
-    }
-    .back-link:focus-visible {
-      outline: 2px solid #4f46e5;
-      outline-offset: 2px;
-    }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
-    .tab-bar {
-      display: flex;
-      border-bottom: 2px solid #e9edf2;
-      margin-bottom: 2rem;
-      gap: 0.25rem;
-      flex-wrap: wrap;
-      position: relative;
-    }
+        .toast {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            background: #1e293b;
+            color: #fff;
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 1000;
+            font-size: 0.875rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            max-width: 400px;
+            pointer-events: none;
+        }
+        .toast.show {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .toast.success {
+            background: #065f46;
+        }
+        .toast.error {
+            background: #991b1b;
+        }
+        .toast .toast-close {
+            background: transparent;
+            border: none;
+            color: #fff;
+            cursor: pointer;
+            padding: 0;
+            font-size: 1.25rem;
+            opacity: 0.7;
+            transition: opacity 0.15s;
+            pointer-events: auto;
+        }
+        .toast .toast-close:hover {
+            opacity: 1;
+        }
 
-    .tab-btn {
-      padding: 0.75rem 1.5rem;
-      font-size: 0.95rem;
-      font-weight: 600;
-      color: #64748b;
-      background: transparent;
-      border: none;
-      border-bottom: 2px solid transparent;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      font-family: inherit;
-      letter-spacing: 0.3px;
-      white-space: nowrap;
-      position: relative;
-    }
-    .tab-btn:hover {
-      color: #0f172a;
-    }
-    .tab-btn.active {
-      color: #1e293b;
-      border-bottom-color: #4f46e5;
-    }
-    .tab-btn .tab-count {
-      display: inline-block;
-      background: #e9edf2;
-      color: #64748b;
-      font-size: 0.6rem;
-      font-weight: 600;
-      padding: 0.1rem 0.5rem;
-      border-radius: 9999px;
-      margin-left: 0.25rem;
-    }
-    .tab-btn.active .tab-count {
-      background: #4f46e5;
-      color: white;
-    }
+        .scroll-top {
+            position: fixed;
+            bottom: 2rem;
+            left: 2rem;
+            background: #4f46e5;
+            color: #fff;
+            width: 3rem;
+            height: 3rem;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(79,70,229,0.3);
+            opacity: 0;
+            transform: scale(0.8);
+            transition: all 0.3s;
+            z-index: 999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .scroll-top.visible {
+            opacity: 1;
+            transform: scale(1);
+        }
+        .scroll-top:hover {
+            background: #4338ca;
+            transform: scale(1.05);
+        }
+        .scroll-top svg {
+            width: 1.25rem;
+            height: 1.25rem;
+        }
 
-    .tab-panel {
-      display: none;
-      animation: fadeIn 0.3s ease;
-    }
-    .tab-panel.active {
-      display: block;
-    }
+        .footer-copyright {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            font-size: 0.875rem;
+            color: #64748b;
+        }
 
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem 1rem 0;
+            }
+            .content-card {
+                padding: 1.5rem;
+            }
+            
+            /* ─── FIX: Keep buttons on same row ─── */
+            .doc-header-top {
+                flex-wrap: nowrap;
+                gap: 0.5rem;
+                min-height: 3rem;
+            }
+            
+            .doc-header-left,
+            .doc-header-right {
+                flex-shrink: 0;
+            }
+            
+            .btn-outline,
+            .back-link {
+                padding: 0.4rem 0.75rem;
+                font-size: 0.75rem;
+                gap: 0.35rem;
+            }
+            
+            .btn-outline svg,
+            .back-link svg {
+                width: 0.875rem;
+                height: 0.875rem;
+            }
+            
+            .btn-outline .tooltip {
+                display: none;
+            }
+            
+            .doc-header-title-section h1 {
+                font-size: 1.3rem;
+            }
+        }
 
-    .app-footer {
-      background: white;
-      border-top: 1px solid #e9edf2;
-      padding: 1rem 1.5rem;
-      margin-top: auto;
-      flex-shrink: 0;
-    }
-    .app-footer-inner {
-      max-width: 1200px;
-      margin: 0 auto;
-      text-align: center;
-      font-size: 0.75rem;
-      color: #94a3b8;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.375rem;
-    }
-    .app-footer-inner .footer-divider {
-      display: none;
-    }
-    .app-footer-inner a {
-      color: #4f46e5;
-      text-decoration: none;
-      transition: color 0.15s ease;
-    }
-    .app-footer-inner a:hover {
-      color: #4338ca;
-      text-decoration: underline;
-    }
-    @media (min-width: 640px) {
-      .app-footer-inner {
-        flex-direction: row;
-        justify-content: center;
-        gap: 0.75rem;
-      }
-      .app-footer-inner .footer-divider {
-        display: inline;
-        color: #e2e8f0;
-      }
-    }
+        @media (max-width: 550px) {
+            .doc-header-top {
+                gap: 0.35rem;
+                padding-bottom: 0.6rem;
+            }
+            
+            .btn-outline,
+            .back-link {
+                padding: 0.35rem 0.6rem;
+                font-size: 0.7rem;
+                gap: 0.25rem;
+            }
+            
+            .btn-outline svg,
+            .back-link svg {
+                width: 0.75rem;
+                height: 0.75rem;
+            }
+            
+            .doc-header-left {
+                gap: 0.35rem;
+            }
+            
+            .doc-header-right {
+                gap: 0.35rem;
+            }
+        }
 
-    /* Toast notification */
-    .toast {
-      position: fixed;
-      bottom: 2rem;
-      right: 2rem;
-      background: #1e293b;
-      color: white;
-      padding: 0.75rem 1.25rem;
-      border-radius: 0.5rem;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      transform: translateY(100px);
-      opacity: 0;
-      transition: all 0.3s ease;
-      z-index: 1000;
-      font-size: 0.875rem;
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-    }
+        @media (max-width: 440px) {
+            .btn-outline,
+            .back-link {
+                padding: 0.3rem 0.5rem;
+                font-size: 0.65rem;
+                gap: 0.2rem;
+            }
+            
+            .btn-outline svg,
+            .back-link svg {
+                width: 0.65rem;
+                height: 0.65rem;
+            }
+            
+            .doc-header-top {
+                gap: 0.25rem;
+                min-height: 2.5rem;
+            }
+        }
 
-    .toast.show {
-      transform: translateY(0);
-      opacity: 1;
-    }
+        @media (max-width: 380px) {
+            .doc-header-top {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 0.3rem;
+            }
+            
+            .doc-header-left,
+            .doc-header-right {
+                flex: 1 1 auto;
+                justify-content: center;
+            }
+            
+            .btn-outline,
+            .back-link {
+                padding: 0.25rem 0.4rem;
+                font-size: 0.6rem;
+                gap: 0.15rem;
+            }
+            
+            .btn-outline svg,
+            .back-link svg {
+                width: 0.6rem;
+                height: 0.6rem;
+            }
+        }
 
-    .toast.success {
-      background: #065f46;
-    }
+        @media (max-width: 480px) {
+            .content-card {
+                padding: 1rem;
+            }
+            .tab-btn {
+                padding: 0.4rem 0.75rem;
+                font-size: 0.8rem;
+            }
+            .doc-header-title-section h1 {
+                font-size: 1.2rem;
+            }
+            .toast {
+                bottom: 1rem;
+                right: 1rem;
+                left: 1rem;
+                max-width: calc(100% - 2rem);
+            }
+            .scroll-top {
+                bottom: 1rem;
+                left: 1rem;
+                width: 2.5rem;
+                height: 2.5rem;
+            }
+        }
 
-    .toast.error {
-      background: #991b1b;
-    }
-
-    .toast .toast-close {
-      background: transparent;
-      border: none;
-      color: white;
-      cursor: pointer;
-      padding: 0;
-      font-size: 1.25rem;
-      opacity: 0.7;
-      transition: opacity 0.15s ease;
-    }
-
-    .toast .toast-close:hover {
-      opacity: 1;
-    }
-
-    /* Scroll to top button */
-    .scroll-top {
-      position: fixed;
-      bottom: 2rem;
-      left: 2rem;
-      background: #4f46e5;
-      color: white;
-      width: 3rem;
-      height: 3rem;
-      border-radius: 9999px;
-      border: none;
-      cursor: pointer;
-      box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
-      opacity: 0;
-      transform: scale(0.8);
-      transition: all 0.3s ease;
-      z-index: 999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .scroll-top.visible {
-      opacity: 1;
-      transform: scale(1);
-    }
-
-    .scroll-top:hover {
-      background: #4338ca;
-      transform: scale(1.05);
-    }
-
-    .scroll-top svg {
-      width: 1.25rem;
-      height: 1.25rem;
-    }
-
-    @media (max-width: 768px) {
-      .doc-header-top {
-        flex-direction: column-reverse;
-        align-items: stretch;
-        gap: 0.75rem;
-      }
-      .doc-header-actions {
-        justify-content: space-between;
-      }
-      .doc-header-title-section h1 {
-        font-size: 1.4rem;
-      }
-      .tab-btn {
-        padding: 0.5rem 1rem;
-        font-size: 0.85rem;
-      }
-      .container {
-        padding: 1rem 1rem 0;
-      }
-      .toast {
-        bottom: 1rem;
-        right: 1rem;
-        left: 1rem;
-        max-width: calc(100% - 2rem);
-      }
-      .scroll-top {
-        bottom: 1rem;
-        left: 1rem;
-        width: 2.5rem;
-        height: 2.5rem;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .doc-header-title-section h1 {
-        font-size: 1.2rem;
-      }
-      .doc-header-meta {
-        font-size: 0.7rem;
-        gap: 0.5rem;
-      }
-      .tab-bar {
-        gap: 0.125rem;
-      }
-      .tab-btn {
-        padding: 0.4rem 0.75rem;
-        font-size: 0.8rem;
-      }
-      .btn-outline,
-      .back-link {
-        padding: 0.4rem 0.75rem;
-        font-size: 0.75rem;
-      }
-      .btn-outline .tooltip {
-        display: none;
-      }
-    }
-
-    /* Print styles */
-    @media print {
-      @page {
-        margin: 0.6in 0.7in;
-        size: A4;
-      }
-      
-      .doc-header-top {
-        display: none !important;
-      }
-      
-      .tab-bar {
-        display: none !important;
-      }
-      
-      .app-footer {
-        display: none !important;
-      }
-      
-      .scroll-top {
-        display: none !important;
-      }
-      
-      .toast {
-        display: none !important;
-      }
-      
-      .tab-panel {
-        display: block !important;
-        animation: none !important;
-        page-break-after: avoid !important;
-      }
-      
-      #terms-panel {
-        page-break-before: always !important;
-        break-before: page !important;
-        margin-top: 2rem !important;
-        padding-top: 2rem !important;
-        border-top: 2px solid #ccc !important;
-      }
-      
-      body {
-        background: white !important;
-        color: #000 !important;
-        font-size: 11pt !important;
-        line-height: 1.5 !important;
-        animation: none !important;
-        opacity: 1 !important;
-      }
-      
-      .container {
-        max-width: 100% !important;
-        padding: 0 !important;
-        margin: 0 auto !important;
-      }
-      
-      .content-card {
-        border: none !important;
-        box-shadow: none !important;
-        padding: 0 !important;
-        border-radius: 0 !important;
-        background: white !important;
-        margin-bottom: 0 !important;
-      }
-      
-      .doc-header-title-section {
-        padding: 0 0 0.5rem 0 !important;
-        border-bottom: 2px solid #000 !important;
-        margin-bottom: 1.5rem !important;
-      }
-      
-      .doc-header-title-section h1 {
-        font-size: 18pt !important;
-        color: #000 !important;
-        margin-bottom: 0.25rem !important;
-      }
-      
-      .doc-header-meta {
-        font-size: 9pt !important;
-        color: #333 !important;
-      }
-      
-      .doc-header-meta .badge {
-        background: #f0f0f0 !important;
-        color: #333 !important;
-        border: 1px solid #ccc !important;
-      }
-      
-      .policy-content h1 {
-        font-size: 16pt !important;
-        color: #000 !important;
-        margin-top: 1.5rem !important;
-        margin-bottom: 0.75rem !important;
-      }
-      
-      .policy-content h2 {
-        font-size: 13pt !important;
-        color: #000 !important;
-        margin-top: 1.25rem !important;
-        margin-bottom: 0.5rem !important;
-        border-bottom: 1px solid #ccc !important;
-        padding-bottom: 0.25rem !important;
-      }
-      
-      .policy-content h3 {
-        font-size: 11pt !important;
-        color: #000 !important;
-        margin-top: 1rem !important;
-        margin-bottom: 0.5rem !important;
-      }
-      
-      .policy-content p {
-        font-size: 10pt !important;
-        color: #000 !important;
-        line-height: 1.6 !important;
-        margin-bottom: 0.5rem !important;
-      }
-      
-      .policy-content ul,
-      .policy-content ol {
-        font-size: 10pt !important;
-        color: #000 !important;
-        margin-bottom: 0.5rem !important;
-        padding-left: 1.25rem !important;
-      }
-      
-      .policy-content li {
-        margin-bottom: 0.15rem !important;
-        list-style-type: disc !important;
-      }
-      
-      .policy-content a {
-        color: #000 !important;
-        text-decoration: underline !important;
-      }
-      
-      .callout-enterprise {
-        background: #f9f9f9 !important;
-        border: 1px solid #999 !important;
-        page-break-inside: avoid !important;
-        padding: 1rem 1.25rem !important;
-        margin: 1rem 0 !important;
-        border-radius: 0 !important;
-      }
-      
-      .callout-enterprise .icon {
-        background: #e5e5e5 !important;
-        color: #000 !important;
-      }
-      
-      .callout-enterprise h4 {
-        color: #000 !important;
-        font-size: 10pt !important;
-      }
-      
-      .callout-enterprise p {
-        color: #000 !important;
-        font-size: 9pt !important;
-      }
-      
-      .callout-enterprise strong {
-        color: #b45309 !important;
-      }
-      
-      .footer-copyright {
-        margin-top: 1.5rem !important;
-        padding-top: 1rem !important;
-        border-top: 1px solid #ccc !important;
-        font-size: 8pt !important;
-        color: #666 !important;
-      }
-      
-      .policy-content {
-        page-break-after: avoid !important;
-      }
-      
-      h1, h2, h3, h4, h5, h6 {
-        page-break-after: avoid !important;
-      }
-      
-      p, li, blockquote {
-        page-break-inside: avoid !important;
-        orphans: 2 !important;
-        widows: 2 !important;
-      }
-      
-      table {
-        page-break-inside: avoid !important;
-      }
-    }
-  </style>
+        /* ── Print ── */
+        @media print {
+            @page {
+                margin: 0.6in 0.7in;
+                size: A4;
+            }
+            .doc-header-top,
+            .tab-bar,
+            .scroll-top,
+            .toast {
+                display: none !important;
+            }
+            .tab-panel {
+                display: block !important;
+                animation: none !important;
+                page-break-after: avoid !important;
+            }
+            #terms-panel {
+                page-break-before: always !important;
+                break-before: page !important;
+                margin-top: 2rem !important;
+                padding-top: 2rem !important;
+                border-top: 2px solid #ccc !important;
+            }
+            body {
+                background: #fff !important;
+                color: #000 !important;
+                font-size: 11pt !important;
+                line-height: 1.5 !important;
+            }
+            .container {
+                max-width: 100% !important;
+                padding: 0 !important;
+            }
+            .content-card {
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                border-radius: 0 !important;
+                background: #fff !important;
+                margin-bottom: 0 !important;
+            }
+            .doc-header-title-section {
+                padding: 0 0 0.5rem 0 !important;
+                border-bottom: 2px solid #000 !important;
+                margin-bottom: 1.5rem !important;
+            }
+            .doc-header-title-section h1 {
+                font-size: 18pt !important;
+                color: #000 !important;
+            }
+            .doc-header-meta {
+                font-size: 9pt !important;
+                color: #333 !important;
+            }
+            .doc-header-meta .badge {
+                background: #f0f0f0 !important;
+                color: #333 !important;
+                border: 1px solid #ccc !important;
+            }
+            .policy-content h1 {
+                font-size: 16pt !important;
+                color: #000 !important;
+            }
+            .policy-content h2 {
+                font-size: 13pt !important;
+                color: #000 !important;
+                border-bottom: 1px solid #ccc !important;
+            }
+            .policy-content p,
+            .policy-content ul,
+            .policy-content ol {
+                font-size: 10pt !important;
+                color: #000 !important;
+            }
+            .policy-content a {
+                color: #000 !important;
+                text-decoration: underline !important;
+            }
+            .callout-enterprise {
+                background: #f9f9f9 !important;
+                border: 1px solid #999 !important;
+                page-break-inside: avoid !important;
+            }
+            .callout-enterprise .icon {
+                background: #e5e5e5 !important;
+                color: #000 !important;
+            }
+            .callout-enterprise strong {
+                color: #b45309 !important;
+            }
+            .footer-copyright {
+                margin-top: 1.5rem !important;
+                padding-top: 1rem !important;
+                border-top: 1px solid #ccc !important;
+                font-size: 8pt !important;
+                color: #666 !important;
+            }
+            h1, h2, h3, h4, h5, h6 {
+                page-break-after: avoid !important;
+            }
+            p, li, blockquote {
+                page-break-inside: avoid !important;
+                orphans: 2 !important;
+                widows: 2 !important;
+            }
+        }
+    </style>
 </head>
 <body>
 
-  <!-- Skip to content link for keyboard users -->
-  <a class="skip-link" href="#main-content">Skip to main content</a>
+    <a class="skip-link" href="#main-content">Skip to main content</a>
 
-  <div class="container" id="main-content">
-    <header class="doc-header">
-      <!-- Top row: Back button left, Download PDF right -->
-      <div class="doc-header-top">
-        <button id="backButton" class="back-link" aria-label="Go back to previous page" title="Go back">
-          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Back
-        </button>
-        
-        <div class="doc-header-actions">
-          <button id="printBtn" class="btn-outline" aria-label="Print or save as PDF">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Print / PDF
-            <span class="tooltip">Save as PDF or print</span>
-          </button>
-          
-          <button id="shareBtn" class="btn-outline" aria-label="Share this page" title="Share page">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-            </svg>
-            Share
-          </button>
+    <div class="container" id="main-content">
+        <header class="doc-header">
+
+            <div class="doc-header-top">
+                <div class="doc-header-left">
+                    <button id="backButton" class="back-link" aria-label="Go back">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back
+                    </button>
+                </div>
+
+                <div class="doc-header-right">
+                    <button id="printBtn" class="btn-outline" aria-label="Print or save as PDF">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Print / PDF
+                        <span class="tooltip">Save as PDF or print</span>
+                    </button>
+
+                    <button id="shareBtn" class="btn-outline" aria-label="Share this page">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                        </svg>
+                        Share
+                    </button>
+                </div>
+            </div>
+
+            <div class="doc-header-title-section">
+                <h1>Privacy Policy &amp; Terms of Service</h1>
+                <div class="doc-header-meta">
+                    <span><span style="font-weight:500;">Effective:</span> <time datetime="2026-06-18">18 June 2026</time></span>
+                    <span style="color:#cbd5e1;">|</span>
+                    <span><span style="font-weight:500;">Updated:</span> <time datetime="2026-07-23">23 July 2026</time></span>
+                    <span class="badge">v3.0</span>
+                </div>
+            </div>
+        </header>
+
+        <div class="tab-bar" role="tablist">
+            <button class="tab-btn active" data-tab="privacy" role="tab" aria-selected="true" aria-controls="privacy-panel" id="privacy-tab">
+                Privacy Policy
+            </button>
+            <button class="tab-btn" data-tab="terms" role="tab" aria-selected="false" aria-controls="terms-panel" id="terms-tab">
+                Terms of Service
+            </button>
         </div>
-      </div>
 
-      <!-- Title and meta info below buttons -->
-      <div class="doc-header-title-section">
-        <h1>Privacy Policy &amp; Terms of Service</h1>
-        <div class="doc-header-meta">
-          <span><span style="font-weight:500;">Effective:</span> <time datetime="2026-06-18">18 June 2026</time></span>
-          <span style="color:#cbd5e1;">|</span>
-          <span><span style="font-weight:500;">Updated:</span> <time datetime="2026-07-16">16 July 2026</time></span>
-          <span class="badge">v2.0</span>
-          <span class="badge" style="background:#dcfce7;color:#065f46;">✓ GDPR Compliant</span>
+        <div class="content-card policy-content">
+
+            <div id="privacy-panel" class="tab-panel active" role="tabpanel" aria-labelledby="privacy-tab">
+                <h1>Privacy Policy Overview</h1>
+                <p>
+                    This Privacy Policy describes how the <strong>Key Master System</strong> ("System", "we", "our", or "us") collects, uses, stores, and protects the personal information of external users ("you") who access our facilities and use the System to borrow physical keys. This policy is designed to comply with the <strong>Personal Data Protection Act 2012 (PDPA)</strong> of Singapore and aligns with the guidelines set out by the Infocomm Media Development Authority (IMDA). It applies solely to data collected through the System.
+                </p>
+
+                <h2>1. Data Collection</h2>
+                <p>We practise <strong>data minimisation</strong> – we collect only the information strictly necessary to manage the borrowing and return of physical keys:</p>
+                <ul>
+                    <li><strong>Full Name</strong> – to identify you and contact you regarding your key loan.</li>
+                    <li><strong>Email Address</strong> – to send you confirmation, reminders, and important notifications.</li>
+                    <li><strong>Expected Return Date</strong> – to track when the key should be returned.</li>
+                </ul>
+                <p>We do <strong>not</strong> collect phone numbers, physical addresses, payment card details, or government‑issued IDs.</p>
+
+                <h2>2. How We Use Your Data</h2>
+                <p>Your data is used exclusively for:</p>
+                <ul>
+                    <li>Logging the issuance and return of physical keys.</li>
+                    <li>Sending operational emails (return reminders, fee notifications).</li>
+                    <li>Managing lost key reports and replacement fees.</li>
+                    <li>Ensuring accountability and security of our key inventory.</li>
+                </ul>
+                <p>We do <strong>not</strong> use your data for marketing, profiling, or any secondary purpose. We never sell or rent your personal information.</p>
+
+                <h2>3. Data Sharing &amp; Disclosure</h2>
+                <p>Access is strictly limited to authorised internal administrators. We do not share your data with external parties, except:</p>
+                <ul>
+                    <li>If required by law, court order, or governmental regulation.</li>
+                    <li>To protect the rights, property, or safety of our organisation or users.</li>
+                </ul>
+                <p>We do not transfer personal data outside of Singapore without your explicit consent and only when adequate protections are in place.</p>
+
+                <h2>4. Data Retention</h2>
+                <ul>
+                    <li><strong>Active loans:</strong> Retained for the duration of the loan, plus a reasonable period for audit.</li>
+                    <li><strong>Lost key records:</strong> Retained for up to 3 years.</li>
+                    <li>Upon request, we will securely delete or anonymise your data, subject to legal obligations.</li>
+                </ul>
+
+                <h2>5. Your Rights</h2>
+                <p>Under the PDPA, you have the right to:</p>
+                <ul>
+                    <li><strong>Access</strong> – request a copy of your data.</li>
+                    <li><strong>Rectification</strong> – correct inaccurate data.</li>
+                    <li><strong>Erasure</strong> – request deletion of your data (subject to legal retention).</li>
+                    <li><strong>Withdraw consent</strong> – withdraw consent for processing (subject to operational necessity).</li>
+                </ul>
+                <p>To exercise these rights, contact us at <a href="mailto:wjlim@beautyone.com.sg">wjlim@beautyone.com.sg</a>.</p>
+
+                <h2>6. Data Security</h2>
+                <ul>
+                    <li>Encrypted transmission (HTTPS).</li>
+                    <li>Role‑based access controls.</li>
+                    <li>Regular security reviews and monitoring.</li>
+                    <li>Data breach response procedures in accordance with PDPA requirements.</li>
+                </ul>
+
+                <h2>7. Children's Privacy</h2>
+                <p>Our System is not intended for individuals under 16. We do not knowingly collect data from children.</p>
+
+                <h2>8. Policy Updates</h2>
+                <p>We may update this policy. We will notify you of material changes via the System or email. Continued use constitutes acceptance.</p>
+
+                <div class="footer-copyright">
+                    <p>&copy; 2026 Beauty One International Pte Ltd. All rights reserved.</p>
+                </div>
+            </div>
+
+            <div id="terms-panel" class="tab-panel" role="tabpanel" aria-labelledby="terms-tab">
+                <h1>Terms of Service</h1>
+                <p>By using the System to request and borrow physical keys, you agree to these Terms.</p>
+
+                <h2>1. User Obligations</h2>
+                <ul>
+                    <li>Provide accurate information (name, email, return date).</li>
+                    <li>Return the key by the expected return date.</li>
+                    <li>Keep the key secure and in good condition.</li>
+                    <li>Report a lost key immediately via the System.</li>
+                    <li>Notify us if your contact information changes.</li>
+                </ul>
+
+                <h2>2. Lost Key Protocol</h2>
+                <p>If you lose a key, you <strong>must</strong>:</p>
+                <ol style="padding-left:1.25rem;margin-bottom:0.75rem;color:#334155;font-size:0.95rem;list-style-type:decimal;">
+                    <li style="margin-bottom:0.25rem;">Log in to the System using your email address.</li>
+                    <li style="margin-bottom:0.25rem;">Navigate to the <strong>"Report Lost Key"</strong> section.</li>
+                    <li style="margin-bottom:0.25rem;">Select the lost key from your active loans.</li>
+                    <li style="margin-bottom:0.25rem;">Confirm the report.</li>
+                </ol>
+                <p>Upon confirmation, the key is marked lost and a <strong>Key Replacement Fee</strong> is applied.</p>
+
+                <div class="callout-enterprise">
+                    <div class="icon">
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <h4>Key Replacement &amp; Administrative Restitution Fee – SGD 50</h4>
+                        <p>
+                            A <strong>non‑negotiable fee of SGD 50</strong> (GST inclusive) applies per lost key. This fee is automatically applied upon reporting and must be paid within <strong>14 days</strong>. Failure to pay may result in suspension of borrowing privileges and referral to collections.
+                        </p>
+                    </div>
+                </div>
+
+                <p><strong>Payment:</strong> Instructions are sent via email. The fee is non‑refundable except in cases of administrative error.</p>
+
+                <h2>3. Limitation of Liability</h2>
+                <p>
+                    We do not guarantee uninterrupted System access. We are not liable for indirect, incidental, or consequential damages arising from your use of the System or key loans. Our total liability shall not exceed the replacement fee you have paid.
+                </p>
+
+                <h2>4. Governing Law</h2>
+                <p>These Terms are governed by the laws of Singapore. Disputes shall be resolved in Singapore courts.</p>
+
+                <h2>5. Amendments</h2>
+                <p>We may update these Terms. Continued use after notification constitutes acceptance.</p>
+
+                <div style="margin-top:2rem;padding-top:0.5rem;">
+                    <p style="font-size:0.875rem;color:#475569;">
+                        <strong>For questions regarding these Terms or the Privacy Policy, contact us at:</strong>
+                        <a href="mailto:wjlim@beautyone.com.sg">wjlim@beautyone.com.sg</a>
+                    </p>
+                </div>
+                <div class="footer-copyright">
+                    <p>&copy; 2026 Beauty One International Pte Ltd. All rights reserved.</p>
+                </div>
+            </div>
+
         </div>
-      </div>
-    </header>
-
-    <div class="tab-bar" role="tablist">
-      <button class="tab-btn active" data-tab="privacy" role="tab" aria-selected="true" aria-controls="privacy-panel" id="privacy-tab">
-        Privacy Policy
-        <span class="tab-count" aria-hidden="true">8</span>
-      </button>
-      <button class="tab-btn" data-tab="terms" role="tab" aria-selected="false" aria-controls="terms-panel" id="terms-tab">
-        Terms of Service
-        <span class="tab-count" aria-hidden="true">5</span>
-      </button>
     </div>
 
-    <div class="content-card policy-content">
-
-      <div id="privacy-panel" class="tab-panel active" role="tabpanel" aria-labelledby="privacy-tab">
-        <h1>Privacy Policy Overview</h1>
-        <p>
-          This Privacy Policy describes how the <strong>Key Master System</strong> (“System”, “we”, “our”, or “us”) collects, uses, stores, and protects the personal information of external users (“you”) who access our facilities and use the System to borrow physical keys. This policy is designed to comply with the <strong>Personal Data Protection Act 2012 (PDPA)</strong> of Singapore and aligns with the guidelines set out by the Infocomm Media Development Authority (IMDA). It applies solely to data collected through the System.
-        </p>
-
-        <h2>1. Data Collection</h2>
-        <p>We practise <strong>data minimisation</strong> – we collect only the information strictly necessary to manage the borrowing and return of physical keys:</p>
-        <ul>
-          <li><strong>Full Name</strong> – to identify you and contact you regarding your key loan.</li>
-          <li><strong>Email Address</strong> – to send you confirmation, reminders, and important notifications.</li>
-          <li><strong>Expected Return Date</strong> – to track when the key should be returned.</li>
-        </ul>
-        <p>We do <strong>not</strong> collect phone numbers, physical addresses, payment card details, or government‑issued IDs.</p>
-
-        <h2>2. How We Use Your Data</h2>
-        <p>Your data is used exclusively for:</p>
-        <ul>
-          <li>Logging the issuance and return of physical keys.</li>
-          <li>Sending operational emails (return reminders, fee notifications).</li>
-          <li>Managing lost key reports and replacement fees.</li>
-          <li>Ensuring accountability and security of our key inventory.</li>
-        </ul>
-        <p>We do <strong>not</strong> use your data for marketing, profiling, or any secondary purpose. We never sell or rent your personal information.</p>
-
-        <h2>3. Data Sharing &amp; Disclosure</h2>
-        <p>Access is strictly limited to authorised internal administrators. We do not share your data with external parties, except:</p>
-        <ul>
-          <li>If required by law, court order, or governmental regulation.</li>
-          <li>To protect the rights, property, or safety of our organisation or users.</li>
-        </ul>
-        <p>We do not transfer personal data outside of Singapore without your explicit consent and only when adequate protections are in place.</p>
-
-        <h2>4. Data Retention</h2>
-        <ul>
-          <li><strong>Active loans:</strong> Retained for the duration of the loan, plus a reasonable period for audit.</li>
-          <li><strong>Lost key records:</strong> Retained for up to 3 years.</li>
-          <li>Upon request, we will securely delete or anonymise your data, subject to legal obligations.</li>
-        </ul>
-
-        <h2>5. Your Rights</h2>
-        <p>Under the PDPA, you have the right to:</p>
-        <ul>
-          <li><strong>Access</strong> – request a copy of your data.</li>
-          <li><strong>Rectification</strong> – correct inaccurate data.</li>
-          <li><strong>Erasure</strong> – request deletion of your data (subject to legal retention).</li>
-          <li><strong>Withdraw consent</strong> – withdraw consent for processing (subject to operational necessity).</li>
-        </ul>
-        <p>To exercise these rights, contact us at <a href="mailto:wjlim@beautyone.com.sg">wjlim@beautyone.com.sg</a>.</p>
-
-        <h2>6. Data Security</h2>
-        <ul>
-          <li>Encrypted transmission (HTTPS).</li>
-          <li>Role‑based access controls.</li>
-          <li>Regular security reviews and monitoring.</li>
-          <li>Data breach response procedures in accordance with PDPA requirements.</li>
-        </ul>
-
-        <h2>7. Children’s Privacy</h2>
-        <p>Our System is not intended for individuals under 16. We do not knowingly collect data from children.</p>
-
-        <h2>8. Policy Updates</h2>
-        <p>We may update this policy. We will notify you of material changes via the System or email. Continued use constitutes acceptance.</p>
-
-        <div class="footer-copyright" style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid #e2e8f0;font-size:0.875rem;color:#64748b;">
-          <p>&copy; 2026 Beauty One International Pte Ltd. All rights reserved.</p>
-        </div>
-      </div>
-
-      <div id="terms-panel" class="tab-panel" role="tabpanel" aria-labelledby="terms-tab">
-        <h1>Terms of Service</h1>
-        <p>By using the System to request and borrow physical keys, you agree to these Terms.</p>
-
-        <h2>1. User Obligations</h2>
-        <ul>
-          <li>Provide accurate information (name, email, return date).</li>
-          <li>Return the key by the expected return date.</li>
-          <li>Keep the key secure and in good condition.</li>
-          <li>Report a lost key immediately via the System.</li>
-          <li>Notify us if your contact information changes.</li>
-        </ul>
-
-        <h2>2. Lost Key Protocol</h2>
-        <p>If you lose a key, you <strong>must</strong>:</p>
-        <ol style="padding-left:1.25rem;margin-bottom:0.75rem;color:#334155;font-size:0.95rem;list-style-type:decimal;">
-          <li style="margin-bottom:0.25rem;">Log in to the System using your email address.</li>
-          <li style="margin-bottom:0.25rem;">Navigate to the <strong>“Report Lost Key”</strong> section.</li>
-          <li style="margin-bottom:0.25rem;">Select the lost key from your active loans.</li>
-          <li style="margin-bottom:0.25rem;">Confirm the report.</li>
-        </ol>
-        <p>Upon confirmation, the key is marked lost and a <strong>Key Replacement Fee</strong> is applied.</p>
-
-        <div class="callout-enterprise">
-          <div class="icon">
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <div>
-            <h4>Key Replacement &amp; Administrative Restitution Fee – SGD 50</h4>
-            <p>
-              A <strong>non‑negotiable fee of SGD 50</strong> (GST inclusive) applies per lost key. This fee is automatically applied upon reporting and must be paid within <strong>14 days</strong>. Failure to pay may result in suspension of borrowing privileges and referral to collections.
-            </p>
-          </div>
-        </div>
-
-        <p><strong>Payment:</strong> Instructions are sent via email. The fee is non‑refundable except in cases of administrative error.</p>
-
-        <h2>3. Limitation of Liability</h2>
-        <p>
-          We do not guarantee uninterrupted System access. We are not liable for indirect, incidental, or consequential damages arising from your use of the System or key loans. Our total liability shall not exceed the replacement fee you have paid.
-        </p>
-
-        <h2>4. Governing Law</h2>
-        <p>These Terms are governed by the laws of Singapore. Disputes shall be resolved in Singapore courts.</p>
-
-        <h2>5. Amendments</h2>
-        <p>We may update these Terms. Continued use after notification constitutes acceptance.</p>
-
-        <div style="margin-top:2rem;padding-top:0.5rem;">
-          <p style="font-size:0.875rem;color:#475569;">
-            <strong>For questions regarding these Terms or the Privacy Policy, contact us at:</strong>
-            <a href="mailto:wjlim@beautyone.com.sg">wjlim@beautyone.com.sg</a>
-          </p>
-        </div>
-        <div class="footer-copyright" style="margin-top:1.5rem;padding-top:1.5rem;border-top:1px solid #e2e8f0;font-size:0.875rem;color:#64748b;">
-          <p>&copy; 2026 Beauty One International Pte Ltd. All rights reserved.</p>
-        </div>
-      </div>
-
+    <div id="toast" class="toast" role="alert" aria-live="polite">
+        <span id="toastMessage">Notification</span>
+        <button class="toast-close" aria-label="Close notification">&times;</button>
     </div>
-  </div>
 
-  <footer class="app-footer">
-    <div class="app-footer-inner">
-      <span>&copy; 2026 Beauty One International Pte Ltd. All rights reserved.</span>
-      <span class="footer-divider">|</span>
-      <a href="/privacy-policy">Privacy Policy &amp; Terms of Service</a>
-      <span class="footer-divider">|</span>
-      <a href="/">Return to Key Master System</a>
-      <span class="footer-divider">|</span>
-      <a href="#" id="footerBackLink">Go Back</a>
-    </div>
-  </footer>
+    <button id="scrollTopBtn" class="scroll-top" aria-label="Scroll to top">
+        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+        </svg>
+    </button>
 
-  <!-- Toast notification -->
-  <div id="toast" class="toast" role="alert" aria-live="polite">
-    <span id="toastMessage">Notification</span>
-    <button class="toast-close" aria-label="Close notification">&times;</button>
-  </div>
-
-  <!-- Scroll to top button -->
-  <button id="scrollTopBtn" class="scroll-top" aria-label="Scroll to top">
-    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
-    </svg>
-  </button>
-
-  <script>
-    (function() {
-      'use strict';
-
-      // ============================================
-      // 1. CONFIGURATION
-      // ============================================
-      const CONFIG = {
-        debug: false,
-        analyticsEnabled: true,
-        toastDuration: 3000,
-        scrollThreshold: 300,
-      };
-
-      // ============================================
-      // 2. UTILITY FUNCTIONS
-      // ============================================
-      const utils = {
-        // Get CSRF token
-        getCsrfToken: function() {
-          return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-        },
-
-        // Show toast notification
-        showToast: function(message, type = 'info') {
-          const toast = document.getElementById('toast');
-          const toastMessage = document.getElementById('toastMessage');
-          
-          if (!toast || !toastMessage) return;
-          
-          toast.className = 'toast';
-          if (type === 'success') toast.classList.add('success');
-          if (type === 'error') toast.classList.add('error');
-          
-          toastMessage.textContent = message;
-          toast.classList.add('show');
-          
-          // Auto-hide after duration
-          if (CONFIG.toastDuration > 0) {
-            clearTimeout(toast._hideTimeout);
-            toast._hideTimeout = setTimeout(() => {
-              toast.classList.remove('show');
-            }, CONFIG.toastDuration);
-          }
-        },
-
-        // Logging with debug flag
-        log: function(...args) {
-          if (CONFIG.debug) {
-            console.log('[Debug]', ...args);
-          }
-        },
-
-        // Debounce function for performance
-        debounce: function(func, wait = 100) {
-          let timeout;
-          return function(...args) {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => func.apply(this, args), wait);
-          };
-        },
-
-        // Safe string handling
-        escapeHtml: function(str) {
-          const div = document.createElement('div');
-          div.textContent = str;
-          return div.innerHTML;
-        }
-      };
-
-      // ============================================
-      // 3. TAB FUNCTIONALITY
-      // ============================================
-      const tabs = {
-        init: function() {
-          this.buttons = document.querySelectorAll('.tab-btn');
-          this.panels = document.querySelectorAll('.tab-panel');
-          
-          if (!this.buttons.length) return;
-
-          // Click handlers
-          this.buttons.forEach((btn, index) => {
-            btn.addEventListener('click', () => this.switchTab(btn));
-            
-            // Keyboard navigation
-            btn.addEventListener('keydown', (e) => this.handleKeydown(e, index));
-          });
-
-          // Restore active tab from session storage
-          this.restoreActiveTab();
-        },
-
-        switchTab: function(btn) {
-          const targetTab = btn.dataset.tab;
-          
-          // Update button states
-          this.buttons.forEach(b => {
-            b.classList.remove('active');
-            b.setAttribute('aria-selected', 'false');
-          });
-          btn.classList.add('active');
-          btn.setAttribute('aria-selected', 'true');
-
-          // Update panel states
-          this.panels.forEach(p => {
-            p.classList.remove('active');
-          });
-          const targetPanel = document.getElementById(targetTab + '-panel');
-          if (targetPanel) {
-            targetPanel.classList.add('active');
-          }
-
-          // Save active tab to session storage
-          try {
-            sessionStorage.setItem('activeTab', targetTab);
-          } catch (e) {
-            // Ignore session storage errors
-          }
-
-          utils.log('Switched to tab:', targetTab);
-        },
-
-        handleKeydown: function(e, index) {
-          const total = this.buttons.length;
-          let targetIndex = -1;
-
-          switch(e.key) {
-            case 'ArrowRight':
-            case 'ArrowDown':
-              e.preventDefault();
-              targetIndex = (index + 1) % total;
-              break;
-            case 'ArrowLeft':
-            case 'ArrowUp':
-              e.preventDefault();
-              targetIndex = (index - 1 + total) % total;
-              break;
-            case 'Home':
-              e.preventDefault();
-              targetIndex = 0;
-              break;
-            case 'End':
-              e.preventDefault();
-              targetIndex = total - 1;
-              break;
-            default:
-              return;
-          }
-
-          if (targetIndex >= 0) {
-            this.buttons[targetIndex].focus();
-            this.buttons[targetIndex].click();
-          }
-        },
-
-        restoreActiveTab: function() {
-          try {
-            const savedTab = sessionStorage.getItem('activeTab');
-            if (savedTab) {
-              const btn = document.querySelector(`.tab-btn[data-tab="${savedTab}"]`);
-              if (btn) {
-                this.switchTab(btn);
-                return;
-              }
-            }
-          } catch (e) {
-            // Ignore session storage errors
-          }
-          
-          // Default: first tab is active
-          if (this.buttons.length) {
-            this.switchTab(this.buttons[0]);
-          }
-        }
-      };
-
-      // ============================================
-      // 4. BACK BUTTON FUNCTIONALITY
-      // ============================================
-      const backButton = {
-        init: function() {
-          const btn = document.getElementById('backButton');
-          const footerBtn = document.getElementById('footerBackLink');
-          
-          if (btn) {
-            btn.addEventListener('click', (e) => this.goBack(e));
-          }
-          if (footerBtn) {
-            footerBtn.addEventListener('click', (e) => this.goBack(e));
-          }
-        },
-
-        goBack: function(e) {
-          e.preventDefault();
-          
-          // Check if we can go back in history
-          if (window.history.length > 1) {
-            // Check if the previous page is within our site
-            const referrer = document.referrer;
-            if (referrer && new URL(referrer).hostname === window.location.hostname) {
-              window.history.back();
-              return;
-            }
-          }
-          
-          // Fallback: navigate to homepage
-          utils.log('Navigating to home page');
-          window.location.href = '/';
-        }
-      };
-
-      // ============================================
-      // 5. PRINT / PDF FUNCTIONALITY
-      // ============================================
-      const printHandler = {
-        init: function() {
-          const btn = document.getElementById('printBtn');
-          if (!btn) return;
-
-          btn.addEventListener('click', () => this.print());
-          
-          // Handle print events
-          window.addEventListener('beforeprint', () => this.beforePrint());
-          window.addEventListener('afterprint', () => this.afterPrint());
-        },
-
-        print: function() {
-          const btn = document.getElementById('printBtn');
-          if (!btn) return;
-
-          // Show loading state
-          const originalContent = btn.innerHTML;
-          btn.classList.add('loading');
-          btn.innerHTML = `
-            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" style="animation: spin 1s linear infinite;" width="16" height="16">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            Preparing...
-          `;
-
-          // Trigger print with small delay for UI update
-          setTimeout(() => {
-            window.print();
-            
-            // Reset button after print dialog closes
-            setTimeout(() => {
-              btn.classList.remove('loading');
-              btn.innerHTML = originalContent;
-            }, 1000);
-          }, 300);
-        },
-
-        beforePrint: function() {
-          utils.log('Print started');
-          // Any pre-print preparations
-        },
-
-        afterPrint: function() {
-          utils.log('Print finished');
-          // Reset any print-related states
-          const btn = document.getElementById('printBtn');
-          if (btn) {
-            btn.classList.remove('loading');
-            btn.innerHTML = `
-              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-              </svg>
-              Print / PDF
-              <span class="tooltip">Save as PDF or print</span>
-            `;
-          }
-        }
-      };
-
-      // ============================================
-      // 6. SHARE FUNCTIONALITY
-      // ============================================
-      const shareHandler = {
-        init: function() {
-          const btn = document.getElementById('shareBtn');
-          if (!btn) return;
-
-          btn.addEventListener('click', () => this.share());
-          
-          // Check if Web Share API is supported
-          if (!navigator.share) {
-            btn.style.opacity = '0.5';
-            btn.title = 'Share not supported on this browser';
-          }
-        },
-
-        share: async function() {
-          const shareData = {
-            title: 'Privacy Policy & Terms of Service | Key Master System',
-            text: 'Key Master System - Privacy Policy and Terms of Service',
-            url: window.location.href,
-          };
-
-          try {
-            if (navigator.share) {
-              await navigator.share(shareData);
-              utils.showToast('Shared successfully!', 'success');
-            } else {
-              // Fallback: copy to clipboard
-              await navigator.clipboard.writeText(window.location.href);
-              utils.showToast('Link copied to clipboard!', 'success');
-            }
-          } catch (error) {
-            if (error.name !== 'AbortError') {
-              utils.log('Share error:', error);
-              utils.showToast('Unable to share at this time', 'error');
-            }
-          }
-        }
-      };
-
-      // ============================================
-      // 7. SCROLL TO TOP
-      // ============================================
-      const scrollHandler = {
-        init: function() {
-          this.btn = document.getElementById('scrollTopBtn');
-          if (!this.btn) return;
-
-          // Show/hide button based on scroll position
-          const handleScroll = utils.debounce(() => {
-            if (window.scrollY > CONFIG.scrollThreshold) {
-              this.btn.classList.add('visible');
-            } else {
-              this.btn.classList.remove('visible');
-            }
-          }, 50);
-
-          window.addEventListener('scroll', handleScroll);
-          
-          // Click handler
-          this.btn.addEventListener('click', () => {
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          });
-        }
-      };
-
-      // ============================================
-      // 8. ANALYTICS
-      // ============================================
-      const analytics = {
-        init: function() {
-          if (!CONFIG.analyticsEnabled) return;
-
-          // Log page view
-          this.logPageView();
-
-          // Track tab switches
-          document.querySelectorAll('.tab-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-              this.logEvent('tab_switch', { tab: btn.dataset.tab });
-            });
-          });
-
-          // Track print
-          document.getElementById('printBtn')?.addEventListener('click', () => {
-            this.logEvent('print_click');
-          });
-
-          // Track back button
-          document.getElementById('backButton')?.addEventListener('click', () => {
-            this.logEvent('back_click');
-          });
-
-          // Track share
-          document.getElementById('shareBtn')?.addEventListener('click', () => {
-            this.logEvent('share_click');
-          });
-        },
-
-        logPageView: function() {
-          try {
-            const data = {
-              page: 'privacy-policy',
-              version: document.querySelector('meta[name="build-version"]')?.getAttribute('content') || 'unknown',
-              timestamp: new Date().toISOString(),
-              referrer: document.referrer || 'direct',
-              screen: `${window.screen.width}x${window.screen.height}`,
-            };
-
-            // Use sendBeacon for non-blocking analytics
-            // navigator.sendBeacon('/api/analytics', JSON.stringify(data));
-            
-            utils.log('Analytics - Page view:', data);
-          } catch (error) {
-            utils.log('Analytics error:', error);
-          }
-        },
-
-        logEvent: function(event, data = {}) {
-          try {
-            const payload = {
-              event,
-              data,
-              timestamp: new Date().toISOString(),
-            };
-            // navigator.sendBeacon('/api/analytics/event', JSON.stringify(payload));
-            utils.log('Analytics - Event:', payload);
-          } catch (error) {
-            utils.log('Analytics error:', error);
-          }
-        }
-      };
-
-      // ============================================
-      // 9. TOAST CLOSE HANDLER
-      // ============================================
-      const toastHandler = {
-        init: function() {
-          const toast = document.getElementById('toast');
-          const closeBtn = toast?.querySelector('.toast-close');
-          
-          if (closeBtn) {
-            closeBtn.addEventListener('click', () => {
-              toast.classList.remove('show');
-            });
-          }
-        }
-      };
-
-      // ============================================
-      // 10. KEYBOARD SHORTCUTS
-      // ============================================
-      const keyboardShortcuts = {
-        init: function() {
-          document.addEventListener('keydown', (e) => {
-            // Ctrl+P or Cmd+P for print
-            if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
-              // Let the browser handle print
-              return;
-            }
-            
-            // Escape key to close toast
-            if (e.key === 'Escape') {
-              const toast = document.getElementById('toast');
-              if (toast?.classList.contains('show')) {
-                toast.classList.remove('show');
-              }
-            }
-
-            // Alt+1, Alt+2 for tab switching
-            if (e.altKey && (e.key === '1' || e.key === '2')) {
-              e.preventDefault();
-              const tabIndex = parseInt(e.key) - 1;
-              const tabs = document.querySelectorAll('.tab-btn');
-              if (tabs[tabIndex]) {
-                tabs[tabIndex].click();
-              }
-            }
-          });
-        }
-      };
-
-      // ============================================
-      // 11. INITIALIZATION
-      // ============================================
-      document.addEventListener('DOMContentLoaded', function() {
-        utils.log('Initializing page...');
-        
-        // Initialize all modules
-        tabs.init();
-        backButton.init();
-        printHandler.init();
-        shareHandler.init();
-        scrollHandler.init();
-        analytics.init();
-        toastHandler.init();
-        keyboardShortcuts.init();
-
-        // Show welcome toast for first-time visitors
-        if (!sessionStorage.getItem('visited')) {
-          try {
-            sessionStorage.setItem('visited', 'true');
-            setTimeout(() => {
-              utils.showToast('Welcome! Use the tabs to switch between Privacy Policy and Terms of Service.', 'info');
-            }, 1000);
-          } catch (e) {
-            // Ignore
-          }
-        }
-
-        // Log completion
-        utils.log('Page initialized successfully');
-        utils.log('Build:', {
-          version: document.querySelector('meta[name="build-version"]')?.getAttribute('content'),
-          hash: document.querySelector('meta[name="build-hash"]')?.getAttribute('content'),
-        });
-        utils.log('CSRF Token present:', !!utils.getCsrfToken());
-      });
-
-      // Handle page visibility change for analytics
-      document.addEventListener('visibilitychange', function() {
-        if (document.hidden) {
-          utils.log('Page hidden');
-        } else {
-          utils.log('Page visible');
-          analytics.logEvent('page_visible');
-        }
-      });
-
-      // Export utilities for debugging (only in development)
-      if (CONFIG.debug) {
-        window.__pageUtils = {
-          showToast: utils.showToast,
-          getCsrfToken: utils.getCsrfToken,
-          config: CONFIG,
-        };
-      }
-
-    })();
-  </script>
+    <script src="/js/policy.js"></script>
 
 </body>
 </html>

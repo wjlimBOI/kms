@@ -49,12 +49,191 @@
     .logout-item {
       cursor: pointer;
     }
+
+    .mobile-menu-btn {
+      display: block;
+      background: none;
+      border: none;
+      color: #ffffff;
+      font-size: 1.6rem;
+      cursor: pointer;
+      padding: 8px 12px;
+      flex-shrink: 0;
+      transition: opacity 0.15s ease;
+    }
+    .mobile-menu-btn:hover {
+      opacity: 0.8;
+    }
+
+    .mobile-menu {
+      display: none;
+      position: absolute;
+      top: var(--header-height, 72px);
+      left: 0;
+      right: 0;
+      background: #ffffff;
+      border-bottom: 2px solid #d4a843;
+      padding: 16px 24px 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+      z-index: 999;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mobile-menu.open {
+      display: flex;
+    }
+
+    .mobile-menu-items {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .mobile-menu-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      border: none;
+      background: rgba(0,0,0,0.03);
+      color: #1a2a4a;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: background 0.1s ease;
+      font-family: inherit;
+      width: 100%;
+      text-align: left;
+      text-decoration: none;
+    }
+
+    .mobile-menu-item:hover {
+      background: rgba(0,0,0,0.06);
+    }
+
+    .mobile-menu-item.logout-item {
+      color: #dc2626;
+    }
+
+    .mobile-menu-item.logout-item:hover {
+      background: rgba(239,68,68,0.1);
+    }
+
+    .mobile-menu-item i {
+      width: 20px;
+      color: rgba(26,42,74,0.5);
+    }
+
+    .mobile-menu-item.logout-item i {
+      color: #dc2626;
+    }
+
+    .mobile-menu-divider {
+      height: 1px;
+      background: #e2e8f0;
+      margin: 4px 8px;
+    }
+
+    .top-nav {
+      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+      border-bottom: 3px solid #d4a843;
+      padding: 0 1.5rem;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+      height: var(--header-height, 72px);
+      display: flex;
+      align-items: center;
+      min-height: var(--header-height, 72px);
+    }
+
+    .top-nav-inner {
+      max-width: 1440px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+      gap: 0.75rem;
+    }
+
+    .brand-text {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      line-height: 1.2;
+      white-space: nowrap;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .brand-name {
+      color: #ffffff;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-size: 1.15rem;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+
+    @media (max-width: 768px) {
+      .top-nav {
+        padding: 0 1rem;
+        height: 60px;
+        min-height: 60px;
+      }
+      .brand-name {
+        font-size: 0.95rem;
+        max-width: 38vw;
+      }
+      .mobile-menu {
+        top: 60px;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .brand-name {
+        font-size: 0.85rem;
+        max-width: 50vw;
+      }
+      .mobile-menu-btn {
+        font-size: 1.4rem;
+        padding: 6px 10px;
+      }
+    }
+
+    @media (max-width: 360px) {
+      .brand-name {
+        font-size: 0.75rem;
+        max-width: 40vw;
+      }
+    }
   </style>
 </head>
 <body>
   <div id="loadingContainer" class="loading-container">
     <div class="spinner-large"></div>
     <p>Loading dashboard...</p>
+  </div>
+
+  <div id="accessDenied" class="access-denied" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:2rem;background:#F0F4F8;">
+    <i class="fas fa-lock" style="font-size:4rem;color:#DC2626;margin-bottom:1rem;"></i>
+    <h1 style="color:#1E2A3E;font-family:'Inter',sans-serif;font-size:2rem;margin-bottom:0.5rem;">Access Denied</h1>
+    <p style="color:#64748B;font-family:'Inter',sans-serif;max-width:400px;">You do not have permission to access this page.</p>
+    <button class="btn-back" onclick="window.location.href='/login'" style="margin-top:1.5rem;padding:0.75rem 2rem;background:#1E2A3E;color:white;border:none;border-radius:8px;font-size:1rem;cursor:pointer;font-family:'Inter',sans-serif;transition:background 0.2s;">Return to Login</button>
   </div>
 
   <div id="mainContentWrapper" class="main-content-wrapper">
@@ -65,35 +244,26 @@
             <span class="brand-name">Key Management System</span>
           </div>
           <div class="nav-actions">
-            <div class="admin-nav-link" id="adminNavLink">
-              <a href="/admin" id="adminPortalLink" class="admin-portal-btn">
-                <i class="fas fa-user-shield"></i>
-                <span>Admin Portal</span>
-              </a>
-            </div>
-            <div class="user-profile">
-              <button class="user-profile-btn" id="userProfileBtn">
-                <div class="user-avatar" id="userAvatar">U</div>
-                <div class="user-info">
-                  <span class="user-name" id="userDisplay">User</span>
-                  <span class="user-role" id="userRoleDisplay">User</span>
-                </div>
-                <i class="fas fa-chevron-down user-chevron"></i>
-              </button>
-              <div class="user-dropdown" id="userDropdown">
-                <div class="dropdown-header">
-                  <div class="dropdown-avatar" id="dropdownAvatar">U</div>
-                  <div class="dropdown-user-info">
-                    <span class="dropdown-name" id="dropdownUserName">User</span>
-                    <span class="dropdown-role" id="dropdownUserRole">User</span>
-                  </div>
-                </div>
-                <div class="dropdown-divider"></div>
-                <button class="dropdown-item" id="myProfileBtn"><i class="fas fa-user"></i> My Profile</button>
-                <div class="dropdown-divider"></div>
-                <button class="dropdown-item logout-item" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</button>
-              </div>
-            </div>
+            <button class="mobile-menu-btn" id="mobileMenuBtn">
+              <i class="fas fa-bars"></i>
+            </button>
+          </div>
+        </div>
+        <div class="mobile-menu" id="mobileMenu">
+          <div class="mobile-menu-items">
+            <a href="/admin" class="mobile-menu-item">
+              <i class="fas fa-user-shield"></i>
+              Admin Portal
+            </a>
+            <button class="mobile-menu-item" id="mobileProfileBtn">
+              <i class="fas fa-user"></i>
+              My Profile
+            </button>
+            <div class="mobile-menu-divider"></div>
+            <button class="mobile-menu-item logout-item" id="mobileLogoutBtn">
+              <i class="fas fa-sign-out-alt"></i>
+              Logout
+            </button>
           </div>
         </div>
       </nav>
@@ -269,7 +439,7 @@
         </div>
         <div id="returnStep1" class="p-5">
           <p class="text-sm text-slate-600 mb-3">Your active loans will be fetched automatically.</p>
-          <button id="fetchLoansByEmailBtn" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 rounded-full transition shadow-sm">Find my active loans →</button>
+          <button id="fetchLoansByEmailBtn" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 rounded-full transition shadow-sm">Load my active loans →</button>
         </div>
         <div id="returnStep2" style="display:none">
           <div class="px-5 pt-3 pb-2 border-b border-slate-100 flex justify-between items-center">
@@ -293,6 +463,7 @@
       </div>
     </div>
 
+    <!-- ─── REPORT LOST KEY MODAL (UPDATED - Removed Load Button) ─── -->
     <div id="reportLostModal" class="modal-overlay">
       <div class="modal-container max-w-2xl">
         <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -300,12 +471,11 @@
             <h3 class="text-lg font-semibold text-slate-900">Report Lost Key</h3>
             <p class="text-xs text-slate-600 mt-0.5">Select the key you have lost. A Key Replacement Fee of 50 SGD will be levied.</p>
           </div>
-          <button id="closeReportLostModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
+          <button id="closeReportLostModalBtn" class="close-btn">&times;</button>
         </div>
         <div class="p-5">
-          <button id="fetchLostReportKeysBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-full transition text-sm">Load my borrowed keys</button>
           <div id="reportLostKeysListContainer" class="max-h-80 overflow-y-auto custom-scroll space-y-3 mt-4">
-            <div class="text-center py-8 text-slate-400">Click "Load" to see your borrowed keys.</div>
+            <div class="text-center py-8 text-slate-400">Loading your borrowed keys...</div>
           </div>
         </div>
       </div>
@@ -339,13 +509,8 @@
           <button id="closeExtensionModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
         </div>
         <div class="p-5">
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-slate-700 mb-1">Your email</label>
-            <input type="email" id="extensionEmailInput" placeholder="Enter your email address" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition" />
-            <button id="fetchExtensionLoansBtn" class="mt-2 w-full bg-purple-600 hover:bg-purple-700 text-white font-medium py-2 rounded-xl transition text-sm">Load my active loans</button>
-          </div>
           <div id="extensionLoansContainer" class="max-h-64 overflow-y-auto custom-scroll space-y-2 mb-4">
-            <div class="text-center py-8 text-slate-400 text-sm">Enter your email and click "Load" to see your active loans.</div>
+            <div class="text-center py-8 text-slate-400 text-sm">Loading your active loans...</div>
           </div>
           <div id="extensionSelectionArea" style="display:none;" class="border-t border-slate-200 pt-4 mt-2">
             <div class="mb-3">
@@ -423,6 +588,6 @@
     </footer>
   </div>
   <script src="/js/force-logout.js?v=d48646c8860ce954"></script>
-  <script src="/js/main.js?v=d48646c8860ce954"></script>
+  <script src="/js/index.js?v=d48646c8860ce954"></script>
 </body>
 </html>

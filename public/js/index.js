@@ -86,6 +86,16 @@
         try { return JSON.parse(localStorage.getItem('kms_user')); } catch { return null; }
     }
 
+    function getUserEmail() {
+        const user = getUser();
+        return user?.email || '';
+    }
+
+    function getUserName() {
+        const user = getUser();
+        return user?.name || '';
+    }
+
     function getRole() {
         const u = getUser();
         return u?.role || 'user';
@@ -112,7 +122,7 @@
 
     function escapeHtml(str) {
         if (!str) return '';
-        return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : '&gt;');
+        return String(str).replace(/[&<>]/g, m => m === '&' ? '&amp;' : m === '<' ? '&lt;' : m === '>' ? '&gt;' : '');
     }
 
     function formatDate(isoString) {
@@ -378,58 +388,44 @@
         }
     }
 
-    function initUserProfile() {
-        const user = getUser();
-        if (user) {
-            const displayName = user.name || user.username || 'User';
-            const role = user.role || 'User';
-            const displayRole = role.charAt(0).toUpperCase() + role.slice(1);
-
-            document.getElementById('userDisplay').textContent = displayName;
-            document.getElementById('dropdownUserName').textContent = displayName;
-            document.getElementById('userRoleDisplay').textContent = displayRole;
-            document.getElementById('dropdownUserRole').textContent = displayRole;
-
-            const initials = getInitials(displayName);
-            document.getElementById('userAvatar').textContent = initials;
-            document.getElementById('dropdownAvatar').textContent = initials;
-        }
-
-        if (isAdmin()) {
-            document.querySelectorAll('.admin-only').forEach(el => el.classList.add('visible'));
-            document.querySelectorAll('.admin-only-inline').forEach(el => el.classList.add('visible'));
-
-            const adminNavLink = document.getElementById('adminNavLink');
-            if (adminNavLink) {
-                adminNavLink.classList.add('visible');
-                adminNavLink.style.display = 'block';
-            }
-        }
-    }
-
     function initEventListeners() {
         document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
+        document.getElementById('mobileLogoutBtn')?.addEventListener('click', handleLogout);
 
-        const profileBtn = document.getElementById('userProfileBtn');
-        const userDropdown = document.getElementById('userDropdown');
-        if (profileBtn && userDropdown) {
-            profileBtn.addEventListener('click', function(e) {
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+        if (mobileMenuBtn && mobileMenu) {
+            mobileMenuBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
-                this.classList.toggle('open');
-                userDropdown.classList.toggle('show');
+                mobileMenu.classList.toggle('open');
             });
             document.addEventListener('click', function(e) {
-                if (!e.target.closest('.user-profile')) {
-                    profileBtn.classList.remove('open');
-                    userDropdown.classList.remove('show');
+                if (!e.target.closest('.top-nav')) {
+                    mobileMenu.classList.remove('open');
                 }
             });
         }
 
-        document.getElementById('myProfileBtn')?.addEventListener('click', function() {
-            profileBtn?.classList.remove('open');
-            userDropdown?.classList.remove('show');
+        document.getElementById('mobileProfileBtn')?.addEventListener('click', function() {
+            const mobileMenu = document.getElementById('mobileMenu');
+            if (mobileMenu) mobileMenu.classList.remove('open');
 
+            const modal = document.getElementById('profileModal');
+            if (modal) {
+                const user = getUser();
+                if (user) {
+                    document.getElementById('profileName').value = user.name || '';
+                    document.getElementById('profileEmail').value = user.email || '';
+                }
+                document.getElementById('profileCurrentPassword').value = '';
+                document.getElementById('profileNewPassword').value = '';
+                document.getElementById('profileError').style.display = 'none';
+                document.getElementById('profileSuccess').style.display = 'none';
+                modal.style.display = 'flex';
+            }
+        });
+
+        document.getElementById('myProfileBtn')?.addEventListener('click', function() {
             const modal = document.getElementById('profileModal');
             if (modal) {
                 const user = getUser();
@@ -505,12 +501,6 @@
                         user.email = email;
                         localStorage.setItem('kms_user', JSON.stringify(user));
                     }
-                    document.getElementById('userDisplay').textContent = name;
-                    document.getElementById('dropdownUserName').textContent = name;
-
-                    const initials = getInitials(name);
-                    document.getElementById('userAvatar').textContent = initials;
-                    document.getElementById('dropdownAvatar').textContent = initials;
 
                     successDiv.textContent = 'Profile updated successfully!';
                     successDiv.style.display = 'block';
@@ -617,7 +607,6 @@
             let statusBadge = '',
                 isAvailable = false;
             
-            // Determine status from key.status or fallback
             const keyStatus = key.status || (key.is_lost ? 'lost' : 'available');
 
             if (keyStatus === 'lost') {
@@ -920,9 +909,11 @@
             document.getElementById('returnDropdownMenu')?.classList.add('hidden');
             document.getElementById('returnDropdownChevron').style.transform = 'rotate(0deg)';
             returnModal.style.display = 'flex';
-            step1.style.display = 'block';
-            step2.style.display = 'none';
+            step1.style.display = 'none';
+            step2.style.display = 'block';
             step3.style.display = 'none';
+            
+            autoLoadUserLoans();
         });
 
         document.getElementById('closeReturnModalBtn')?.addEventListener('click', closeReturnModal);
@@ -931,25 +922,14 @@
             if (e.target === returnModal) closeReturnModal();
         });
 
-        if (step1) {
-            const emailInput = document.createElement('input');
-            emailInput.type = 'email';
-            emailInput.id = 'returnUserEmail';
-            emailInput.placeholder = 'Enter your email address';
-            emailInput.className = 'w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition mb-3';
-            step1.insertBefore(emailInput, step1.querySelector('p').nextSibling);
-        }
-
-        fetchLoansBtn?.addEventListener('click', async () => {
-            const emailInput = document.getElementById('returnUserEmail');
-            const email = emailInput?.value.trim();
-            if (!email || !email.includes('@')) {
-                showToast('Please enter a valid email address', 'error');
+        async function autoLoadUserLoans() {
+            const email = getUserEmail();
+            if (!email) {
+                activeLoansContainer.innerHTML = `<div class="p-6 text-center text-amber-600 bg-amber-50 rounded-xl"><p class="font-medium">No email found in your profile.</p><p class="text-sm mt-1">Please update your profile with a valid email address.</p></div>`;
                 return;
             }
 
-            fetchLoansBtn.disabled = true;
-            fetchLoansBtn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Loading...';
+            activeLoansContainer.innerHTML = '<div class="text-center py-4"><div class="spinner"></div> Loading your loans...</div>';
 
             try {
                 const response = await authenticatedFetch(`/api/return/active-loans?borrower_email=${encodeURIComponent(email)}&_=${Date.now()}`, {
@@ -960,396 +940,433 @@
                 if (response.ok) {
                     const data = await response.json();
                     if (!data || data.length === 0) {
-                        activeLoansContainer.innerHTML = `<div class="p-6 text-center text-slate-500 bg-gray-50 rounded-xl"><svg class="w-10 h-10 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg><p class="font-medium">No active key loans found for this email.</p><p class="text-sm mt-1">Please check the spelling or contact the administrator.</p></div>`;
-                            document.querySelector('#returnStep2 .flex.justify-between.items-center').style.display = 'none';
-                            submitReturnBtn.style.display = 'none';
-                            step1.style.display = 'none';
-                            step2.style.display = 'block';
-                            step3.style.display = 'none';
-                            return;
-                        }
-
-                        let loansHtml = '';
-                        data.forEach(loan => {
-                            loansHtml += `
-                                <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-slate-50 transition">
-                                    <input type="checkbox" class="loan-return-checkbox mt-0.5" data-loan-id="${loan.id}" data-key-id="${loan.key_id}" />
-                                    <div class="flex-1">
-                                        <div class="font-medium text-slate-800">${escapeHtml(loan.key_code)} (${escapeHtml(loan.brand)})</div>
-                                        <div class="text-xs text-slate-500">Borrowed: ${formatDate(loan.borrowed_at)} · Due: ${formatDate(loan.planned_return)}</div>
-                                    </div>
-                                </label>
-                            `;
-                        });
-                        activeLoansContainer.innerHTML = loansHtml;
-                        step1.style.display = 'none';
-                        step2.style.display = 'block';
-                        step3.style.display = 'none';
-
-                        const checkboxes = () => document.querySelectorAll('.loan-return-checkbox');
-                        const updateSelectAll = () => {
-                            const all = checkboxes();
-                            const allChecked = all.length > 0 && Array.from(all).every(cb => cb.checked);
-                            selectAllBtn.innerHTML = allChecked ? 'Deselect all' : 'Select all';
-                        };
-                        checkboxes().forEach(cb => cb.addEventListener('change', updateSelectAll));
-
-                        if (selectAllBtn) {
-                            selectAllBtn.onclick = () => {
-                                const all = checkboxes();
-                                const someUnchecked = Array.from(all).some(cb => !cb.checked);
-                                all.forEach(cb => cb.checked = someUnchecked);
-                                updateSelectAll();
-                            };
-                        }
-                        updateSelectAll();
-
-                        document.querySelector('#returnStep2 .flex.justify-between.items-center').style.display = 'flex';
-                        submitReturnBtn.style.display = 'block';
-                    } else {
-                        throw new Error(`Server returned status: ${response.status}`);
+                        activeLoansContainer.innerHTML = `<div class="p-6 text-center text-slate-500 bg-gray-50 rounded-xl"><svg class="w-10 h-10 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg><p class="font-medium">No active key loans found.</p><p class="text-sm mt-1">You don't have any borrowed keys at the moment.</p></div>`;
+                        document.querySelector('#returnStep2 .flex.justify-between.items-center').style.display = 'none';
+                        submitReturnBtn.style.display = 'none';
+                        return;
                     }
-                } catch (err) {
-                    console.error('Return loans error:', err);
-                    showToast('Error fetching your active loans. Please try again.', 'error');
-                    activeLoansContainer.innerHTML = `<div class="p-6 text-center text-rose-600 bg-rose-50 rounded-xl"><p class="font-medium">Unable to load your loans.</p><p class="text-sm mt-1">Please refresh the page or contact support.</p></div>`;
+
+                    let loansHtml = '';
+                    data.forEach(loan => {
+                        loansHtml += `
+                            <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-slate-50 transition">
+                                <input type="checkbox" class="loan-return-checkbox mt-0.5" data-loan-id="${loan.id}" data-key-id="${loan.key_id}" />
+                                <div class="flex-1">
+                                    <div class="font-medium text-slate-800">${escapeHtml(loan.key_code)} (${escapeHtml(loan.brand)})</div>
+                                    <div class="text-xs text-slate-500">Borrowed: ${formatDate(loan.borrowed_at)} · Due: ${formatDate(loan.planned_return)}</div>
+                                </div>
+                            </label>
+                        `;
+                    });
+                    activeLoansContainer.innerHTML = loansHtml;
                     step1.style.display = 'none';
                     step2.style.display = 'block';
-                } finally {
-                    fetchLoansBtn.disabled = false;
-                    fetchLoansBtn.innerHTML = 'Find my active loans →';
-                }
-            });
+                    step3.style.display = 'none';
 
-            submitReturnBtn?.addEventListener('click', async () => {
-                const selected = Array.from(document.querySelectorAll('.loan-return-checkbox:checked'));
-                if (!selected.length) {
-                    returnSelectionError.innerText = 'Please select at least one key to return.';
-                    returnSelectionError.classList.remove('hidden');
-                    return;
-                }
-                returnSelectionError.classList.add('hidden');
+                    const checkboxes = () => document.querySelectorAll('.loan-return-checkbox');
+                    const updateSelectAll = () => {
+                        const all = checkboxes();
+                        const allChecked = all.length > 0 && Array.from(all).every(cb => cb.checked);
+                        selectAllBtn.innerHTML = allChecked ? 'Deselect all' : 'Select all';
+                    };
+                    checkboxes().forEach(cb => cb.addEventListener('change', updateSelectAll));
 
-                const loanIds = selected.map(cb => parseInt(cb.dataset.loanId));
-                const selectedKeyIds = selected.map(cb => parseInt(cb.dataset.keyId));
-
-                submitReturnBtn.disabled = true;
-                submitReturnBtn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Processing...';
-
-                const emailInput = document.getElementById('returnUserEmail');
-                const email = emailInput?.value.trim();
-
-                try {
-                    const res = await authenticatedFetch('/api/return/request', {
-                        method: 'POST',
-                        body: JSON.stringify({ borrower_email: email, loan_ids: loanIds })
-                    });
-                    const data = await res.json();
-
-                    if (res.ok) {
-                        allKeys = allKeys.map(key => {
-                            if (selectedKeyIds.includes(key.id)) {
-                                return { ...key, pending_return: true, available: false };
-                            }
-                            return key;
-                        });
-                        renderFilteredGrid();
-
-                        showNotification('Return Request Submitted', 'Your return request has been submitted. Please hand the keys to the administrator for verification.', 'success');
-                        step2.style.display = 'none';
-                        step3.style.display = 'block';
-                    } else {
-                        throw new Error(data.error || 'Return submission failed');
+                    if (selectAllBtn) {
+                        selectAllBtn.onclick = () => {
+                            const all = checkboxes();
+                            const someUnchecked = Array.from(all).some(cb => !cb.checked);
+                            all.forEach(cb => cb.checked = someUnchecked);
+                            updateSelectAll();
+                        };
                     }
-                } catch (err) {
-                    console.error('Return submission error:', err);
-                    showNotification('Return Submission Failed', err.message, 'error');
-                    returnSelectionError.innerText = err.message;
-                    returnSelectionError.classList.remove('hidden');
-                } finally {
-                    submitReturnBtn.disabled = false;
-                    submitReturnBtn.innerHTML = 'Submit return request →';
+                    updateSelectAll();
+
+                    document.querySelector('#returnStep2 .flex.justify-between.items-center').style.display = 'flex';
+                    submitReturnBtn.style.display = 'block';
+                } else {
+                    throw new Error(`Server returned status: ${response.status}`);
                 }
-            });
+            } catch (err) {
+                console.error('Return loans error:', err);
+                showToast('Error fetching your active loans. Please try again.', 'error');
+                activeLoansContainer.innerHTML = `<div class="p-6 text-center text-rose-600 bg-rose-50 rounded-xl"><p class="font-medium">Unable to load your loans.</p><p class="text-sm mt-1">Please refresh the page or contact support.</p></div>`;
+            }
         }
 
-        function initReportLost() {
-            const reportLostModal = document.getElementById('reportLostModal');
-            const reportLostKeysContainer = document.getElementById('reportLostKeysListContainer');
-
-            function closeReportLostModal() {
-                reportLostModal.style.display = 'none';
+        submitReturnBtn?.addEventListener('click', async () => {
+            const selected = Array.from(document.querySelectorAll('.loan-return-checkbox:checked'));
+            if (!selected.length) {
+                returnSelectionError.innerText = 'Please select at least one key to return.';
+                returnSelectionError.classList.remove('hidden');
+                return;
             }
+            returnSelectionError.classList.add('hidden');
 
-            document.getElementById('reportLostKeyBtn')?.addEventListener('click', () => {
-                document.getElementById('returnDropdownMenu')?.classList.add('hidden');
-                document.getElementById('returnDropdownChevron').style.transform = 'rotate(0deg)';
-                reportLostModal.style.display = 'flex';
-                if (document.getElementById('reportLostEmailInput')) {
-                    document.getElementById('reportLostEmailInput').value = '';
-                }
-                if (reportLostKeysContainer) {
-                    reportLostKeysContainer.innerHTML = '<div class="text-center py-8 text-slate-400">Enter your email and click load.</div>';
-                }
-            });
+            const loanIds = selected.map(cb => parseInt(cb.dataset.loanId));
+            const selectedKeyIds = selected.map(cb => parseInt(cb.dataset.keyId));
 
-            document.getElementById('closeReportLostModalBtn')?.addEventListener('click', closeReportLostModal);
-            reportLostModal?.addEventListener('click', (e) => {
-                if (e.target === reportLostModal) closeReportLostModal();
-            });
+            submitReturnBtn.disabled = true;
+            submitReturnBtn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Processing...';
 
-            const reportLostBody = document.querySelector('#reportLostModal .p-5');
-            if (reportLostBody && !document.getElementById('reportLostEmailInput')) {
-                const emailInput = document.createElement('input');
-                emailInput.type = 'email';
-                emailInput.id = 'reportLostEmailInput';
-                emailInput.placeholder = 'Enter your email address';
-                emailInput.className = 'w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition mb-3';
-                reportLostBody.insertBefore(emailInput, reportLostBody.querySelector('button'));
-            }
+            const email = getUserEmail();
 
-            document.getElementById('fetchLostReportKeysBtn')?.addEventListener('click', async () => {
-                const emailInput = document.getElementById('reportLostEmailInput');
-                const email = emailInput?.value.trim();
-                if (!email || !email.includes('@')) {
-                    showToast('Please enter a valid email address', 'error');
-                    return;
-                }
+            try {
+                const res = await authenticatedFetch('/api/return/request', {
+                    method: 'POST',
+                    body: JSON.stringify({ borrower_email: email, loan_ids: loanIds })
+                });
+                const data = await res.json();
 
-                if (!reportLostKeysContainer) return;
-                reportLostKeysContainer.innerHTML = '<div class="text-center py-8"><div class="spinner"></div> Loading...</div>';
-
-                try {
-                    const res = await authenticatedFetch(`/api/user/active-borrows?email=${encodeURIComponent(email)}`);
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    const borrows = await res.json();
-
-                    if (!borrows.length) {
-                        reportLostKeysContainer.innerHTML = '<div class="text-center py-8 text-slate-400">No active borrowed keys found for this email.</div>';
-                        return;
-                    }
-
-                    let html = '';
-                    for (const b of borrows) {
-                        html += `
-                            <div class="border border-gray-200 rounded-xl p-3 flex justify-between items-center">
-                                <div>
-                                    <div class="font-medium text-slate-800">${escapeHtml(b.key_code)} (${escapeHtml(b.brand)})</div>
-                                    <div class="text-xs text-slate-500">Borrowed: ${formatDate(b.borrowed_at)} · Due: ${formatDate(b.planned_return)}</div>
-                                </div>
-                                <button class="reportLostFromListBtn bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1.5 rounded-full transition" data-transaction-id="${b.id}" data-key-code="${escapeHtml(b.key_code)}">Report Lost</button>
-                            </div>
-                        `;
-                    }
-                    reportLostKeysContainer.innerHTML = html;
-
-                    document.querySelectorAll('.reportLostFromListBtn').forEach(btn => {
-                        btn.addEventListener('click', () => {
-                            pendingLostTransaction = { id: parseInt(btn.dataset.transactionId), code: btn.dataset.keyCode };
-                            const modal = document.getElementById('confirmLostModal');
-                            document.getElementById('confirmLostMessage').innerHTML = 'Are you sure you want to report this key as lost? A Key Replacement Fee of 50 SGD will be applied to your account.';
-                            modal.style.display = 'flex';
-                        });
-                    });
-                } catch (err) {
-                    console.error('Load borrowed keys for lost report error:', err);
-                    reportLostKeysContainer.innerHTML = `<div class="text-center py-8 text-rose-600">Error loading borrowed keys. Please try again.</div>`;
-                }
-            });
-        }
-
-        function initLostConfirm() {
-            function closeLostConfirmModal() {
-                document.getElementById('confirmLostModal').style.display = 'none';
-                pendingLostTransaction = null;
-            }
-
-            document.getElementById('confirmLostBtn')?.addEventListener('click', async () => {
-                if (!pendingLostTransaction) return;
-                const { id, code } = pendingLostTransaction;
-                const btn = document.querySelector(`.reportLostFromListBtn[data-transaction-id="${id}"]`);
-                const originalText = btn?.innerHTML;
-                if (btn) {
-                    btn.disabled = true;
-                    btn.innerHTML = '<div class="spinner"></div>';
-                }
-
-                try {
-                    const res = await authenticatedFetch(`/api/user/transactions/${id}/lost`, { method: 'POST' });
-                    const data = await res.json();
-
-                    if (res.ok) {
-                        showNotification('Key Reported Lost', `The key ${code} has been marked as lost. A Key Replacement Fee of 50 SGD has been applied.`, 'warning');
-                        const emailInput = document.getElementById('reportLostEmailInput');
-                        const email = emailInput?.value.trim();
-                        if (email) {
-                            document.getElementById('fetchLostReportKeysBtn')?.click();
+                if (res.ok) {
+                    allKeys = allKeys.map(key => {
+                        if (selectedKeyIds.includes(key.id)) {
+                            return { ...key, pending_return: true, available: false };
                         }
-                        await fetchKeys();
-                        closeLostConfirmModal();
-                    } else {
-                        throw new Error(data.error || 'Failed to report lost');
-                    }
-                } catch (err) {
-                    showNotification('Report Failed', err.message, 'error');
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = originalText;
-                    }
-                }
-            });
+                        return key;
+                    });
+                    renderFilteredGrid();
 
-            document.getElementById('cancelLostBtn')?.addEventListener('click', closeLostConfirmModal);
-            document.getElementById('confirmLostModal')?.addEventListener('click', (e) => {
-                if (e.target === document.getElementById('confirmLostModal')) closeLostConfirmModal();
-            });
+                    showNotification('Return Request Submitted', 'Your return request has been submitted. Please hand the keys to the administrator for verification.', 'success');
+                    step2.style.display = 'none';
+                    step3.style.display = 'block';
+                } else {
+                    throw new Error(data.error || 'Return submission failed');
+                }
+            } catch (err) {
+                console.error('Return submission error:', err);
+                showNotification('Return Submission Failed', err.message, 'error');
+                returnSelectionError.innerText = err.message;
+                returnSelectionError.classList.remove('hidden');
+            } finally {
+                submitReturnBtn.disabled = false;
+                submitReturnBtn.innerHTML = 'Submit return request →';
+            }
+        });
+    }
+
+    // ─── UPDATED initReportLost ──────────────────────────────────────────────
+    // Removed reference to fetchLostReportKeysBtn since the "Load Lost Keys"
+    // button was removed from the HTML. The modal now auto-loads keys.
+    // ───────────────────────────────────────────────────────────────────────────
+    function initReportLost() {
+        const reportLostModal = document.getElementById('reportLostModal');
+        const reportLostKeysContainer = document.getElementById('reportLostKeysListContainer');
+
+        function closeReportLostModal() {
+            reportLostModal.style.display = 'none';
         }
 
-        function initExtensionModal() {
-            document.getElementById('extensionRequestBtn')?.addEventListener('click', () => {
-                document.getElementById('returnDropdownMenu')?.classList.add('hidden');
-                document.getElementById('returnDropdownChevron').style.transform = 'rotate(0deg)';
-                document.getElementById('extensionModal').style.display = 'flex';
-            });
+        document.getElementById('reportLostKeyBtn')?.addEventListener('click', () => {
+            document.getElementById('returnDropdownMenu')?.classList.add('hidden');
+            document.getElementById('returnDropdownChevron').style.transform = 'rotate(0deg)';
+            reportLostModal.style.display = 'flex';
+            
+            // Auto-load keys when the modal opens
+            autoLoadLostKeys();
+        });
 
-            document.getElementById('closeExtensionModalBtn')?.addEventListener('click', () => {
-                document.getElementById('extensionModal').style.display = 'none';
-            });
+        document.getElementById('closeReportLostModalBtn')?.addEventListener('click', closeReportLostModal);
+        reportLostModal?.addEventListener('click', (e) => {
+            if (e.target === reportLostModal) closeReportLostModal();
+        });
 
-            document.getElementById('fetchExtensionLoansBtn')?.addEventListener('click', async () => {
-                const email = document.getElementById('extensionEmailInput').value.trim();
-                if (!email || !email.includes('@')) {
-                    showToast('Please enter a valid email address', 'error');
+        async function autoLoadLostKeys() {
+            const email = getUserEmail();
+            if (!email) {
+                reportLostKeysContainer.innerHTML = `<div class="text-center py-8 text-amber-600">No email found in your profile. Please update your profile.</div>`;
+                return;
+            }
+
+            reportLostKeysContainer.innerHTML = '<div class="text-center py-8"><div class="spinner"></div> Loading your borrowed keys...</div>';
+
+            try {
+                const res = await authenticatedFetch(`/api/user/active-borrows?email=${encodeURIComponent(email)}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const borrows = await res.json();
+
+                if (!borrows.length) {
+                    reportLostKeysContainer.innerHTML = '<div class="text-center py-8 text-slate-400">You don\'t have any active borrowed keys.</div>';
                     return;
                 }
 
-                const container = document.getElementById('extensionLoansContainer');
-                container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading...</div>';
-
-                try {
-                    const res = await authenticatedFetch(`/api/user/active-borrows?email=${encodeURIComponent(email)}`);
-                    if (!res.ok) throw new Error('Failed to load loans');
-                    const loans = await res.json();
-
-                    if (!loans.length) {
-                        container.innerHTML = '<div class="text-center py-8 text-slate-400">No active loans found for this email.</div>';
-                        return;
-                    }
-
-                    let html = '<div class="space-y-2">';
-                    loans.forEach(loan => {
-                        html += `
-                            <div class="extension-item" data-transaction-id="${loan.id}">
-                                <div class="flex justify-between items-center">
-                                    <div>
-                                        <div class="font-medium text-slate-800">${escapeHtml(loan.key_code)}</div>
-                                        <div class="text-xs text-slate-500">${escapeHtml(loan.brand)} · Due: ${formatDate(loan.planned_return)}</div>
-                                    </div>
-                                    <span class="text-xs text-slate-400">Select</span>
-                                </div>
+                let html = '';
+                for (const b of borrows) {
+                    html += `
+                        <div class="border border-gray-200 rounded-xl p-3 flex justify-between items-center">
+                            <div>
+                                <div class="font-medium text-slate-800">${escapeHtml(b.key_code)} (${escapeHtml(b.brand)})</div>
+                                <div class="text-xs text-slate-500">Borrowed: ${formatDate(b.borrowed_at)} · Due: ${formatDate(b.planned_return)}</div>
                             </div>
-                        `;
-                    });
-                    html += '</div>';
-                    container.innerHTML = html;
-
-                    document.querySelectorAll('.extension-item').forEach(item => {
-                        item.addEventListener('click', function() {
-                            document.querySelectorAll('.extension-item').forEach(el => el.classList.remove('selected'));
-                            this.classList.add('selected');
-                            document.getElementById('extensionSelectionArea').style.display = 'block';
-                            document.getElementById('extensionError').classList.add('hidden');
-                            document.getElementById('submitExtensionBtn').dataset.loanId = this.dataset.transactionId;
-                            document.getElementById('submitExtensionBtn').dataset.email = email;
-                        });
-                    });
-                } catch (err) {
-                    console.error('Extension load error:', err);
-                    container.innerHTML = '<div class="text-center py-8 text-rose-600">Error loading loans. Please try again.</div>';
+                            <button class="reportLostFromListBtn bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1.5 rounded-full transition" data-transaction-id="${b.id}" data-key-code="${escapeHtml(b.key_code)}">Report Lost</button>
+                        </div>
+                    `;
                 }
-            });
+                reportLostKeysContainer.innerHTML = html;
 
-            document.getElementById('submitExtensionBtn')?.addEventListener('click', async function() {
-                const loanId = parseInt(this.dataset.loanId);
-                const email = this.dataset.email;
-                const newReturnDate = document.getElementById('extensionNewReturnDate').value;
-                const extensionError = document.getElementById('extensionError');
-
-                if (!loanId) {
-                    extensionError.textContent = 'Please select a loan to extend.';
-                    extensionError.classList.remove('hidden');
-                    return;
-                }
-
-                if (!newReturnDate) {
-                    extensionError.textContent = 'Please select a new return date.';
-                    extensionError.classList.remove('hidden');
-                    return;
-                }
-
-                extensionError.classList.add('hidden');
-                this.disabled = true;
-                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
-
-                try {
-                    const res = await authenticatedFetch('/api/requests/extend', {
-                        method: 'POST',
-                        body: JSON.stringify({
-                            transaction_id: loanId,
-                            new_return_date: newReturnDate,
-                            borrower_email: email
-                        })
+                document.querySelectorAll('.reportLostFromListBtn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        pendingLostTransaction = { id: parseInt(btn.dataset.transactionId), code: btn.dataset.keyCode };
+                        const modal = document.getElementById('confirmLostModal');
+                        document.getElementById('confirmLostMessage').innerHTML = 'Are you sure you want to report this key as lost? A Key Replacement Fee of 50 SGD will be applied to your account.';
+                        modal.style.display = 'flex';
                     });
-                    const data = await res.json();
+                });
+            } catch (err) {
+                console.error('Load borrowed keys for lost report error:', err);
+                reportLostKeysContainer.innerHTML = `<div class="text-center py-8 text-rose-600">Error loading borrowed keys. Please try again.</div>`;
+            }
+        }
+    }
 
-                    if (res.ok) {
-                        showNotification('Extension Requested', 'Your extension request has been submitted. Awaiting admin approval.', 'success');
-                        document.getElementById('extensionModal').style.display = 'none';
-                        fetchKeys();
-                    } else {
-                        throw new Error(data.error || 'Extension request failed');
+    function initLostConfirm() {
+        function closeLostConfirmModal() {
+            document.getElementById('confirmLostModal').style.display = 'none';
+            pendingLostTransaction = null;
+        }
+
+        document.getElementById('confirmLostBtn')?.addEventListener('click', async () => {
+            if (!pendingLostTransaction) return;
+            const { id, code } = pendingLostTransaction;
+            const btn = document.querySelector(`.reportLostFromListBtn[data-transaction-id="${id}"]`);
+            const originalText = btn?.innerHTML;
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<div class="spinner"></div>';
+            }
+
+            try {
+                const res = await authenticatedFetch(`/api/user/transactions/${id}/lost`, { method: 'POST' });
+                const data = await res.json();
+
+                if (res.ok) {
+                    showNotification('Key Reported Lost', `The key ${code} has been marked as lost. A Key Replacement Fee of 50 SGD has been applied.`, 'warning');
+                    await fetchKeys();
+                    closeLostConfirmModal();
+                    // Refresh the report lost modal if it's open
+                    const reportLostModal = document.getElementById('reportLostModal');
+                    if (reportLostModal && reportLostModal.style.display === 'flex') {
+                        const email = getUserEmail();
+                        if (email) {
+                            const container = document.getElementById('reportLostKeysListContainer');
+                            container.innerHTML = '<div class="text-center py-8"><div class="spinner"></div> Refreshing...</div>';
+                            setTimeout(() => {
+                                autoLoadLostKeys();
+                            }, 500);
+                        }
                     }
-                } catch (err) {
-                    extensionError.textContent = err.message;
-                    extensionError.classList.remove('hidden');
-                } finally {
-                    this.disabled = false;
-                    this.innerHTML = 'Submit extension request';
+                } else {
+                    throw new Error(data.error || 'Failed to report lost');
                 }
-            });
-        }
-
-        function startPolling() {
-            if (pollInterval) clearInterval(pollInterval);
-            fetchKeys();
-            pollInterval = setInterval(fetchKeys, 5000);
-        }
-
-        async function init() {
-            const isAuthenticated = await checkAuth();
-            if (isAuthenticated) {
-                const loadingContainer = document.getElementById('loadingContainer');
-                const mainContentWrapper = document.getElementById('mainContentWrapper');
-
-                if (loadingContainer) {
-                    loadingContainer.style.display = 'none';
+            } catch (err) {
+                showNotification('Report Failed', err.message, 'error');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = originalText;
                 }
-                if (mainContentWrapper) {
-                    mainContentWrapper.style.display = 'block';
+            }
+        });
+
+        document.getElementById('cancelLostBtn')?.addEventListener('click', closeLostConfirmModal);
+        document.getElementById('confirmLostModal')?.addEventListener('click', (e) => {
+            if (e.target === document.getElementById('confirmLostModal')) closeLostConfirmModal();
+        });
+
+        // Helper function to reload lost keys (exposed for use in confirmLost)
+        async function autoLoadLostKeys() {
+            const email = getUserEmail();
+            if (!email) return;
+            const container = document.getElementById('reportLostKeysListContainer');
+            if (!container) return;
+
+            try {
+                const res = await authenticatedFetch(`/api/user/active-borrows?email=${encodeURIComponent(email)}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const borrows = await res.json();
+
+                if (!borrows.length) {
+                    container.innerHTML = '<div class="text-center py-8 text-slate-400">You don\'t have any active borrowed keys.</div>';
+                    return;
                 }
 
-                fetchCsrfToken();
-                initUserProfile();
-                initEventListeners();
-                initFilters();
-                initReturnDropdown();
-                initReturnModal();
-                initReportLost();
-                initLostConfirm();
-                initExtensionModal();
-                startPolling();
+                let html = '';
+                for (const b of borrows) {
+                    html += `
+                        <div class="border border-gray-200 rounded-xl p-3 flex justify-between items-center">
+                            <div>
+                                <div class="font-medium text-slate-800">${escapeHtml(b.key_code)} (${escapeHtml(b.brand)})</div>
+                                <div class="text-xs text-slate-500">Borrowed: ${formatDate(b.borrowed_at)} · Due: ${formatDate(b.planned_return)}</div>
+                            </div>
+                            <button class="reportLostFromListBtn bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1.5 rounded-full transition" data-transaction-id="${b.id}" data-key-code="${escapeHtml(b.key_code)}">Report Lost</button>
+                        </div>
+                    `;
+                }
+                container.innerHTML = html;
+
+                document.querySelectorAll('.reportLostFromListBtn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        pendingLostTransaction = { id: parseInt(btn.dataset.transactionId), code: btn.dataset.keyCode };
+                        const modal = document.getElementById('confirmLostModal');
+                        document.getElementById('confirmLostMessage').innerHTML = 'Are you sure you want to report this key as lost? A Key Replacement Fee of 50 SGD will be applied to your account.';
+                        modal.style.display = 'flex';
+                    });
+                });
+            } catch (err) {
+                console.error('Reload lost keys error:', err);
+                container.innerHTML = `<div class="text-center py-8 text-rose-600">Error loading borrowed keys. Please try again.</div>`;
             }
         }
 
-        document.addEventListener('DOMContentLoaded', init);
-    })();
+        // Store reference for use in confirmLost
+        window._autoLoadLostKeys = autoLoadLostKeys;
+    }
+
+    function initExtensionModal() {
+        document.getElementById('extensionRequestBtn')?.addEventListener('click', () => {
+            document.getElementById('returnDropdownMenu')?.classList.add('hidden');
+            document.getElementById('returnDropdownChevron').style.transform = 'rotate(0deg)';
+            document.getElementById('extensionModal').style.display = 'flex';
+            
+            autoLoadExtensionLoans();
+        });
+
+        document.getElementById('closeExtensionModalBtn')?.addEventListener('click', () => {
+            document.getElementById('extensionModal').style.display = 'none';
+        });
+
+        async function autoLoadExtensionLoans() {
+            const email = getUserEmail();
+            if (!email) {
+                const container = document.getElementById('extensionLoansContainer');
+                container.innerHTML = '<div class="text-center py-8 text-amber-600">No email found in your profile. Please update your profile.</div>';
+                return;
+            }
+
+            const container = document.getElementById('extensionLoansContainer');
+            container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading your active loans...</div>';
+
+            try {
+                const res = await authenticatedFetch(`/api/user/active-borrows?email=${encodeURIComponent(email)}`);
+                if (!res.ok) throw new Error('Failed to load loans');
+                const loans = await res.json();
+
+                if (!loans.length) {
+                    container.innerHTML = '<div class="text-center py-8 text-slate-400">You don\'t have any active loans.</div>';
+                    return;
+                }
+
+                let html = '<div class="space-y-2">';
+                loans.forEach(loan => {
+                    html += `
+                        <div class="extension-item" data-transaction-id="${loan.id}">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <div class="font-medium text-slate-800">${escapeHtml(loan.key_code)}</div>
+                                    <div class="text-xs text-slate-500">${escapeHtml(loan.brand)} · Due: ${formatDate(loan.planned_return)}</div>
+                                </div>
+                                <span class="text-xs text-slate-400">Select</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                container.innerHTML = html;
+
+                document.querySelectorAll('.extension-item').forEach(item => {
+                    item.addEventListener('click', function() {
+                        document.querySelectorAll('.extension-item').forEach(el => el.classList.remove('selected'));
+                        this.classList.add('selected');
+                        document.getElementById('extensionSelectionArea').style.display = 'block';
+                        document.getElementById('extensionError').classList.add('hidden');
+                        document.getElementById('submitExtensionBtn').dataset.loanId = this.dataset.transactionId;
+                        document.getElementById('submitExtensionBtn').dataset.email = email;
+                    });
+                });
+            } catch (err) {
+                console.error('Extension load error:', err);
+                container.innerHTML = '<div class="text-center py-8 text-rose-600">Error loading loans. Please try again.</div>';
+            }
+        }
+
+        document.getElementById('submitExtensionBtn')?.addEventListener('click', async function() {
+            const loanId = parseInt(this.dataset.loanId);
+            const email = this.dataset.email || getUserEmail();
+            const newReturnDate = document.getElementById('extensionNewReturnDate').value;
+            const extensionError = document.getElementById('extensionError');
+
+            if (!loanId) {
+                extensionError.textContent = 'Please select a loan to extend.';
+                extensionError.classList.remove('hidden');
+                return;
+            }
+
+            if (!newReturnDate) {
+                extensionError.textContent = 'Please select a new return date.';
+                extensionError.classList.remove('hidden');
+                return;
+            }
+
+            extensionError.classList.add('hidden');
+            this.disabled = true;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
+
+            try {
+                const res = await authenticatedFetch('/api/requests/extend', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        transaction_id: loanId,
+                        new_return_date: newReturnDate,
+                        borrower_email: email
+                    })
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    showNotification('Extension Requested', 'Your extension request has been submitted. Awaiting admin approval.', 'success');
+                    document.getElementById('extensionModal').style.display = 'none';
+                    fetchKeys();
+                } else {
+                    throw new Error(data.error || 'Extension request failed');
+                }
+            } catch (err) {
+                extensionError.textContent = err.message;
+                extensionError.classList.remove('hidden');
+            } finally {
+                this.disabled = false;
+                this.innerHTML = 'Submit extension request';
+            }
+        });
+    }
+
+    function startPolling() {
+        if (pollInterval) clearInterval(pollInterval);
+        fetchKeys();
+        pollInterval = setInterval(fetchKeys, 5000);
+    }
+
+    async function init() {
+        const isAuthenticated = await checkAuth();
+        if (isAuthenticated) {
+            const loadingContainer = document.getElementById('loadingContainer');
+            const mainContentWrapper = document.getElementById('mainContentWrapper');
+
+            if (loadingContainer) {
+                loadingContainer.style.display = 'none';
+            }
+            if (mainContentWrapper) {
+                mainContentWrapper.style.display = 'block';
+            }
+
+            fetchCsrfToken();
+            initEventListeners();
+            initFilters();
+            initReturnDropdown();
+            initReturnModal();
+            initReportLost();
+            initLostConfirm();
+            initExtensionModal();
+            startPolling();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+})();

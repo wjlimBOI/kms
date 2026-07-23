@@ -13,6 +13,21 @@
     var refreshInterval = null;
     var isPageVisible = true;
 
+    // ─── AUDIT LOG PAGINATION STATE ───
+    var auditLogState = {
+        page: 1,
+        limit: 25,
+        total: 0,
+        data: [],
+        filters: {
+            action: '',
+            user: '',
+            target: '',
+            from: '',
+            to: ''
+        }
+    };
+
     function redirectToLogin() {
         if (isRedirecting) return;
         isRedirecting = true;
@@ -68,6 +83,11 @@
 
     function getUser() {
         try { return JSON.parse(localStorage.getItem('kms_user')); } catch (e) { return null; }
+    }
+
+    function getUserEmail() {
+        var user = getUser();
+        return user ? user.email : '';
     }
 
     function escapeHtml(str) {
@@ -386,104 +406,20 @@
         }
     }
 
-    // ===== FIXED: Enhanced showToast function =====
     function showToast(message, type) {
-        type = type || 'info';
+        type = type || 'success';
         var root = document.getElementById('toastRoot');
         if (!root) {
             root = document.createElement('div');
             root.id = 'toastRoot';
-            root.style.cssText = 'position:fixed;bottom:24px;right:24px;z-index:10000000;display:flex;flex-direction:column;gap:8px;max-width:480px;width:100%;pointer-events:none;';
             document.body.appendChild(root);
         }
-
         var toast = document.createElement('div');
         toast.className = 'toast-notification';
-        toast.style.cssText = `
-            padding: 14px 20px;
-            background: ${type === 'success' ? '#10B981' : type === 'error' ? '#EF4444' : type === 'warning' ? '#F59E0B' : '#1E293B'};
-            color: white;
-            border-radius: 12px;
-            font-family: 'Inter', sans-serif;
-            font-size: 0.9rem;
-            font-weight: 500;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            pointer-events: auto;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            animation: slideUp 0.3s ease;
-            cursor: default;
-            min-width: 200px;
-        `;
-        
-        var iconMap = {
-            success: '✓',
-            error: '✕',
-            warning: '⚠',
-            info: 'ℹ'
-        };
-        
-        toast.innerHTML = `
-            <span style="font-size:1.2rem;font-weight:600;">${iconMap[type] || 'ℹ'}</span>
-            <span style="flex:1;">${message}</span>
-            <button onclick="this.parentElement.remove()" style="background:none;border:none;color:rgba(255,255,255,0.8);font-size:1.2rem;cursor:pointer;padding:0 4px;">&times;</button>
-        `;
-
-        // Add animation styles if not present
-        if (!document.getElementById('toastStyles')) {
-            var style = document.createElement('style');
-            style.id = 'toastStyles';
-            style.textContent = `
-                @keyframes slideUp {
-                    from { opacity: 0; transform: translateY(20px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                .toast-notification {
-                    animation: slideUp 0.3s ease;
-                }
-            `;
-            document.head.appendChild(style);
-        }
-
+        toast.textContent = message;
+        toast.style.background = type === 'error' ? '#EF4444' : type === 'warning' ? '#F59E0B' : '#1E293B';
         root.appendChild(toast);
-
-        setTimeout(function() {
-            if (toast.parentElement) {
-                toast.style.opacity = '0';
-                toast.style.transform = 'translateY(20px)';
-                toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                setTimeout(function() {
-                    if (toast.parentElement) {
-                        toast.remove();
-                    }
-                }, 300);
-            }
-        }, 5000);
-    }
-
-    // ===== FIXED: showConfirmModal alias for compatibility =====
-    function showConfirmModal(message, options) {
-        options = options || {};
-        if (typeof message === 'object') {
-            options = message;
-            message = options.message || 'Are you sure?';
-        }
-        return showConfirm(message, options);
-    }
-
-    // ===== FIXED: Missing functions =====
-    function closeLostKeyDetailModal() {
-        var modal = document.getElementById('lostKeyDetailModal');
-        if (modal) modal.style.display = 'none';
-    }
-
-    function updateDashboardStats() {
-        // Reload dashboard metrics
-        loadPendingRequests();
-        loadTransactions();
-        loadPendingReturns();
-        loadLostKeys();
+        setTimeout(function() { toast.remove(); }, 3000);
     }
 
     function showAlertModal(message, type, title) {
@@ -533,18 +469,6 @@
         document.getElementById('detailModal').style.display = 'none';
     }
 
-    function updateUserDisplay() {
-        var user = getUser();
-        if (user) {
-            var displayName = user.name || 'User';
-            document.getElementById('userDisplay').textContent = displayName;
-            document.getElementById('dropdownUserName').textContent = displayName;
-            var initials = getInitials(displayName);
-            document.getElementById('userAvatar').textContent = initials;
-            document.getElementById('dropdownAvatar').textContent = initials;
-        }
-    }
-
     function openProfileModal() {
         var user = getUser();
         if (user) {
@@ -562,10 +486,6 @@
                 });
         }
         document.getElementById('profileModal').style.display = 'flex';
-        var userDropdown = document.getElementById('userDropdown');
-        var profileBtn = document.getElementById('userProfileBtn');
-        if (userDropdown) userDropdown.classList.remove('show');
-        if (profileBtn) profileBtn.classList.remove('open');
         var mobileMenu = document.getElementById('mobileMenu');
         if (mobileMenu) mobileMenu.classList.remove('open');
     }
@@ -736,60 +656,6 @@
         }
     }
 
-    // ===== FIXED: makeLostKeyAvailable function with proper error handling =====
-    async function makeLostKeyAvailable(transactionId, keyId) {
-        if (!transactionId) {
-            showToast('Invalid transaction ID', 'error');
-            return;
-        }
-
-        var ok = await showConfirmModal('Mark key as available again?', {
-            title: 'Mark Available',
-            danger: false,
-            okLabel: 'Mark Available'
-        });
-        if (!ok) return;
-
-        try {
-            showToast('Processing...', 'info');
-
-            var res = await authenticatedFetch('/api/admin/lost-keys/' + transactionId + '/make-available', {
-                method: 'POST',
-                body: {
-                    notes: 'Key found and returned to inventory by admin'
-                }
-            });
-
-            var data = await res.json();
-
-            if (res.ok) {
-                await logAuditEvent('make_key_available', 'lost_key', transactionId, {
-                    key_id: keyId,
-                    key_code: data.data?.key_code || 'unknown'
-                });
-                showToast(data.message || 'Key marked as available successfully!', 'success');
-                
-                // Refresh all affected views
-                await Promise.all([
-                    loadLostKeys(),
-                    loadInventory(),
-                    loadLostKeysManagement(),
-                    loadTransactions()
-                ]);
-                
-                // Close any open modals
-                closeDetailModal();
-                closeLostKeyDetailModal();
-                updateDashboardStats();
-            } else {
-                showToast(data.error || 'Failed to make key available.', 'error');
-            }
-        } catch (err) {
-            console.error('Error making lost key available:', err);
-            showToast(err.message || 'Network error. Please try again.', 'error');
-        }
-    }
-
     var allTransactions = [];
     var filteredTransactions = [];
     var txPage = 1, txRows = 10, txTotal = 0;
@@ -806,6 +672,281 @@
     var currentAction = null;
     var currentRequestId = null;
     var searchTimeout = null;
+
+    // ─── AUDIT LOG FUNCTIONS ───
+
+    async function loadAuditLogs(page, limit) {
+        page = page || auditLogState.page;
+        limit = limit || auditLogState.limit;
+        auditLogState.page = page;
+        auditLogState.limit = limit;
+
+        var container = document.getElementById('auditLogContainer');
+        var totalSpan = document.getElementById('auditTotalCount');
+        var infoSpan = document.getElementById('auditPaginationInfo');
+        var pageInfoSpan = document.getElementById('auditPageInfo');
+        var prevBtn = document.getElementById('auditPrevPageBtn');
+        var nextBtn = document.getElementById('auditNextPageBtn');
+
+        if (!container) return;
+
+        container.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400"><div class="skeleton h-8 w-full"></div></td></tr>';
+
+        try {
+            var params = new URLSearchParams({
+                page: auditLogState.page,
+                limit: auditLogState.limit
+            });
+
+            if (auditLogState.filters.action) params.append('action', auditLogState.filters.action);
+            if (auditLogState.filters.user) params.append('user', auditLogState.filters.user);
+            if (auditLogState.filters.target) params.append('target', auditLogState.filters.target);
+            if (auditLogState.filters.from) params.append('from', auditLogState.filters.from);
+            if (auditLogState.filters.to) params.append('to', auditLogState.filters.to);
+
+            var res = await authenticatedFetch('/api/audit/logs?' + params.toString());
+            
+            if (!res.ok) {
+                throw new Error('Failed to load audit logs');
+            }
+
+            var result = await res.json();
+            
+            var logs = [];
+            var total = 0;
+            
+            if (result.data && Array.isArray(result.data)) {
+                logs = result.data;
+                total = result.total || logs.length;
+            } else if (Array.isArray(result)) {
+                logs = result;
+                total = logs.length;
+            } else {
+                logs = [];
+                total = 0;
+            }
+
+            auditLogState.data = logs;
+            auditLogState.total = total;
+
+            if (totalSpan) {
+                totalSpan.textContent = 'Total: ' + total + ' entries';
+            }
+
+            var start = (auditLogState.page - 1) * auditLogState.limit + 1;
+            var end = Math.min(start + auditLogState.limit - 1, total);
+            
+            if (infoSpan) {
+                if (total === 0) {
+                    infoSpan.textContent = 'Showing 0 of 0 entries';
+                } else {
+                    infoSpan.textContent = 'Showing ' + start + ' to ' + end + ' of ' + total + ' entries';
+                }
+            }
+
+            var totalPages = Math.ceil(total / auditLogState.limit) || 1;
+            if (pageInfoSpan) {
+                pageInfoSpan.textContent = 'Page ' + auditLogState.page + ' of ' + totalPages;
+            }
+
+            if (prevBtn) {
+                prevBtn.disabled = auditLogState.page <= 1;
+            }
+            if (nextBtn) {
+                nextBtn.disabled = auditLogState.page >= totalPages;
+            }
+
+            if (logs.length === 0) {
+                container.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">No audit logs found.</td></tr>';
+            } else {
+                var html = '';
+                for (var i = 0; i < logs.length; i++) {
+                    var log = logs[i];
+                    var action = escapeHtml(log.action || '');
+                    var target = escapeHtml(log.target || log.target_type || '');
+                    var userName = escapeHtml(log.user_name || log.user_email || 'Unknown');
+                    var timestamp = log.created_at ? formatDate(log.created_at) : '—';
+                    
+                    html += '<tr class="audit-row" data-log-id="' + (log.id || '') + '">'
+                        + '<td class="action-cell">' + action + '</td>'
+                        + '<td class="target-cell">' + target + '</td>'
+                        + '<td class="user-cell">' + userName + '</td>'
+                        + '<td class="time-cell">' + timestamp + '</td>'
+                        + '</tr>';
+                }
+                container.innerHTML = html;
+
+                container.querySelectorAll('.audit-row').forEach(function(row) {
+                    row.addEventListener('click', function() {
+                        var logId = this.dataset.logId;
+                        if (logId) {
+                            showAuditLogDetail(logId);
+                        }
+                    });
+                });
+            }
+
+        } catch (error) {
+            console.error('Error loading audit logs:', error);
+            container.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-rose-600">Error loading audit logs: ' + escapeHtml(error.message) + '</td></tr>';
+            showToast('Failed to load audit logs', 'error');
+        }
+    }
+
+    async function showAuditLogDetail(logId) {
+        try {
+            var res = await authenticatedFetch('/api/audit/logs/' + logId);
+            if (!res.ok) {
+                throw new Error('Failed to load log details');
+            }
+            var log = await res.json();
+
+            var modal = document.getElementById('detailModal');
+            var title = document.getElementById('detailModalTitle');
+            var content = document.getElementById('detailModalContent');
+
+            title.textContent = 'Audit Log Details';
+
+            var detailsHtml = '<div class="detail-grid">'
+                + '<div class="detail-section full-width">'
+                + '<div class="detail-label">Action</div>'
+                + '<div class="detail-value">' + escapeHtml(log.action || '—') + '</div>'
+                + '</div>'
+                + '<div class="detail-section">'
+                + '<div class="detail-label">Target</div>'
+                + '<div class="detail-value">' + escapeHtml(log.target || log.target_type || '—') + '</div>'
+                + '</div>'
+                + '<div class="detail-section">'
+                + '<div class="detail-label">User</div>'
+                + '<div class="detail-value">' + escapeHtml(log.user_name || log.user_email || '—') + '</div>'
+                + '</div>'
+                + '<div class="detail-section">'
+                + '<div class="detail-label">Timestamp</div>'
+                + '<div class="detail-value">' + (log.created_at ? formatDate(log.created_at) : '—') + '</div>'
+                + '</div>'
+                + '<div class="detail-section full-width">'
+                + '<div class="detail-label">IP Address</div>'
+                + '<div class="detail-value">' + escapeHtml(log.ip_address || '—') + '</div>'
+                + '</div>'
+                + '<div class="detail-section full-width">'
+                + '<div class="detail-label">Details</div>'
+                + '<div class="detail-value"><pre>' + escapeHtml(typeof log.details === 'string' ? log.details : JSON.stringify(log.details || {}, null, 2)) + '</pre></div>'
+                + '</div>'
+                + '</div>';
+
+            content.innerHTML = detailsHtml;
+            modal.style.display = 'flex';
+
+        } catch (error) {
+            console.error('Error loading audit log detail:', error);
+            showToast('Failed to load log details', 'error');
+        }
+    }
+
+    function initAuditLogFilters() {
+        var searchBtn = document.getElementById('auditSearchBtn');
+        var resetBtn = document.getElementById('auditResetBtn');
+        var refreshBtn = document.getElementById('refreshAuditLogBtn');
+        var rowsPerPage = document.getElementById('auditRowsPerPage');
+        var prevBtn = document.getElementById('auditPrevPageBtn');
+        var nextBtn = document.getElementById('auditNextPageBtn');
+
+        if (searchBtn) {
+            searchBtn.addEventListener('click', function() {
+                auditLogState.filters.action = document.getElementById('auditFilterAction').value.trim();
+                auditLogState.filters.user = document.getElementById('auditFilterUser').value.trim();
+                auditLogState.filters.target = document.getElementById('auditFilterTarget').value.trim();
+                auditLogState.filters.from = document.getElementById('auditFilterFrom').value;
+                auditLogState.filters.to = document.getElementById('auditFilterTo').value;
+                auditLogState.page = 1;
+                loadAuditLogs();
+            });
+        }
+
+        if (resetBtn) {
+            resetBtn.addEventListener('click', function() {
+                document.getElementById('auditFilterAction').value = '';
+                document.getElementById('auditFilterUser').value = '';
+                document.getElementById('auditFilterTarget').value = '';
+                document.getElementById('auditFilterFrom').value = '';
+                document.getElementById('auditFilterTo').value = '';
+                auditLogState.filters = { action: '', user: '', target: '', from: '', to: '' };
+                auditLogState.page = 1;
+                loadAuditLogs();
+            });
+        }
+
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', function() {
+                loadAuditLogs();
+            });
+        }
+
+        if (rowsPerPage) {
+            rowsPerPage.addEventListener('change', function() {
+                var newLimit = parseInt(this.value);
+                auditLogState.limit = newLimit;
+                auditLogState.page = 1;
+                loadAuditLogs();
+            });
+        }
+
+        if (prevBtn) {
+            prevBtn.addEventListener('click', function() {
+                if (auditLogState.page > 1) {
+                    auditLogState.page--;
+                    loadAuditLogs();
+                }
+            });
+        }
+
+        if (nextBtn) {
+            nextBtn.addEventListener('click', function() {
+                var totalPages = Math.ceil(auditLogState.total / auditLogState.limit);
+                if (auditLogState.page < totalPages) {
+                    auditLogState.page++;
+                    loadAuditLogs();
+                }
+            });
+        }
+
+        document.querySelectorAll('#auditFilterAction, #auditFilterUser, #auditFilterTarget, #auditFilterFrom, #auditFilterTo').forEach(function(input) {
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter' && searchBtn) {
+                    searchBtn.click();
+                }
+            });
+        });
+    }
+
+    async function loadAuditHealth() {
+        try {
+            var res = await authenticatedFetch('/api/admin/audit-health');
+            var data = await res.json();
+            var text = document.getElementById('auditStatusText');
+            var last = document.getElementById('auditLastCheck');
+
+            if (data.status === 'ok') {
+                text.innerHTML = '✅ Chain intact';
+                text.className = 'text-sm font-medium text-emerald-600';
+            } else if (data.status === 'tampered') {
+                text.innerHTML = '⚠️ TAMPER DETECTED';
+                text.className = 'text-sm font-medium text-rose-600';
+            } else if (data.status === 'error') {
+                text.innerHTML = '⚠️ Validation error';
+                text.className = 'text-sm font-medium text-amber-600';
+            } else {
+                text.innerHTML = 'Unknown';
+                text.className = 'text-sm font-medium text-slate-500';
+            }
+            last.innerText = data.checked_at ? 'Last check: ' + formatDate(data.checked_at) : 'Last check: --';
+        } catch (err) {
+            document.getElementById('auditStatusText').innerHTML = '❌ Unable to verify audit integrity. Please refresh.';
+            showAlertModal(err.message || 'Failed to load audit health status.', 'error');
+        }
+    }
+
+    // ─── END AUDIT LOG FUNCTIONS ───
 
     async function loadTransactions() {
         var giver = document.getElementById('filterGiver') ? document.getElementById('filterGiver').value.trim() : '';
@@ -1239,8 +1380,31 @@
                 break;
             }
             case 'make-available': {
-                // Call the dedicated function
-                await makeLostKeyAvailable(item.id, item.key_id);
+                var ok = await showConfirm('Mark key ' + keyCode + ' as available again?', {
+                    title: 'Mark Available',
+                    danger: false,
+                    okLabel: 'Mark Available'
+                });
+                if (!ok) return;
+                try {
+                    var res = await authenticatedFetch('/api/admin/lost-keys/' + item.id + '/make-available', { method: 'POST' });
+                    var data = await res.json();
+                    if (res.ok) {
+                        await logAuditEvent('make_key_available', 'lost_key', item.id, {
+                            key_code: keyCode
+                        });
+                        showAlertModal('Key ' + keyCode + ' is now available.', 'success');
+                        closeDetailModal();
+                        await loadLostKeys();
+                        await loadTransactions();
+                        await loadInventory();
+                        await loadLostKeysManagement();
+                    } else {
+                        showAlertModal(data.error || 'Failed to make key available.', 'error');
+                    }
+                } catch (err) {
+                    showAlertModal(err.message || 'Network error.', 'error');
+                }
                 break;
             }
         }
@@ -1366,33 +1530,6 @@
 
         var summary = overdueCount > 0 ? '<div class="mb-3 p-2 bg-rose-100 text-rose-800 rounded-lg text-sm font-medium">⚠️ ' + overdueCount + ' overdue return' + (overdueCount > 1 ? 's' : '') + ' — please take action.</div>' : '';
         showDetailModal('Return Reminders', summary + '<table class="table-clean"><thead><tr><th>Key</th><th>Borrower</th><th>Due Date</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table>');
-    }
-
-    async function loadAuditHealth() {
-        try {
-            var res = await authenticatedFetch('/api/admin/audit-health');
-            var data = await res.json();
-            var text = document.getElementById('auditStatusText');
-            var last = document.getElementById('auditLastCheck');
-
-            if (data.status === 'ok') {
-                text.innerHTML = '✅ Chain intact';
-                text.className = 'text-sm font-medium text-emerald-600';
-            } else if (data.status === 'tampered') {
-                text.innerHTML = '⚠️ TAMPER DETECTED';
-                text.className = 'text-sm font-medium text-rose-600';
-            } else if (data.status === 'error') {
-                text.innerHTML = '⚠️ Validation error';
-                text.className = 'text-sm font-medium text-amber-600';
-            } else {
-                text.innerHTML = 'Unknown';
-                text.className = 'text-sm font-medium text-slate-500';
-            }
-            last.innerText = data.checked_at ? 'Last check: ' + formatDate(data.checked_at) : 'Last check: --';
-        } catch (err) {
-            document.getElementById('auditStatusText').innerHTML = '❌ Unable to verify audit integrity. Please refresh.';
-            showAlertModal(err.message || 'Failed to load audit health status.', 'error');
-        }
     }
 
     async function loadInventory() {
@@ -2068,7 +2205,7 @@
                                 } else if (action === 'close-ticket') {
                                     handleCloseTicket(id, lostItem.key_code);
                                 } else if (action === 'make-available') {
-                                    makeLostKeyAvailable(id, lostItem.key_id);
+                                    handleMakeAvailable(id, lostItem.key_code);
                                 }
                             });
                         });
@@ -2111,6 +2248,33 @@
                 loadInventory();
             } else {
                 showAlertModal(data.error || 'Failed to close ticket.', 'error');
+            }
+        } catch (err) {
+            showAlertModal(err.message || 'Network error.', 'error');
+        }
+    }
+
+    async function handleMakeAvailable(id, key) {
+        var ok = await showConfirm('Mark key ' + key + ' as available again?', {
+            title: 'Mark Available',
+            danger: false,
+            okLabel: 'Mark Available'
+        });
+        if (!ok) return;
+
+        try {
+            var res = await authenticatedFetch('/api/admin/lost-keys/' + id + '/make-available', { method: 'POST' });
+            var data = await res.json();
+
+            if (res.ok) {
+                await logAuditEvent('make_key_available', 'lost_key', id, { key_code: key });
+                showAlertModal('Key ' + key + ' is now available.', 'success');
+                closeDetailModal();
+                loadLostKeysManagement();
+                loadLostKeys();
+                loadInventory();
+            } else {
+                showAlertModal(data.error || 'Failed to make key available.', 'error');
             }
         } catch (err) {
             showAlertModal(err.message || 'Network error.', 'error');
@@ -2309,69 +2473,13 @@
     async function loadSecurityTab() {
         if (securityLoaded) return;
         securityLoaded = true;
-        await Promise.all([loadAuditLogs(), loadAuditHealth(), loadPermissions(), loadRolesForUsers()]);
-    }
-
-    async function loadAuditLogs() {
-        var tbody = document.getElementById('auditLogContainer');
-        tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">Loading audit logs...</td></tr>';
-
-        try {
-            var res = await authenticatedFetch('/api/audit/logs');
-            var logs = await res.json();
-
-            if (!logs.length) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">No audit entries found.</td></tr>';
-                return;
-            }
-
-            var html = '';
-            for (var i = 0; i < logs.length; i++) {
-                var entry = logs[i];
-                html += '<tr class="audit-row" data-entry="' + escapeHtml(JSON.stringify(entry)) + '">'
-                    + '<td>' + escapeHtml(entry.action || '') + '</td>'
-                    + '<td>' + escapeHtml(entry.target_type || '') + '</td>'
-                    + '<td>' + escapeHtml(entry.user_name || entry.user_email || 'System') + '</td>'
-                    + '<td>' + formatDate(entry.created_at) + '</td></tr>';
-            }
-            tbody.innerHTML = html;
-
-            tbody.querySelectorAll('.audit-row').forEach(function(row) {
-                row.addEventListener('click', function() {
-                    var entry = JSON.parse(this.dataset.entry);
-                    showAuditDetail(entry);
-                });
-            });
-        } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-rose-600 text-center py-8">Unable to load audit logs. Please refresh.</td></tr>';
-            showAlertModal(err.message || 'Failed to load audit logs.', 'error');
-        }
-    }
-
-    function showAuditDetail(entry) {
-        var detailsHtml = '<div class="space-y-4">'
-            + '<p><strong>Action:</strong> ' + escapeHtml(entry.action) + '</p>'
-            + '<p><strong>Target:</strong> ' + escapeHtml(entry.target_type) + ' (ID: ' + escapeHtml(entry.target_id || 'N/A') + ')</p>'
-            + '<p><strong>User:</strong> ' + escapeHtml(entry.user_name || entry.user_email || 'System') + '</p>'
-            + '<p><strong>Timestamp:</strong> ' + formatDate(entry.created_at) + '</p>';
-
-        if (entry.details) {
-            detailsHtml += '<p><strong>Details:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">'
-                + escapeHtml(typeof entry.details === 'string' ? entry.details : JSON.stringify(entry.details, null, 2))
-                + '</pre></p>';
-        }
-        if (entry.old_data) {
-            detailsHtml += '<p><strong>Old Data:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">'
-                + escapeHtml(typeof entry.old_data === 'string' ? entry.old_data : JSON.stringify(entry.old_data, null, 2))
-                + '</pre></p>';
-        }
-        if (entry.new_data) {
-            detailsHtml += '<p><strong>New Data:</strong> <pre class="bg-gray-100 p-2 rounded text-xs overflow-auto">'
-                + escapeHtml(typeof entry.new_data === 'string' ? entry.new_data : JSON.stringify(entry.new_data, null, 2))
-                + '</pre></p>';
-        }
-        detailsHtml += '</div>';
-        showDetailModal('Audit Entry Details', detailsHtml);
+        await Promise.all([
+            loadAuditLogs(),
+            loadAuditHealth(),
+            loadPermissions(),
+            loadRolesForUsers()
+        ]);
+        initAuditLogFilters();
     }
 
     async function loadPermissions() {
@@ -3161,22 +3269,6 @@
             if (dashboardTab) dashboardTab.click();
         });
 
-        var profileBtn = document.getElementById('userProfileBtn');
-        var userDropdown = document.getElementById('userDropdown');
-        if (profileBtn && userDropdown) {
-            profileBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                this.classList.toggle('open');
-                userDropdown.classList.toggle('show');
-            });
-            document.addEventListener('click', function(e) {
-                if (!e.target.closest('.user-profile')) {
-                    profileBtn.classList.remove('open');
-                    userDropdown.classList.remove('show');
-                }
-            });
-        }
-
         var mobileMenuBtn = document.getElementById('mobileMenuBtn');
         var mobileMenu = document.getElementById('mobileMenu');
         if (mobileMenuBtn && mobileMenu) {
@@ -3245,7 +3337,6 @@
                         user.name = name;
                         user.email = email;
                         localStorage.setItem('kms_user', JSON.stringify(user));
-                        updateUserDisplay();
                     }
                     document.getElementById('profileModal').style.display = 'none';
                 } else {
@@ -3796,7 +3887,9 @@
         });
 
         document.getElementById('refreshAdminRecipientsBtn') && document.getElementById('refreshAdminRecipientsBtn').addEventListener('click', loadAdminRecipients);
-        document.getElementById('refreshAuditLogBtn') && document.getElementById('refreshAuditLogBtn').addEventListener('click', loadAuditLogs);
+        document.getElementById('refreshAuditLogBtn') && document.getElementById('refreshAuditLogBtn').addEventListener('click', function() {
+            loadAuditLogs();
+        });
 
         document.getElementById('addRoleBtn') && document.getElementById('addRoleBtn').addEventListener('click', function() {
             document.getElementById('newRoleName').value = '';
@@ -3890,13 +3983,6 @@
         });
     }
 
-    // ===== FIXED: Make functions globally accessible =====
-    window.makeLostKeyAvailable = makeLostKeyAvailable;
-    window.showToast = showToast;
-    window.showConfirmModal = showConfirmModal;
-    window.closeLostKeyDetailModal = closeLostKeyDetailModal;
-    window.updateDashboardStats = updateDashboardStats;
-
     async function init() {
         var isAuthenticated = await checkAuth();
         if (!isAuthenticated) return;
@@ -3908,7 +3994,6 @@
         if (adminContentWrapper) adminContentWrapper.style.display = 'block';
 
         fetchCsrfToken();
-        updateUserDisplay();
         initEventListeners();
         initUserManagement();
 

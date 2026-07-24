@@ -274,11 +274,16 @@ body {
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   border: 2px solid rgba(255, 255, 255, 0.25);
   transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+  user-select: none;
 }
 
 .key-card:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.key-card:active {
+  transform: scale(0.97);
 }
 
 .key-card.filter-hidden {
@@ -325,6 +330,11 @@ body {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
   border: 2px solid rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(4px);
+  cursor: pointer;
+}
+
+.key-card .key-status:hover {
+  transform: scale(1.05);
 }
 
 .key-card .key-status.status-available {
@@ -372,28 +382,7 @@ body {
   }
 }
 
-/* FIX: Borrow button on key cards */
-.key-card .borrow-btn {
-  margin-top: 0.5rem;
-  padding: 0.25rem 0.75rem;
-  border: none;
-  border-radius: 20px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  color: #1e293b;
-  background: rgba(255, 255, 255, 0.85);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: 'Inter', sans-serif;
-  letter-spacing: 0.02em;
-  display: inline-block !important;
-}
-
-.key-card .borrow-btn:hover {
-  background: white;
-  transform: scale(1.04);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-}
+/* FIX: Borrow button removed - no longer needed */
 
 .key-card.selected {
   border-color: #ffffff;
@@ -557,6 +546,31 @@ body {
   outline: none !important;
   box-shadow: none !important;
   border: none !important;
+}
+
+/* ============================================================
+   FIX: USER INFO DISPLAY (Request Modal)
+   ============================================================ */
+.user-info-display {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  color: #1e293b;
+  font-size: 0.9rem;
+}
+
+.user-info-display .label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.user-info-display .value {
+  font-weight: 500;
+  margin-top: 0.1rem;
 }
 
 /* ============================================================
@@ -852,6 +866,11 @@ body {
 .extension-item:hover {
   border-color: #8B5CF6;
   background: #faf5ff;
+}
+
+.extension-item:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3) !important;
 }
 
 .extension-item.selected {
@@ -1191,7 +1210,6 @@ a.btn,
 #returnDropdownBtn,
 .close-btn,
 .profile-actions button,
-.key-card .borrow-btn,
 .modal-container .close-btn,
 #clearBasketBtn,
 .remove-btn,

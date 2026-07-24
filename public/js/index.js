@@ -418,14 +418,12 @@
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
                 
-                // Toggle active state
                 toggleBtns.forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
 
                 const borrowType = this.dataset.borrowType;
                 
                 if (borrowType === 'now') {
-                    // Borrow Now - set current date/time
                     const now = new Date();
                     if (borrowDateHidden) {
                         borrowDateHidden.value = now.toISOString();
@@ -439,7 +437,6 @@
                         plannedReturn.value = returnDate.toISOString().slice(0, 16);
                     }
                 } else if (borrowType === 'today') {
-                    // Borrow Today - show time picker
                     if (timeContainer) {
                         timeContainer.style.display = 'block';
                     }
@@ -454,7 +451,6 @@
             });
         });
 
-        // Listen for time changes
         if (timePicker) {
             timePicker.addEventListener('change', updateBorrowDateTime);
             timePicker.addEventListener('input', updateBorrowDateTime);
@@ -655,7 +651,7 @@
         const searchInput = document.getElementById('globalSearch');
         searchInput?.addEventListener('input', filterKeysBySearch);
 
-        // FIX: Initialize borrow toggle buttons
+        // Initialize borrow toggle buttons
         initBorrowToggle();
     }
 
@@ -694,6 +690,9 @@
         }
     }
 
+    // ============================================================
+    // FIX 2: REMOVED BORROW BUTTON FROM KEY CARDS
+    // ============================================================
     function renderFilteredGrid() {
         let filtered = [...allKeys];
         if (currentBrandFilter !== 'all') filtered = filtered.filter(k => k.brand === currentBrandFilter);
@@ -738,6 +737,7 @@
             const textColor = isLight ? '#0f172a' : '#ffffff';
             const shadow = isLight ? '0 1px 4px rgba(0,0,0,0.1)' : '0 1px 4px rgba(0,0,0,0.3)';
 
+            // FIX: Removed the borrow-btn - clicking the card handles adding to basket
             html += `
                 <div class="key-card" style="background-color:${dotColor}; color:${textColor}; text-shadow:${shadow};"
                      data-id="${key.id}" data-code="${escapeHtml(key.code)}" data-brand="${escapeHtml(key.brand)}"
@@ -748,31 +748,57 @@
                     <div class="key-code">${escapeHtml(key.code)}</div>
                     <div class="key-brand">${escapeHtml(key.brand)}</div>
                     ${statusBadge}
-                    ${isAvailable && keyStatus !== 'lost' && keyStatus !== 'unavailable' ? `<button class="borrow-btn" data-key-id="${key.id}">Borrow</button>` : ''}
                 </div>
             `;
         });
         if (container) {
             container.innerHTML = html;
         }
-        document.querySelectorAll('.borrow-btn').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const key = allKeys.find(k => k.id === parseInt(btn.dataset.keyId));
-                if (key && key.available && key.status !== 'lost' && key.status !== 'unavailable') addToBasket(key);
+
+        // FIX: Click on the entire card adds to basket
+        document.querySelectorAll('.key-card').forEach(card => {
+            card.addEventListener('click', function(e) {
+                // Don't trigger if clicking on a status badge or popover
+                if (e.target.closest('.key-status') || e.target.closest('.popover')) {
+                    return;
+                }
+                const keyId = parseInt(this.dataset.id);
+                const key = allKeys.find(k => k.id === keyId);
+                if (key && key.available && key.status !== 'lost' && key.status !== 'unavailable') {
+                    addToBasket(key);
+                } else {
+                    // Show a toast explaining why it can't be borrowed
+                    if (key) {
+                        const status = key.status || (key.is_lost ? 'lost' : 'unavailable');
+                        if (status === 'lost') {
+                            showToast(`${key.code} is marked as lost`, 'warning');
+                        } else if (status === 'unavailable') {
+                            showToast(`${key.code} is unavailable`, 'warning');
+                        } else {
+                            showToast(`${key.code} is not available for borrowing`, 'warning');
+                        }
+                    }
+                }
             });
         });
-        document.getElementById('keysGrid')?.addEventListener('click', (e) => {
-            const badge = e.target.closest('.badge');
-            if (!badge) return;
+
+        // Popover on status badge for loaned keys
+        document.querySelectorAll('.key-card .key-status').forEach(badge => {
             const card = badge.closest('.key-card');
-            if (!card || card.getAttribute('data-available') === 'true') return;
-            const borrowerName = card.getAttribute('data-borrower-name');
-            const returnDate = card.getAttribute('data-return-date');
-            if (borrowerName && returnDate && borrowerName !== '') {
-                showPopover(badge, borrowerName, returnDate);
-            }
+            if (!card) return;
+            const isAvailable = card.getAttribute('data-available') === 'true';
+            if (isAvailable) return;
+            
+            badge.addEventListener('click', function(e) {
+                e.stopPropagation();
+                const borrowerName = card.getAttribute('data-borrower-name');
+                const returnDate = card.getAttribute('data-return-date');
+                if (borrowerName && returnDate && borrowerName !== '') {
+                    showPopover(this, borrowerName, returnDate);
+                }
+            });
         });
+
         filterKeysBySearch();
     }
 
@@ -870,17 +896,32 @@
         });
     }
 
+    // ============================================================
+    // FIX 3: REQUEST MODAL - AUTO-POPULATE USER INFO
+    // ============================================================
     function openRequestModal() {
         if (!basket.length) {
             showNotification('Empty Basket', 'Please add at least one key to your basket before submitting a request.', 'warning');
             return;
         }
+
         const listContainer = document.getElementById('modalSelectedKeysList');
         if (listContainer) {
             listContainer.innerHTML = '<ul class="list-disc list-inside">' + basket.map(i => `<li>${escapeHtml(i.code)} (${escapeHtml(i.brand)})</li>`).join('') + '</ul>';
         }
-        document.getElementById('modalName').value = '';
-        document.getElementById('modalEmail').value = '';
+
+        // FIX: Populate user info from logged-in user
+        const user = getUser();
+        const nameDisplay = document.getElementById('modalUserDisplayName');
+        const emailDisplay = document.getElementById('modalUserDisplayEmail');
+        
+        if (nameDisplay) {
+            nameDisplay.textContent = user?.name || 'Not logged in';
+        }
+        if (emailDisplay) {
+            emailDisplay.textContent = user?.email || 'Not logged in';
+        }
+
         document.getElementById('modalReason').value = '';
         
         // Set default return date to 7 days from now
@@ -892,7 +933,9 @@
             plannedReturn.value = returnDate.toISOString().slice(0, 16);
         }
         
-        document.getElementById('modalError').classList.add('hidden');
+        const errorDiv = document.getElementById('modalError');
+        if (errorDiv) errorDiv.classList.add('hidden');
+        
         document.getElementById('consentCheckbox').checked = false;
         document.getElementById('confirmSubmitBtn').disabled = true;
         document.getElementById('requestModal').style.display = 'flex';
@@ -902,9 +945,13 @@
         document.getElementById('requestModal').style.display = 'none';
     }
 
+    // ============================================================
+    // FIX 4: SUBMIT REQUEST - USE LOGGED-IN USER INFO
+    // ============================================================
     async function submitRequest() {
-        const name = document.getElementById('modalName').value.trim();
-        const email = document.getElementById('modalEmail').value.trim();
+        const user = getUser();
+        const name = user?.name || '';
+        const email = user?.email || '';
         const reason = document.getElementById('modalReason').value.trim();
         const planned = document.getElementById('modalPlannedReturn').value;
         const modalError = document.getElementById('modalError');
@@ -913,7 +960,7 @@
 
         if (!name || !email || !email.includes('@') || !planned) {
             if (modalError) {
-                modalError.textContent = 'All fields marked with * are required.';
+                modalError.textContent = 'Please ensure your profile is complete with name and email, and a return date is selected.';
                 modalError.classList.remove('hidden');
             }
             return;
@@ -1010,12 +1057,6 @@
                 e.stopPropagation();
                 if (returnDropdownMenu) {
                     returnDropdownMenu.classList.toggle('hidden');
-                    // Force display block when not hidden
-                    if (!returnDropdownMenu.classList.contains('hidden')) {
-                        returnDropdownMenu.style.display = 'block';
-                    } else {
-                        returnDropdownMenu.style.display = '';
-                    }
                 }
                 if (returnDropdownChevron) {
                     const isHidden = returnDropdownMenu?.classList.contains('hidden');
@@ -1029,7 +1070,6 @@
             if (container && !container.contains(e.target)) {
                 if (returnDropdownMenu) {
                     returnDropdownMenu.classList.add('hidden');
-                    returnDropdownMenu.style.display = '';
                 }
                 if (returnDropdownChevron) {
                     returnDropdownChevron.style.transform = 'rotate(0deg)';
@@ -1039,7 +1079,7 @@
     }
 
     // ============================================================
-    // FIX 2: RETURN MODAL - PROPER STEP MANAGEMENT
+    // FIX 5: RETURN MODAL - PROPER STEP MANAGEMENT
     // ============================================================
     function initReturnModal() {
         const returnModal = document.getElementById('returnModal');
@@ -1060,14 +1100,10 @@
             if (activeLoansContainer) activeLoansContainer.innerHTML = '';
         }
 
-        // Return Now button - opens modal and auto-loads
         document.getElementById('returnNowBtn')?.addEventListener('click', () => {
             const menu = document.getElementById('returnDropdownMenu');
             const chevron = document.getElementById('returnDropdownChevron');
-            if (menu) {
-                menu.classList.add('hidden');
-                menu.style.display = '';
-            }
+            if (menu) menu.classList.add('hidden');
             if (chevron) chevron.style.transform = 'rotate(0deg)';
             
             if (returnModal) returnModal.style.display = 'flex';
@@ -1078,10 +1114,8 @@
             autoLoadUserLoans();
         });
 
-        // Fetch Loans button (manual load)
         fetchLoansBtn?.addEventListener('click', autoLoadUserLoans);
 
-        // Close buttons
         document.getElementById('closeReturnModalBtn')?.addEventListener('click', closeReturnModal);
         document.getElementById('closeReturnSuccessBtn')?.addEventListener('click', closeReturnModal);
         returnModal?.addEventListener('click', (e) => {
@@ -1233,7 +1267,7 @@
     }
 
     // ============================================================
-    // FIX 3: REPORT LOST - PROPER SCOPE FOR autoLoadLostKeys
+    // FIX 6: REPORT LOST - PROPER SCOPE
     // ============================================================
     function initReportLost() {
         const reportLostModal = document.getElementById('reportLostModal');
@@ -1246,14 +1280,10 @@
         document.getElementById('reportLostKeyBtn')?.addEventListener('click', () => {
             const menu = document.getElementById('returnDropdownMenu');
             const chevron = document.getElementById('returnDropdownChevron');
-            if (menu) {
-                menu.classList.add('hidden');
-                menu.style.display = '';
-            }
+            if (menu) menu.classList.add('hidden');
             if (chevron) chevron.style.transform = 'rotate(0deg)';
             
             if (reportLostModal) reportLostModal.style.display = 'flex';
-            // Auto-load when modal opens
             if (window.autoLoadLostKeys) {
                 window.autoLoadLostKeys();
             }
@@ -1264,7 +1294,6 @@
             if (e.target === reportLostModal) closeReportLostModal();
         });
 
-        // Define autoLoadLostKeys on window so it's accessible globally
         window.autoLoadLostKeys = async function() {
             const email = getUserEmail();
             if (!email) {
@@ -1350,7 +1379,6 @@
                     showNotification('Key Reported Lost', `The key ${code} has been marked as lost. A Key Replacement Fee of 50 SGD has been applied.`, 'warning');
                     await fetchKeys();
                     closeLostConfirmModal();
-                    // Refresh the report lost modal if it's open
                     const reportLostModal = document.getElementById('reportLostModal');
                     if (reportLostModal && reportLostModal.style.display === 'flex') {
                         const container = document.getElementById('reportLostKeysListContainer');
@@ -1385,10 +1413,7 @@
         document.getElementById('extensionRequestBtn')?.addEventListener('click', () => {
             const menu = document.getElementById('returnDropdownMenu');
             const chevron = document.getElementById('returnDropdownChevron');
-            if (menu) {
-                menu.classList.add('hidden');
-                menu.style.display = '';
-            }
+            if (menu) menu.classList.add('hidden');
             if (chevron) chevron.style.transform = 'rotate(0deg)';
             
             const modal = document.getElementById('extensionModal');

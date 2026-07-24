@@ -19,6 +19,9 @@ body {
   padding: 0 24px;
 }
 
+/* ============================================================
+   GRID & LAYOUT UTILITIES
+   ============================================================ */
 .grid { display: grid; }
 .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
 .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -39,6 +42,9 @@ body {
 .flex-1 { flex: 1 1 0%; }
 .flex-shrink-0 { flex-shrink: 0; }
 
+/* ============================================================
+   SPACING UTILITIES
+   ============================================================ */
 .mt-8 { margin-top: 2rem; }
 .mt-6 { margin-top: 1.5rem; }
 .mt-5 { margin-top: 1.25rem; }
@@ -81,6 +87,9 @@ body {
 .pb-3 { padding-bottom: 0.75rem; }
 .pb-2 { padding-bottom: 0.5rem; }
 
+/* ============================================================
+   SIZING UTILITIES
+   ============================================================ */
 .w-full { width: 100%; }
 .w-5 { width: 1.25rem; }
 .w-4 { width: 1rem; }
@@ -105,6 +114,9 @@ body {
 .max-w-2xl { max-width: 42rem; }
 .max-w-sm { max-width: 24rem; }
 
+/* ============================================================
+   POSITIONING UTILITIES
+   ============================================================ */
 .relative { position: relative; }
 .absolute { position: absolute; }
 .sticky { position: sticky; }
@@ -118,6 +130,9 @@ body {
 .z-999 { z-index: 999; }
 .z-1000 { z-index: 1000; }
 
+/* ============================================================
+   COLORS & BACKGROUNDS
+   ============================================================ */
 .bg-white { background-color: #ffffff; }
 .bg-slate-50 { background-color: #f8fafc; }
 .bg-slate-100 { background-color: #f1f5f9; }
@@ -139,11 +154,13 @@ body {
 .from-blue-600 { --tw-gradient-from: #2563eb; }
 .to-indigo-600 { --tw-gradient-to: #4f46e5; }
 .from-purple-600 { --tw-gradient-from: #7c3aed; }
-.to-indigo-600 { --tw-gradient-to: #4f46e5; }
 .from-purple-50 { --tw-gradient-from: #faf5ff; }
 .to-indigo-50 { --tw-gradient-to: #eef2ff; }
 .bg-transparent { background-color: transparent; }
 
+/* ============================================================
+   TEXT COLORS
+   ============================================================ */
 .text-white { color: #ffffff; }
 .text-slate-400 { color: #94a3b8; }
 .text-slate-500 { color: #64748b; }
@@ -159,6 +176,9 @@ body {
 .text-purple-600 { color: #7c3aed; }
 .text-indigo-600 { color: #4f46e5; }
 
+/* ============================================================
+   BORDERS
+   ============================================================ */
 .border { border-width: 1px; }
 .border-t { border-top-width: 1px; }
 .border-b { border-bottom-width: 1px; }
@@ -169,17 +189,26 @@ body {
 .border-gray-300 { border-color: #d1d5db; }
 .border-transparent { border-color: transparent; }
 
+/* ============================================================
+   BORDER RADIUS
+   ============================================================ */
 .rounded-full { border-radius: 9999px; }
 .rounded-2xl { border-radius: 1rem; }
 .rounded-xl { border-radius: 0.75rem; }
 .rounded-lg { border-radius: 0.5rem; }
 .rounded { border-radius: 0.25rem; }
 
+/* ============================================================
+   SHADOWS
+   ============================================================ */
 .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
 .shadow-md { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
 .shadow-lg { box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); }
 .shadow { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); }
 
+/* ============================================================
+   TYPOGRAPHY
+   ============================================================ */
 .text-xs { font-size: 0.75rem; }
 .text-sm { font-size: 0.875rem; }
 .text-base { font-size: 1rem; }
@@ -200,6 +229,9 @@ body {
 .overflow-y-auto { overflow-y: auto; }
 .text-ellipsis { text-overflow: ellipsis; }
 
+/* ============================================================
+   TRANSITIONS
+   ============================================================ */
 .transition { transition-property: all; transition-duration: 150ms; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
 .transition-all { transition-property: all; transition-duration: 150ms; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); }
 .duration-200 { transition-duration: 200ms; }
@@ -224,7 +256,9 @@ body {
 .focus\:ring-purple-500:focus { box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.5); }
 .disabled\:opacity-50:disabled { opacity: 0.5; }
 
-/* ─── KEY CARDS ─── */
+/* ============================================================
+   KEY CARDS
+   ============================================================ */
 .key-card {
   border-radius: 12px;
   overflow: hidden;
@@ -251,6 +285,7 @@ body {
   opacity: 0;
   transform: scale(0.92);
   pointer-events: none;
+  display: none !important;
 }
 
 .key-card .key-code {
@@ -288,7 +323,7 @@ body {
   letter-spacing: 0.3px;
   text-transform: uppercase;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
-  border: 2px solid #ffffff;
+  border: 2px solid rgba(255, 255, 255, 0.8);
   backdrop-filter: blur(4px);
 }
 
@@ -337,8 +372,27 @@ body {
   }
 }
 
+/* FIX: Borrow button on key cards */
 .key-card .borrow-btn {
-  display: none !important;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  border: none;
+  border-radius: 20px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #1e293b;
+  background: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: 'Inter', sans-serif;
+  letter-spacing: 0.02em;
+  display: inline-block !important;
+}
+
+.key-card .borrow-btn:hover {
+  background: white;
+  transform: scale(1.04);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .key-card.selected {
@@ -373,21 +427,36 @@ body {
   }
 }
 
-/* ─── TOAST ─── */
-.toast-notification {
+/* ============================================================
+   TOAST NOTIFICATIONS - FIXED
+   ============================================================ */
+#toastRoot {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
-  z-index: 1000;
-  backdrop-filter: blur(4px);
-  animation: fadeInUp 0.2s ease;
-  background: #1E293B;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  pointer-events: none;
+  max-width: 90vw;
+}
+
+.toast-notification {
+  pointer-events: auto;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
   color: white;
-  padding: 12px 24px;
-  border-radius: 40px;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   font-weight: 500;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  font-family: 'Inter', sans-serif;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  animation: toastSlideUp 0.3s ease;
+  max-width: 100%;
+  text-align: center;
+  background: #1E293B;
 }
 
 .toast-notification.error {
@@ -402,18 +471,24 @@ body {
   background: #F59E0B;
 }
 
-@keyframes fadeInUp {
+.toast-notification.info {
+  background: #3B82F6;
+}
+
+@keyframes toastSlideUp {
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: translateY(20px) scale(0.95);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
-/* ─── MODALS ─── */
+/* ============================================================
+   MODALS - FIXED
+   ============================================================ */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -423,17 +498,31 @@ body {
   display: none;
   justify-content: center;
   align-items: center;
+  padding: 1rem;
+}
+
+/* FIX: Ensure modal overlay shows when display:flex is applied */
+.modal-overlay[style*="display: flex"] {
+  display: flex !important;
 }
 
 .modal-container {
   background: white;
   border-radius: 28px;
-  width: 90%;
+  width: 100%;
   max-width: 560px;
   max-height: 85vh;
   overflow-y: auto;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   animation: fadeScaleUp 0.2s ease;
+}
+
+.modal-container.max-w-2xl {
+  max-width: 672px;
+}
+
+.modal-container.max-w-sm {
+  max-width: 440px;
 }
 
 @keyframes fadeScaleUp {
@@ -447,10 +536,42 @@ body {
   }
 }
 
-/* ─── FILTER PILLS ─── */
+/* FIX: Close button styles */
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 1.8rem;
+  line-height: 1;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: color 0.2s ease;
+  padding: 0 0.25rem;
+}
+
+.close-btn:hover {
+  color: #475569;
+}
+
+.close-btn:focus,
+.close-btn:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* ============================================================
+   FILTER PILLS - FIXED
+   ============================================================ */
 .filter-pill.active {
-  background-color: #3B82F6 !important;
+  background-color: #1e293b !important;
   color: white !important;
+  border-color: #1e293b !important;
+}
+
+.brand-pill.active {
+  background-color: #1e293b !important;
+  color: white !important;
+  border-color: #1e293b !important;
 }
 
 .consent-checkbox {
@@ -476,13 +597,18 @@ body {
   display: inline-flex;
 }
 
+/* ============================================================
+   BASKET SIDEBAR - FIXED
+   ============================================================ */
 .basket-sidebar.hide-basket {
-  display: none;
+  display: none !important;
 }
 
-/* ─── TOP NAVIGATION ─── */
+/* ============================================================
+   TOP NAVIGATION - FIXED
+   ============================================================ */
 .top-nav {
-  background: linear-gradient(90deg, #ff6b35 0%, #4a90d9 20%, #9b59b6 40%, #ff6b81 60%, #1abc9c 80%, #f1c40f 100%);
+  background: linear-gradient(90deg, #0f172a 0%, #1e293b 100%);
   border-bottom: 3px solid #d4a843;
   position: sticky;
   top: 0;
@@ -514,7 +640,7 @@ body {
 }
 
 .brand-name {
-  color: #1a2a4a;
+  color: #ffffff;
   font-weight: 700;
   font-size: 1.1rem;
   letter-spacing: 0.3px;
@@ -528,12 +654,14 @@ body {
   flex-wrap: nowrap;
 }
 
-/* ─── MOBILE MENU BUTTON ─── */
+/* ============================================================
+   MOBILE MENU
+   ============================================================ */
 .mobile-menu-btn {
   display: block;
   background: none;
   border: none;
-  color: #1a2a4a;
+  color: #ffffff;
   font-size: 1.6rem;
   cursor: pointer;
   padding: 8px 12px;
@@ -545,7 +673,6 @@ body {
   opacity: 0.8;
 }
 
-/* ─── MOBILE MENU DROPDOWN ─── */
 .mobile-menu {
   display: none;
   position: absolute;
@@ -616,7 +743,9 @@ body {
   margin: 4px 8px;
 }
 
-/* ─── MAIN CONTENT ─── */
+/* ============================================================
+   MAIN CONTENT
+   ============================================================ */
 .main-content {
   max-width: 1280px;
   margin: 0 auto;
@@ -667,43 +796,57 @@ body {
   color: #EF4444;
 }
 
+/* ============================================================
+   BORROW TOGGLE - FIXED
+   ============================================================ */
 .borrow-toggle-group {
   display: flex;
-  gap: 8px;
+  gap: 0.5rem;
   background: #f1f5f9;
-  border-radius: 40px;
-  padding: 4px;
+  padding: 0.25rem;
+  border-radius: 12px;
 }
 
 .borrow-toggle-btn {
   flex: 1;
-  padding: 6px 14px;
+  padding: 0.5rem 1rem;
   border: none;
-  border-radius: 30px;
-  font-size: 0.8rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
   font-weight: 500;
+  color: #64748b;
+  background: transparent;
   cursor: pointer;
   transition: all 0.2s ease;
-  background: transparent;
-  color: #64748b;
+  font-family: 'Inter', sans-serif;
+}
+
+.borrow-toggle-btn:hover {
+  color: #334155;
 }
 
 .borrow-toggle-btn.active {
   background: white;
-  color: #0f172a;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  color: #1e293b;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
-.borrow-toggle-btn:hover:not(.active) {
-  color: #0f172a;
+.borrow-toggle-btn:focus,
+.borrow-toggle-btn:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
 }
 
+/* ============================================================
+   EXTENSION ITEMS - FIXED
+   ============================================================ */
 .extension-item {
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
   padding: 12px 14px;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   cursor: pointer;
+  background: white;
 }
 
 .extension-item:hover {
@@ -712,11 +855,17 @@ body {
 }
 
 .extension-item.selected {
-  border-color: #8B5CF6;
-  background: #ede9fe;
-  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.15);
+  border-color: #8B5CF6 !important;
+  background: #F5F3FF !important;
 }
 
+.extension-item.selected .text-slate-400 {
+  color: #8B5CF6 !important;
+}
+
+/* ============================================================
+   BASKET ITEMS
+   ============================================================ */
 .basket-item .remove-btn {
   display: flex;
   align-items: center;
@@ -743,7 +892,40 @@ body {
   transform: scale(0.92);
 }
 
-/* ─── PROFILE MODAL ─── */
+.remove-item {
+  cursor: pointer;
+}
+
+.remove-item:focus,
+.remove-item:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
+  border: none !important;
+}
+
+/* ============================================================
+   PROFILE MODAL - FIXED
+   ============================================================ */
+.profile-error {
+  display: none;
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.profile-success {
+  display: none;
+  background: #dcfce7;
+  color: #16a34a;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
+}
+
 .profile-field {
   margin-bottom: 1rem;
 }
@@ -763,6 +945,7 @@ body {
   border-radius: 8px;
   font-size: 0.9rem;
   transition: border-color 0.15s;
+  font-family: 'Inter', sans-serif;
 }
 
 .profile-field input:focus {
@@ -792,6 +975,7 @@ body {
   font-size: 0.85rem;
   cursor: pointer;
   transition: all 0.15s;
+  font-family: 'Inter', sans-serif;
 }
 
 .profile-actions .btn-secondary {
@@ -817,21 +1001,15 @@ body {
   cursor: not-allowed;
 }
 
-.profile-error {
-  color: #dc2626;
-  font-size: 0.85rem;
-  margin-top: 8px;
-  display: none;
+.profile-actions button:focus,
+.profile-actions button:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
 }
 
-.profile-success {
-  color: #10B981;
-  font-size: 0.85rem;
-  margin-top: 8px;
-  display: none;
-}
-
-/* ─── RETURN DROPDOWN ─── */
+/* ============================================================
+   RETURN DROPDOWN - FIXED
+   ============================================================ */
 .return-dropdown-menu {
   position: absolute;
   top: calc(100% + 8px);
@@ -847,11 +1025,11 @@ body {
 }
 
 .return-dropdown-menu.hidden {
-  display: none;
+  display: none !important;
 }
 
 .return-dropdown-menu:not(.hidden) {
-  display: block;
+  display: block !important;
 }
 
 @keyframes slideDown {
@@ -909,6 +1087,7 @@ body {
   border-bottom: 1px solid #f1f5f9;
 }
 
+/* FIX: Return dropdown button styles */
 #returnDropdownBtn {
   background: linear-gradient(135deg, #7c3aed, #4f46e5) !important;
   position: relative;
@@ -943,6 +1122,15 @@ body {
   transform: rotate(180deg);
 }
 
+#returnDropdownBtn:focus,
+#returnDropdownBtn:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.3) !important;
+}
+
+/* ============================================================
+   BASKET SIDEBAR OVERFLOW FIX
+   ============================================================ */
 .basket-sidebar {
   max-height: none !important;
   overflow-y: visible !important;
@@ -952,6 +1140,9 @@ body {
   overflow-y: visible !important;
 }
 
+/* ============================================================
+   UTILITY CLASSES
+   ============================================================ */
 .hidden { display: none; }
 .block { display: block; }
 .inline-block { display: inline-block; }
@@ -971,9 +1162,9 @@ body {
 .min-h-screen { min-height: 100vh; }
 .antialiased { -webkit-font-smoothing: antialiased; }
 
-/* ─── GLOBAL FIX: Remove all black outlines and borders ─── */
-
-/* Remove all focus outlines and borders globally */
+/* ============================================================
+   FIX: Remove all black outlines and borders
+   ============================================================ */
 *:focus,
 *:focus-visible,
 *:focus-within {
@@ -982,7 +1173,6 @@ body {
   outline-offset: 0 !important;
 }
 
-/* Specifically target all button-like elements */
 button,
 [role="button"],
 input[type="button"],
@@ -1012,7 +1202,6 @@ a.btn,
   border-color: transparent !important;
 }
 
-/* Remove border from specific elements that might have black borders */
 #clearBasketBtn,
 .remove-btn,
 .basket-item .remove-btn,
@@ -1024,14 +1213,12 @@ button.close-btn {
   box-shadow: none !important;
 }
 
-/* Subtle focus indicator only for keyboard navigation */
 *:focus-visible:not(.no-focus-ring) {
   outline: none !important;
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
   border-radius: 4px;
 }
 
-/* Override for close buttons - no focus ring at all */
 .close-btn:focus-visible,
 .modal-container .close-btn:focus-visible,
 #clearBasketBtn:focus-visible,
@@ -1042,7 +1229,6 @@ button.close-btn {
   border: none !important;
 }
 
-/* Ensure the clear all button has no outline */
 #clearBasketBtn {
   background: transparent !important;
   border: none !important;
@@ -1058,22 +1244,6 @@ button.close-btn {
   border: none !important;
 }
 
-/* Fix for return dropdown button focus */
-#returnDropdownBtn:focus,
-#returnDropdownBtn:focus-visible {
-  outline: none !important;
-  box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.3) !important;
-}
-
-/* Fix for remove item buttons */
-.remove-item:focus,
-.remove-item:focus-visible {
-  outline: none !important;
-  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
-  border: none !important;
-}
-
-/* Fix for input fields */
 input:focus,
 input:focus-visible,
 select:focus,
@@ -1085,7 +1255,6 @@ textarea:focus-visible {
   border-color: #3B82F6 !important;
 }
 
-/* Fix for modal close button X */
 .modal-container .close-btn {
   background: none !important;
   border: none !important;
@@ -1108,7 +1277,6 @@ textarea:focus-visible {
   border: none !important;
 }
 
-/* Fix for all square/rectangle buttons */
 .btn,
 .btn-sm,
 .btn-primary,
@@ -1128,7 +1296,75 @@ textarea:focus-visible {
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
 }
 
-/* ─── RESPONSIVE ─── */
+/* ============================================================
+   FIX: Spinner animation
+   ============================================================ */
+.spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e2e8f0;
+  border-radius: 50%;
+  border-top-color: #3b82f6;
+  animation: spin 0.8s linear infinite;
+  margin-right: 8px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   FIX: Report lost key modal
+   ============================================================ */
+#reportLostKeysListContainer .border {
+  border: 1px solid #e5e7eb !important;
+}
+
+#reportLostKeysListContainer .rounded-xl {
+  border-radius: 12px !important;
+}
+
+#reportLostKeysListContainer .bg-rose-600 {
+  background-color: #dc2626 !important;
+}
+
+#reportLostKeysListContainer .bg-rose-600:hover {
+  background-color: #b91c1c !important;
+}
+
+.reportLostFromListBtn:focus,
+.reportLostFromListBtn:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.3) !important;
+}
+
+/* ============================================================
+   FIX: Confirm lost modal
+   ============================================================ */
+#confirmLostModal .modal-container {
+  max-width: 420px;
+}
+
+#confirmLostModal .bg-rose-100 {
+  background-color: #fee2e2 !important;
+}
+
+#confirmLostModal .text-rose-600 {
+  color: #dc2626 !important;
+}
+
+#confirmLostModal .bg-rose-600 {
+  background-color: #dc2626 !important;
+}
+
+#confirmLostModal .bg-rose-600:hover {
+  background-color: #b91c1c !important;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
 @media (max-width: 1023px) {
   .return-dropdown-menu {
     position: fixed;
@@ -1199,7 +1435,9 @@ textarea:focus-visible {
   .xl\:grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
-/* ─── MOBILE NAV RESPONSIVE ─── */
+/* ============================================================
+   MOBILE NAV RESPONSIVE
+   ============================================================ */
 @media (max-width: 768px) {
   .top-nav {
     height: 64px;
@@ -1254,58 +1492,4 @@ textarea:focus-visible {
   .brand-name { font-size: 0.7rem; }
   .mobile-menu-btn { font-size: 1.1rem; padding: 3px 5px; }
   .mobile-menu { top: 48px; }
-}
-
-/* ─── FIX: Spinner animation ─── */
-.spinner {
-  display: inline-block;
-  width: 20px;
-  height: 20px;
-  border: 2px solid #e2e8f0;
-  border-radius: 50%;
-  border-top-color: #3b82f6;
-  animation: spin 0.8s linear infinite;
-  margin-right: 8px;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* ─── FIX: Report lost key modal ─── */
-#reportLostKeysListContainer .border {
-  border: 1px solid #e5e7eb !important;
-}
-
-#reportLostKeysListContainer .rounded-xl {
-  border-radius: 12px !important;
-}
-
-#reportLostKeysListContainer .bg-rose-600 {
-  background-color: #dc2626 !important;
-}
-
-#reportLostKeysListContainer .bg-rose-600:hover {
-  background-color: #b91c1c !important;
-}
-
-/* ─── FIX: Confirm lost modal ─── */
-#confirmLostModal .modal-container {
-  max-width: 420px;
-}
-
-#confirmLostModal .bg-rose-100 {
-  background-color: #fee2e2 !important;
-}
-
-#confirmLostModal .text-rose-600 {
-  color: #dc2626 !important;
-}
-
-#confirmLostModal .bg-rose-600 {
-  background-color: #dc2626 !important;
-}
-
-#confirmLostModal .bg-rose-600:hover {
-  background-color: #b91c1c !important;
 }

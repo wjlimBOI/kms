@@ -388,10 +388,104 @@
         }
     }
 
+    // ============================================================
+    // FIX 1: BORROW TOGGLE BUTTONS - EVENT HANDLERS
+    // ============================================================
+    function initBorrowToggle() {
+        const toggleBtns = document.querySelectorAll('.borrow-toggle-btn');
+        const timeContainer = document.getElementById('borrowTimeContainer');
+        const borrowDateHidden = document.getElementById('borrowDateHidden');
+        const timePicker = document.getElementById('borrowTimePicker');
+        const plannedReturn = document.getElementById('modalPlannedReturn');
+
+        if (!toggleBtns.length) {
+            console.warn('Borrow toggle buttons not found');
+            return;
+        }
+
+        // Set default date
+        const now = new Date();
+        if (borrowDateHidden) {
+            borrowDateHidden.value = now.toISOString();
+        }
+        if (plannedReturn) {
+            const returnDate = new Date(now);
+            returnDate.setDate(returnDate.getDate() + 7);
+            plannedReturn.value = returnDate.toISOString().slice(0, 16);
+        }
+
+        toggleBtns.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // Toggle active state
+                toggleBtns.forEach(b => b.classList.remove('active'));
+                this.classList.add('active');
+
+                const borrowType = this.dataset.borrowType;
+                
+                if (borrowType === 'now') {
+                    // Borrow Now - set current date/time
+                    const now = new Date();
+                    if (borrowDateHidden) {
+                        borrowDateHidden.value = now.toISOString();
+                    }
+                    if (timeContainer) {
+                        timeContainer.style.display = 'none';
+                    }
+                    if (plannedReturn) {
+                        const returnDate = new Date(now);
+                        returnDate.setDate(returnDate.getDate() + 7);
+                        plannedReturn.value = returnDate.toISOString().slice(0, 16);
+                    }
+                } else if (borrowType === 'today') {
+                    // Borrow Today - show time picker
+                    if (timeContainer) {
+                        timeContainer.style.display = 'block';
+                    }
+                    if (timePicker) {
+                        const now = new Date();
+                        const hours = String(now.getHours()).padStart(2, '0');
+                        const minutes = String(now.getMinutes()).padStart(2, '0');
+                        timePicker.value = `${hours}:${minutes}`;
+                        updateBorrowDateTime();
+                    }
+                }
+            });
+        });
+
+        // Listen for time changes
+        if (timePicker) {
+            timePicker.addEventListener('change', updateBorrowDateTime);
+            timePicker.addEventListener('input', updateBorrowDateTime);
+        }
+
+        function updateBorrowDateTime() {
+            const timePicker = document.getElementById('borrowTimePicker');
+            const borrowDateHidden = document.getElementById('borrowDateHidden');
+            const plannedReturn = document.getElementById('modalPlannedReturn');
+            
+            if (timePicker && borrowDateHidden) {
+                const now = new Date();
+                const [hours, minutes] = timePicker.value.split(':').map(Number);
+                now.setHours(hours || 0, minutes || 0, 0, 0);
+                borrowDateHidden.value = now.toISOString();
+                
+                if (plannedReturn) {
+                    const returnDate = new Date(now);
+                    returnDate.setDate(returnDate.getDate() + 7);
+                    plannedReturn.value = returnDate.toISOString().slice(0, 16);
+                }
+            }
+        }
+    }
+
     function initEventListeners() {
+        // Logout
         document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
         document.getElementById('mobileLogoutBtn')?.addEventListener('click', handleLogout);
 
+        // Mobile menu
         const mobileMenuBtn = document.getElementById('mobileMenuBtn');
         const mobileMenu = document.getElementById('mobileMenu');
         if (mobileMenuBtn && mobileMenu) {
@@ -406,6 +500,7 @@
             });
         }
 
+        // Profile
         document.getElementById('mobileProfileBtn')?.addEventListener('click', function() {
             const mobileMenu = document.getElementById('mobileMenu');
             if (mobileMenu) mobileMenu.classList.remove('open');
@@ -523,6 +618,7 @@
             }
         });
 
+        // Notification
         document.getElementById('closeNotificationBtn')?.addEventListener('click', closeNotification);
         document.getElementById('notificationModal')?.addEventListener('click', (e) => {
             if (e.target === document.getElementById('notificationModal')) closeNotification();
@@ -534,6 +630,7 @@
             }
         });
 
+        // Basket
         document.getElementById('clearBasketBtn')?.addEventListener('click', () => {
             if (basket.length) {
                 basket = [];
@@ -542,16 +639,24 @@
             }
         });
 
+        // Request modal
         document.getElementById('submitRequestBtn')?.addEventListener('click', openRequestModal);
         document.getElementById('closeModalBtn')?.addEventListener('click', closeRequestModal);
         document.getElementById('cancelModalBtn')?.addEventListener('click', closeRequestModal);
         document.getElementById('confirmSubmitBtn')?.addEventListener('click', submitRequest);
         document.getElementById('consentCheckbox')?.addEventListener('change', () => {
-            document.getElementById('confirmSubmitBtn').disabled = !document.getElementById('consentCheckbox').checked;
+            const confirmBtn = document.getElementById('confirmSubmitBtn');
+            if (confirmBtn) {
+                confirmBtn.disabled = !document.getElementById('consentCheckbox').checked;
+            }
         });
 
+        // Search
         const searchInput = document.getElementById('globalSearch');
         searchInput?.addEventListener('input', filterKeysBySearch);
+
+        // FIX: Initialize borrow toggle buttons
+        initBorrowToggle();
     }
 
     async function fetchKeys() {
@@ -580,7 +685,10 @@
             }
             if (status) status.textContent = 'Offline';
             if (!allKeys.length) {
-                document.getElementById('keysGrid').innerHTML = '<div class="col-span-full text-center py-12 text-slate-400">Error loading keys. Please refresh.</div>';
+                const grid = document.getElementById('keysGrid');
+                if (grid) {
+                    grid.innerHTML = '<div class="col-span-full text-center py-12 text-slate-400">Error loading keys. Please refresh.</div>';
+                }
                 showToast('Failed to load keys', 'error');
             }
         }
@@ -596,7 +704,9 @@
         const emptyState = document.getElementById('emptySearchState');
 
         if (!filtered.length) {
-            container.innerHTML = '<div class="col-span-full text-center py-12 text-slate-400">No keys match current filters.</div>';
+            if (container) {
+                container.innerHTML = '<div class="col-span-full text-center py-12 text-slate-400">No keys match current filters.</div>';
+            }
             if (emptyState) emptyState.classList.add('hidden');
             return;
         }
@@ -642,7 +752,9 @@
                 </div>
             `;
         });
-        container.innerHTML = html;
+        if (container) {
+            container.innerHTML = html;
+        }
         document.querySelectorAll('.borrow-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -722,16 +834,18 @@
         const submitBtn = document.getElementById('submitRequestBtn');
         const total = basket.length;
 
-        countSpan.innerText = total;
-        totalSpan.innerText = total;
+        if (countSpan) countSpan.innerText = total;
+        if (totalSpan) totalSpan.innerText = total;
 
         if (total === 0) {
-            container.innerHTML = `<div class="p-6 text-center text-slate-400 text-sm">No keys selected. Click on available keys to add.</div>`;
-            submitBtn.disabled = true;
+            if (container) {
+                container.innerHTML = `<div class="p-6 text-center text-slate-400 text-sm">No keys selected. Click on available keys to add.</div>`;
+            }
+            if (submitBtn) submitBtn.disabled = true;
             return;
         }
 
-        submitBtn.disabled = false;
+        if (submitBtn) submitBtn.disabled = false;
         let html = `<div class="divide-y divide-gray-100">`;
         basket.forEach(item => {
             html += `
@@ -745,7 +859,9 @@
             `;
         });
         html += `</div>`;
-        container.innerHTML = html;
+        if (container) {
+            container.innerHTML = html;
+        }
 
         document.querySelectorAll('.remove-item').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -759,11 +875,23 @@
             showNotification('Empty Basket', 'Please add at least one key to your basket before submitting a request.', 'warning');
             return;
         }
-        document.getElementById('modalSelectedKeysList').innerHTML = '<ul class="list-disc list-inside">' + basket.map(i => `<li>${escapeHtml(i.code)} (${escapeHtml(i.brand)})</li>`).join('') + '</ul>';
+        const listContainer = document.getElementById('modalSelectedKeysList');
+        if (listContainer) {
+            listContainer.innerHTML = '<ul class="list-disc list-inside">' + basket.map(i => `<li>${escapeHtml(i.code)} (${escapeHtml(i.brand)})</li>`).join('') + '</ul>';
+        }
         document.getElementById('modalName').value = '';
         document.getElementById('modalEmail').value = '';
         document.getElementById('modalReason').value = '';
-        document.getElementById('modalPlannedReturn').value = '';
+        
+        // Set default return date to 7 days from now
+        const plannedReturn = document.getElementById('modalPlannedReturn');
+        if (plannedReturn) {
+            const now = new Date();
+            const returnDate = new Date(now);
+            returnDate.setDate(returnDate.getDate() + 7);
+            plannedReturn.value = returnDate.toISOString().slice(0, 16);
+        }
+        
         document.getElementById('modalError').classList.add('hidden');
         document.getElementById('consentCheckbox').checked = false;
         document.getElementById('confirmSubmitBtn').disabled = true;
@@ -784,18 +912,24 @@
         const confirmBtn = document.getElementById('confirmSubmitBtn');
 
         if (!name || !email || !email.includes('@') || !planned) {
-            modalError.textContent = 'All fields marked with * are required.';
-            modalError.classList.remove('hidden');
+            if (modalError) {
+                modalError.textContent = 'All fields marked with * are required.';
+                modalError.classList.remove('hidden');
+            }
             return;
         }
         if (!consentCheckbox.checked) {
-            modalError.textContent = 'You must accept the Key Replacement Fee disclaimer.';
-            modalError.classList.remove('hidden');
+            if (modalError) {
+                modalError.textContent = 'You must accept the Key Replacement Fee disclaimer.';
+                modalError.classList.remove('hidden');
+            }
             return;
         }
-        modalError.classList.add('hidden');
-        confirmBtn.disabled = true;
-        confirmBtn.textContent = 'Submitting...';
+        if (modalError) modalError.classList.add('hidden');
+        if (confirmBtn) {
+            confirmBtn.disabled = true;
+            confirmBtn.textContent = 'Submitting...';
+        }
 
         try {
             const res = await authenticatedFetch('/api/requests/submit', {
@@ -820,11 +954,15 @@
             }
         } catch (e) {
             showNotification('Submission Failed', e.message, 'error');
-            modalError.textContent = 'Submission failed. Please try again.';
-            modalError.classList.remove('hidden');
+            if (modalError) {
+                modalError.textContent = 'Submission failed. Please try again.';
+                modalError.classList.remove('hidden');
+            }
         } finally {
-            confirmBtn.disabled = false;
-            confirmBtn.textContent = 'Submit request';
+            if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.textContent = 'Submit request';
+            }
         }
     }
 
@@ -832,9 +970,11 @@
         const basketSidebar = document.getElementById('basketSidebar');
 
         function updateBasketVisibility(filterValue) {
-            const shouldHide = (filterValue === 'loaned');
-            if (shouldHide) basketSidebar.classList.add('hide-basket');
-            else basketSidebar.classList.remove('hide-basket');
+            if (basketSidebar) {
+                const shouldHide = (filterValue === 'loaned');
+                if (shouldHide) basketSidebar.classList.add('hide-basket');
+                else basketSidebar.classList.remove('hide-basket');
+            }
         }
 
         document.querySelectorAll('[data-filter]').forEach(btn => {
@@ -868,9 +1008,18 @@
         if (returnDropdownBtn) {
             returnDropdownBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                returnDropdownMenu.classList.toggle('hidden');
+                if (returnDropdownMenu) {
+                    returnDropdownMenu.classList.toggle('hidden');
+                    // Force display block when not hidden
+                    if (!returnDropdownMenu.classList.contains('hidden')) {
+                        returnDropdownMenu.style.display = 'block';
+                    } else {
+                        returnDropdownMenu.style.display = '';
+                    }
+                }
                 if (returnDropdownChevron) {
-                    returnDropdownChevron.style.transform = returnDropdownMenu.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+                    const isHidden = returnDropdownMenu?.classList.contains('hidden');
+                    returnDropdownChevron.style.transform = isHidden ? 'rotate(0deg)' : 'rotate(180deg)';
                 }
             });
         }
@@ -878,7 +1027,10 @@
         document.addEventListener('click', (e) => {
             const container = document.getElementById('returnDropdownContainer');
             if (container && !container.contains(e.target)) {
-                returnDropdownMenu?.classList.add('hidden');
+                if (returnDropdownMenu) {
+                    returnDropdownMenu.classList.add('hidden');
+                    returnDropdownMenu.style.display = '';
+                }
                 if (returnDropdownChevron) {
                     returnDropdownChevron.style.transform = 'rotate(0deg)';
                 }
@@ -886,36 +1038,50 @@
         });
     }
 
+    // ============================================================
+    // FIX 2: RETURN MODAL - PROPER STEP MANAGEMENT
+    // ============================================================
     function initReturnModal() {
         const returnModal = document.getElementById('returnModal');
         const step1 = document.getElementById('returnStep1');
         const step2 = document.getElementById('returnStep2');
         const step3 = document.getElementById('returnStep3');
-        const fetchLoansBtn = document.getElementById('fetchLoansByEmailBtn');
         const activeLoansContainer = document.getElementById('activeLoansListContainer');
         const submitReturnBtn = document.getElementById('submitReturnConfirmBtn');
         const selectAllBtn = document.getElementById('selectAllReturnBtn');
         const returnSelectionError = document.getElementById('returnSelectionError');
+        const fetchLoansBtn = document.getElementById('fetchLoansByEmailBtn');
 
         function closeReturnModal() {
-            returnModal.style.display = 'none';
-            step1.style.display = 'block';
-            step2.style.display = 'none';
-            step3.style.display = 'none';
-            activeLoansContainer.innerHTML = '';
+            if (returnModal) returnModal.style.display = 'none';
+            if (step1) step1.style.display = 'block';
+            if (step2) step2.style.display = 'none';
+            if (step3) step3.style.display = 'none';
+            if (activeLoansContainer) activeLoansContainer.innerHTML = '';
         }
 
+        // Return Now button - opens modal and auto-loads
         document.getElementById('returnNowBtn')?.addEventListener('click', () => {
-            document.getElementById('returnDropdownMenu')?.classList.add('hidden');
-            document.getElementById('returnDropdownChevron').style.transform = 'rotate(0deg)';
-            returnModal.style.display = 'flex';
-            step1.style.display = 'none';
-            step2.style.display = 'block';
-            step3.style.display = 'none';
+            const menu = document.getElementById('returnDropdownMenu');
+            const chevron = document.getElementById('returnDropdownChevron');
+            if (menu) {
+                menu.classList.add('hidden');
+                menu.style.display = '';
+            }
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
+            
+            if (returnModal) returnModal.style.display = 'flex';
+            if (step1) step1.style.display = 'none';
+            if (step2) step2.style.display = 'block';
+            if (step3) step3.style.display = 'none';
             
             autoLoadUserLoans();
         });
 
+        // Fetch Loans button (manual load)
+        fetchLoansBtn?.addEventListener('click', autoLoadUserLoans);
+
+        // Close buttons
         document.getElementById('closeReturnModalBtn')?.addEventListener('click', closeReturnModal);
         document.getElementById('closeReturnSuccessBtn')?.addEventListener('click', closeReturnModal);
         returnModal?.addEventListener('click', (e) => {
@@ -925,11 +1091,15 @@
         async function autoLoadUserLoans() {
             const email = getUserEmail();
             if (!email) {
-                activeLoansContainer.innerHTML = `<div class="p-6 text-center text-amber-600 bg-amber-50 rounded-xl"><p class="font-medium">No email found in your profile.</p><p class="text-sm mt-1">Please update your profile with a valid email address.</p></div>`;
+                if (activeLoansContainer) {
+                    activeLoansContainer.innerHTML = `<div class="p-6 text-center text-amber-600 bg-amber-50 rounded-xl"><p class="font-medium">No email found in your profile.</p><p class="text-sm mt-1">Please update your profile with a valid email address.</p></div>`;
+                }
                 return;
             }
 
-            activeLoansContainer.innerHTML = '<div class="text-center py-4"><div class="spinner"></div> Loading your loans...</div>';
+            if (activeLoansContainer) {
+                activeLoansContainer.innerHTML = '<div class="text-center py-4"><div class="spinner"></div> Loading your loans...</div>';
+            }
 
             try {
                 const response = await authenticatedFetch(`/api/return/active-loans?borrower_email=${encodeURIComponent(email)}&_=${Date.now()}`, {
@@ -940,9 +1110,12 @@
                 if (response.ok) {
                     const data = await response.json();
                     if (!data || data.length === 0) {
-                        activeLoansContainer.innerHTML = `<div class="p-6 text-center text-slate-500 bg-gray-50 rounded-xl"><svg class="w-10 h-10 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg><p class="font-medium">No active key loans found.</p><p class="text-sm mt-1">You don't have any borrowed keys at the moment.</p></div>`;
-                        document.querySelector('#returnStep2 .flex.justify-between.items-center').style.display = 'none';
-                        submitReturnBtn.style.display = 'none';
+                        if (activeLoansContainer) {
+                            activeLoansContainer.innerHTML = `<div class="p-6 text-center text-slate-500 bg-gray-50 rounded-xl"><svg class="w-10 h-10 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg><p class="font-medium">No active key loans found.</p><p class="text-sm mt-1">You don't have any borrowed keys at the moment.</p></div>`;
+                        }
+                        const step2Header = document.querySelector('#returnStep2 .flex.justify-between.items-center');
+                        if (step2Header) step2Header.style.display = 'none';
+                        if (submitReturnBtn) submitReturnBtn.style.display = 'none';
                         return;
                     }
 
@@ -958,16 +1131,20 @@
                             </label>
                         `;
                     });
-                    activeLoansContainer.innerHTML = loansHtml;
-                    step1.style.display = 'none';
-                    step2.style.display = 'block';
-                    step3.style.display = 'none';
+                    if (activeLoansContainer) {
+                        activeLoansContainer.innerHTML = loansHtml;
+                    }
+                    if (step1) step1.style.display = 'none';
+                    if (step2) step2.style.display = 'block';
+                    if (step3) step3.style.display = 'none';
 
                     const checkboxes = () => document.querySelectorAll('.loan-return-checkbox');
                     const updateSelectAll = () => {
                         const all = checkboxes();
                         const allChecked = all.length > 0 && Array.from(all).every(cb => cb.checked);
-                        selectAllBtn.innerHTML = allChecked ? 'Deselect all' : 'Select all';
+                        if (selectAllBtn) {
+                            selectAllBtn.innerHTML = allChecked ? 'Deselect all' : 'Select all';
+                        }
                     };
                     checkboxes().forEach(cb => cb.addEventListener('change', updateSelectAll));
 
@@ -981,32 +1158,39 @@
                     }
                     updateSelectAll();
 
-                    document.querySelector('#returnStep2 .flex.justify-between.items-center').style.display = 'flex';
-                    submitReturnBtn.style.display = 'block';
+                    const step2Header = document.querySelector('#returnStep2 .flex.justify-between.items-center');
+                    if (step2Header) step2Header.style.display = 'flex';
+                    if (submitReturnBtn) submitReturnBtn.style.display = 'block';
                 } else {
                     throw new Error(`Server returned status: ${response.status}`);
                 }
             } catch (err) {
                 console.error('Return loans error:', err);
                 showToast('Error fetching your active loans. Please try again.', 'error');
-                activeLoansContainer.innerHTML = `<div class="p-6 text-center text-rose-600 bg-rose-50 rounded-xl"><p class="font-medium">Unable to load your loans.</p><p class="text-sm mt-1">Please refresh the page or contact support.</p></div>`;
+                if (activeLoansContainer) {
+                    activeLoansContainer.innerHTML = `<div class="p-6 text-center text-rose-600 bg-rose-50 rounded-xl"><p class="font-medium">Unable to load your loans.</p><p class="text-sm mt-1">Please refresh the page or contact support.</p></div>`;
+                }
             }
         }
 
         submitReturnBtn?.addEventListener('click', async () => {
             const selected = Array.from(document.querySelectorAll('.loan-return-checkbox:checked'));
             if (!selected.length) {
-                returnSelectionError.innerText = 'Please select at least one key to return.';
-                returnSelectionError.classList.remove('hidden');
+                if (returnSelectionError) {
+                    returnSelectionError.innerText = 'Please select at least one key to return.';
+                    returnSelectionError.classList.remove('hidden');
+                }
                 return;
             }
-            returnSelectionError.classList.add('hidden');
+            if (returnSelectionError) returnSelectionError.classList.add('hidden');
 
             const loanIds = selected.map(cb => parseInt(cb.dataset.loanId));
             const selectedKeyIds = selected.map(cb => parseInt(cb.dataset.keyId));
 
-            submitReturnBtn.disabled = true;
-            submitReturnBtn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Processing...';
+            if (submitReturnBtn) {
+                submitReturnBtn.disabled = true;
+                submitReturnBtn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Processing...';
+            }
 
             const email = getUserEmail();
 
@@ -1027,42 +1211,52 @@
                     renderFilteredGrid();
 
                     showNotification('Return Request Submitted', 'Your return request has been submitted. Please hand the keys to the administrator for verification.', 'success');
-                    step2.style.display = 'none';
-                    step3.style.display = 'block';
+                    if (step2) step2.style.display = 'none';
+                    if (step3) step3.style.display = 'block';
                 } else {
                     throw new Error(data.error || 'Return submission failed');
                 }
             } catch (err) {
                 console.error('Return submission error:', err);
                 showNotification('Return Submission Failed', err.message, 'error');
-                returnSelectionError.innerText = err.message;
-                returnSelectionError.classList.remove('hidden');
+                if (returnSelectionError) {
+                    returnSelectionError.innerText = err.message;
+                    returnSelectionError.classList.remove('hidden');
+                }
             } finally {
-                submitReturnBtn.disabled = false;
-                submitReturnBtn.innerHTML = 'Submit return request →';
+                if (submitReturnBtn) {
+                    submitReturnBtn.disabled = false;
+                    submitReturnBtn.innerHTML = 'Submit return request →';
+                }
             }
         });
     }
 
-    // ─── UPDATED initReportLost ──────────────────────────────────────────────
-    // Removed reference to fetchLostReportKeysBtn since the "Load Lost Keys"
-    // button was removed from the HTML. The modal now auto-loads keys.
-    // ───────────────────────────────────────────────────────────────────────────
+    // ============================================================
+    // FIX 3: REPORT LOST - PROPER SCOPE FOR autoLoadLostKeys
+    // ============================================================
     function initReportLost() {
         const reportLostModal = document.getElementById('reportLostModal');
         const reportLostKeysContainer = document.getElementById('reportLostKeysListContainer');
 
         function closeReportLostModal() {
-            reportLostModal.style.display = 'none';
+            if (reportLostModal) reportLostModal.style.display = 'none';
         }
 
         document.getElementById('reportLostKeyBtn')?.addEventListener('click', () => {
-            document.getElementById('returnDropdownMenu')?.classList.add('hidden');
-            document.getElementById('returnDropdownChevron').style.transform = 'rotate(0deg)';
-            reportLostModal.style.display = 'flex';
+            const menu = document.getElementById('returnDropdownMenu');
+            const chevron = document.getElementById('returnDropdownChevron');
+            if (menu) {
+                menu.classList.add('hidden');
+                menu.style.display = '';
+            }
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
             
-            // Auto-load keys when the modal opens
-            autoLoadLostKeys();
+            if (reportLostModal) reportLostModal.style.display = 'flex';
+            // Auto-load when modal opens
+            if (window.autoLoadLostKeys) {
+                window.autoLoadLostKeys();
+            }
         });
 
         document.getElementById('closeReportLostModalBtn')?.addEventListener('click', closeReportLostModal);
@@ -1070,14 +1264,19 @@
             if (e.target === reportLostModal) closeReportLostModal();
         });
 
-        async function autoLoadLostKeys() {
+        // Define autoLoadLostKeys on window so it's accessible globally
+        window.autoLoadLostKeys = async function() {
             const email = getUserEmail();
             if (!email) {
-                reportLostKeysContainer.innerHTML = `<div class="text-center py-8 text-amber-600">No email found in your profile. Please update your profile.</div>`;
+                if (reportLostKeysContainer) {
+                    reportLostKeysContainer.innerHTML = `<div class="text-center py-8 text-amber-600">No email found in your profile. Please update your profile.</div>`;
+                }
                 return;
             }
 
-            reportLostKeysContainer.innerHTML = '<div class="text-center py-8"><div class="spinner"></div> Loading your borrowed keys...</div>';
+            if (reportLostKeysContainer) {
+                reportLostKeysContainer.innerHTML = '<div class="text-center py-8"><div class="spinner"></div> Loading your borrowed keys...</div>';
+            }
 
             try {
                 const res = await authenticatedFetch(`/api/user/active-borrows?email=${encodeURIComponent(email)}`);
@@ -1085,7 +1284,9 @@
                 const borrows = await res.json();
 
                 if (!borrows.length) {
-                    reportLostKeysContainer.innerHTML = '<div class="text-center py-8 text-slate-400">You don\'t have any active borrowed keys.</div>';
+                    if (reportLostKeysContainer) {
+                        reportLostKeysContainer.innerHTML = '<div class="text-center py-8 text-slate-400">You don\'t have any active borrowed keys.</div>';
+                    }
                     return;
                 }
 
@@ -1101,26 +1302,33 @@
                         </div>
                     `;
                 }
-                reportLostKeysContainer.innerHTML = html;
+                if (reportLostKeysContainer) {
+                    reportLostKeysContainer.innerHTML = html;
+                }
 
                 document.querySelectorAll('.reportLostFromListBtn').forEach(btn => {
                     btn.addEventListener('click', () => {
                         pendingLostTransaction = { id: parseInt(btn.dataset.transactionId), code: btn.dataset.keyCode };
                         const modal = document.getElementById('confirmLostModal');
-                        document.getElementById('confirmLostMessage').innerHTML = 'Are you sure you want to report this key as lost? A Key Replacement Fee of 50 SGD will be applied to your account.';
-                        modal.style.display = 'flex';
+                        if (modal) {
+                            document.getElementById('confirmLostMessage').innerHTML = 'Are you sure you want to report this key as lost? A Key Replacement Fee of 50 SGD will be applied to your account.';
+                            modal.style.display = 'flex';
+                        }
                     });
                 });
             } catch (err) {
                 console.error('Load borrowed keys for lost report error:', err);
-                reportLostKeysContainer.innerHTML = `<div class="text-center py-8 text-rose-600">Error loading borrowed keys. Please try again.</div>`;
+                if (reportLostKeysContainer) {
+                    reportLostKeysContainer.innerHTML = `<div class="text-center py-8 text-rose-600">Error loading borrowed keys. Please try again.</div>`;
+                }
             }
-        }
+        };
     }
 
     function initLostConfirm() {
         function closeLostConfirmModal() {
-            document.getElementById('confirmLostModal').style.display = 'none';
+            const modal = document.getElementById('confirmLostModal');
+            if (modal) modal.style.display = 'none';
             pendingLostTransaction = null;
         }
 
@@ -1145,12 +1353,13 @@
                     // Refresh the report lost modal if it's open
                     const reportLostModal = document.getElementById('reportLostModal');
                     if (reportLostModal && reportLostModal.style.display === 'flex') {
-                        const email = getUserEmail();
-                        if (email) {
-                            const container = document.getElementById('reportLostKeysListContainer');
+                        const container = document.getElementById('reportLostKeysListContainer');
+                        if (container) {
                             container.innerHTML = '<div class="text-center py-8"><div class="spinner"></div> Refreshing...</div>';
                             setTimeout(() => {
-                                autoLoadLostKeys();
+                                if (window.autoLoadLostKeys) {
+                                    window.autoLoadLostKeys();
+                                }
                             }, 500);
                         }
                     }
@@ -1170,79 +1379,43 @@
         document.getElementById('confirmLostModal')?.addEventListener('click', (e) => {
             if (e.target === document.getElementById('confirmLostModal')) closeLostConfirmModal();
         });
-
-        // Helper function to reload lost keys (exposed for use in confirmLost)
-        async function autoLoadLostKeys() {
-            const email = getUserEmail();
-            if (!email) return;
-            const container = document.getElementById('reportLostKeysListContainer');
-            if (!container) return;
-
-            try {
-                const res = await authenticatedFetch(`/api/user/active-borrows?email=${encodeURIComponent(email)}`);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const borrows = await res.json();
-
-                if (!borrows.length) {
-                    container.innerHTML = '<div class="text-center py-8 text-slate-400">You don\'t have any active borrowed keys.</div>';
-                    return;
-                }
-
-                let html = '';
-                for (const b of borrows) {
-                    html += `
-                        <div class="border border-gray-200 rounded-xl p-3 flex justify-between items-center">
-                            <div>
-                                <div class="font-medium text-slate-800">${escapeHtml(b.key_code)} (${escapeHtml(b.brand)})</div>
-                                <div class="text-xs text-slate-500">Borrowed: ${formatDate(b.borrowed_at)} · Due: ${formatDate(b.planned_return)}</div>
-                            </div>
-                            <button class="reportLostFromListBtn bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1.5 rounded-full transition" data-transaction-id="${b.id}" data-key-code="${escapeHtml(b.key_code)}">Report Lost</button>
-                        </div>
-                    `;
-                }
-                container.innerHTML = html;
-
-                document.querySelectorAll('.reportLostFromListBtn').forEach(btn => {
-                    btn.addEventListener('click', () => {
-                        pendingLostTransaction = { id: parseInt(btn.dataset.transactionId), code: btn.dataset.keyCode };
-                        const modal = document.getElementById('confirmLostModal');
-                        document.getElementById('confirmLostMessage').innerHTML = 'Are you sure you want to report this key as lost? A Key Replacement Fee of 50 SGD will be applied to your account.';
-                        modal.style.display = 'flex';
-                    });
-                });
-            } catch (err) {
-                console.error('Reload lost keys error:', err);
-                container.innerHTML = `<div class="text-center py-8 text-rose-600">Error loading borrowed keys. Please try again.</div>`;
-            }
-        }
-
-        // Store reference for use in confirmLost
-        window._autoLoadLostKeys = autoLoadLostKeys;
     }
 
     function initExtensionModal() {
         document.getElementById('extensionRequestBtn')?.addEventListener('click', () => {
-            document.getElementById('returnDropdownMenu')?.classList.add('hidden');
-            document.getElementById('returnDropdownChevron').style.transform = 'rotate(0deg)';
-            document.getElementById('extensionModal').style.display = 'flex';
+            const menu = document.getElementById('returnDropdownMenu');
+            const chevron = document.getElementById('returnDropdownChevron');
+            if (menu) {
+                menu.classList.add('hidden');
+                menu.style.display = '';
+            }
+            if (chevron) chevron.style.transform = 'rotate(0deg)';
+            
+            const modal = document.getElementById('extensionModal');
+            if (modal) modal.style.display = 'flex';
             
             autoLoadExtensionLoans();
         });
 
         document.getElementById('closeExtensionModalBtn')?.addEventListener('click', () => {
-            document.getElementById('extensionModal').style.display = 'none';
+            const modal = document.getElementById('extensionModal');
+            if (modal) modal.style.display = 'none';
         });
 
         async function autoLoadExtensionLoans() {
             const email = getUserEmail();
+            const container = document.getElementById('extensionLoansContainer');
+            
             if (!email) {
-                const container = document.getElementById('extensionLoansContainer');
-                container.innerHTML = '<div class="text-center py-8 text-amber-600">No email found in your profile. Please update your profile.</div>';
+                if (container) {
+                    container.innerHTML = '<div class="text-center py-8 text-amber-600">No email found in your profile. Please update your profile.</div>';
+                }
                 return;
             }
 
-            const container = document.getElementById('extensionLoansContainer');
-            container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading your active loans...</div>';
+            if (container) {
+                container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading your active loans...</div>';
+            }
 
             try {
                 const res = await authenticatedFetch(`/api/user/active-borrows?email=${encodeURIComponent(email)}`);
@@ -1250,14 +1423,16 @@
                 const loans = await res.json();
 
                 if (!loans.length) {
-                    container.innerHTML = '<div class="text-center py-8 text-slate-400">You don\'t have any active loans.</div>';
+                    if (container) {
+                        container.innerHTML = '<div class="text-center py-8 text-slate-400">You don\'t have any active loans.</div>';
+                    }
                     return;
                 }
 
                 let html = '<div class="space-y-2">';
                 loans.forEach(loan => {
                     html += `
-                        <div class="extension-item" data-transaction-id="${loan.id}">
+                        <div class="extension-item p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-purple-50 transition" data-transaction-id="${loan.id}">
                             <div class="flex justify-between items-center">
                                 <div>
                                     <div class="font-medium text-slate-800">${escapeHtml(loan.key_code)}</div>
@@ -1269,21 +1444,33 @@
                     `;
                 });
                 html += '</div>';
-                container.innerHTML = html;
+                if (container) {
+                    container.innerHTML = html;
+                }
 
                 document.querySelectorAll('.extension-item').forEach(item => {
                     item.addEventListener('click', function() {
-                        document.querySelectorAll('.extension-item').forEach(el => el.classList.remove('selected'));
-                        this.classList.add('selected');
-                        document.getElementById('extensionSelectionArea').style.display = 'block';
-                        document.getElementById('extensionError').classList.add('hidden');
-                        document.getElementById('submitExtensionBtn').dataset.loanId = this.dataset.transactionId;
-                        document.getElementById('submitExtensionBtn').dataset.email = email;
+                        document.querySelectorAll('.extension-item').forEach(el => el.classList.remove('selected', 'border-purple-400', 'bg-purple-50'));
+                        this.classList.add('selected', 'border-purple-400', 'bg-purple-50');
+                        
+                        const selectionArea = document.getElementById('extensionSelectionArea');
+                        if (selectionArea) selectionArea.style.display = 'block';
+                        
+                        const errorDiv = document.getElementById('extensionError');
+                        if (errorDiv) errorDiv.classList.add('hidden');
+                        
+                        const submitBtn = document.getElementById('submitExtensionBtn');
+                        if (submitBtn) {
+                            submitBtn.dataset.loanId = this.dataset.transactionId;
+                            submitBtn.dataset.email = email;
+                        }
                     });
                 });
             } catch (err) {
                 console.error('Extension load error:', err);
-                container.innerHTML = '<div class="text-center py-8 text-rose-600">Error loading loans. Please try again.</div>';
+                if (container) {
+                    container.innerHTML = '<div class="text-center py-8 text-rose-600">Error loading loans. Please try again.</div>';
+                }
             }
         }
 
@@ -1294,18 +1481,22 @@
             const extensionError = document.getElementById('extensionError');
 
             if (!loanId) {
-                extensionError.textContent = 'Please select a loan to extend.';
-                extensionError.classList.remove('hidden');
+                if (extensionError) {
+                    extensionError.textContent = 'Please select a loan to extend.';
+                    extensionError.classList.remove('hidden');
+                }
                 return;
             }
 
             if (!newReturnDate) {
-                extensionError.textContent = 'Please select a new return date.';
-                extensionError.classList.remove('hidden');
+                if (extensionError) {
+                    extensionError.textContent = 'Please select a new return date.';
+                    extensionError.classList.remove('hidden');
+                }
                 return;
             }
 
-            extensionError.classList.add('hidden');
+            if (extensionError) extensionError.classList.add('hidden');
             this.disabled = true;
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Submitting...';
 
@@ -1322,14 +1513,17 @@
 
                 if (res.ok) {
                     showNotification('Extension Requested', 'Your extension request has been submitted. Awaiting admin approval.', 'success');
-                    document.getElementById('extensionModal').style.display = 'none';
+                    const modal = document.getElementById('extensionModal');
+                    if (modal) modal.style.display = 'none';
                     fetchKeys();
                 } else {
                     throw new Error(data.error || 'Extension request failed');
                 }
             } catch (err) {
-                extensionError.textContent = err.message;
-                extensionError.classList.remove('hidden');
+                if (extensionError) {
+                    extensionError.textContent = err.message;
+                    extensionError.classList.remove('hidden');
+                }
             } finally {
                 this.disabled = false;
                 this.innerHTML = 'Submit extension request';

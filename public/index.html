@@ -18,6 +18,9 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
   
   <style>
+    /* ============================================================
+       CORE STYLES
+       ============================================================ */
     .loading-container {
       display: flex;
       flex-direction: column;
@@ -50,6 +53,9 @@
       cursor: pointer;
     }
 
+    /* ============================================================
+       MOBILE MENU
+       ============================================================ */
     .mobile-menu-btn {
       display: block;
       background: none;
@@ -135,6 +141,9 @@
       margin: 4px 8px;
     }
 
+    /* ============================================================
+       TOP NAVIGATION
+       ============================================================ */
     .top-nav {
       background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
       border-bottom: 3px solid #d4a843;
@@ -189,6 +198,9 @@
       margin-left: auto;
     }
 
+    /* ============================================================
+       RESPONSIVE
+       ============================================================ */
     @media (max-width: 768px) {
       .top-nav {
         padding: 0 1rem;
@@ -221,14 +233,452 @@
         max-width: 40vw;
       }
     }
+
+    /* ============================================================
+       FIX: BORROW TOGGLE BUTTONS
+       ============================================================ */
+    .borrow-toggle-group {
+      display: flex;
+      gap: 0.5rem;
+      background: #f1f5f9;
+      padding: 0.25rem;
+      border-radius: 12px;
+    }
+
+    .borrow-toggle-btn {
+      flex: 1;
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #64748b;
+      background: transparent;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .borrow-toggle-btn:hover {
+      color: #334155;
+    }
+
+    .borrow-toggle-btn.active {
+      background: white;
+      color: #1e293b;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    /* ============================================================
+       FIX: RETURN DROPDOWN MENU
+       ============================================================ */
+    .return-dropdown-wrapper {
+      position: relative;
+    }
+
+    .return-dropdown-menu {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+      z-index: 50;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+
+    .return-dropdown-menu.hidden {
+      display: none !important;
+    }
+
+    .return-dropdown-menu:not(.hidden) {
+      display: block !important;
+    }
+
+    /* ============================================================
+       FIX: EXTENSION ITEMS - SELECTED STATE
+       ============================================================ */
+    .extension-item {
+      cursor: pointer;
+      transition: all 0.2s ease;
+      border: 2px solid transparent;
+      padding: 0.75rem;
+      border-radius: 12px;
+      background: white;
+    }
+
+    .extension-item:hover {
+      background: #faf5ff;
+      border-color: #e9d5ff;
+    }
+
+    .extension-item.selected {
+      border-color: #8B5CF6 !important;
+      background-color: #F5F3FF !important;
+    }
+
+    .extension-item.selected .text-slate-400 {
+      color: #8B5CF6 !important;
+    }
+
+    /* ============================================================
+       FIX: MODAL OVERLAY - ENSURE PROPER DISPLAY
+       ============================================================ */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(4px);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+
+    .modal-overlay.active,
+    .modal-overlay[style*="display: flex"] {
+      display: flex !important;
+    }
+
+    .modal-container {
+      background: white;
+      border-radius: 20px;
+      max-width: 560px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      animation: modalFadeIn 0.25s ease;
+    }
+
+    .modal-container.max-w-2xl {
+      max-width: 672px;
+    }
+
+    .modal-container.max-w-sm {
+      max-width: 440px;
+    }
+
+    @keyframes modalFadeIn {
+      from {
+        opacity: 0;
+        transform: scale(0.96) translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      font-size: 1.8rem;
+      line-height: 1;
+      color: #94a3b8;
+      cursor: pointer;
+      transition: color 0.2s ease;
+      padding: 0 0.25rem;
+    }
+
+    .close-btn:hover {
+      color: #475569;
+    }
+
+    /* ============================================================
+       FIX: TOAST NOTIFICATIONS
+       ============================================================ */
+    #toastRoot {
+      position: fixed;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100000;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.5rem;
+      pointer-events: none;
+      max-width: 90vw;
+    }
+
+    .toast-notification {
+      pointer-events: auto;
+      padding: 0.75rem 1.5rem;
+      border-radius: 12px;
+      color: white;
+      font-size: 0.9rem;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+      animation: toastSlideUp 0.3s ease;
+      max-width: 100%;
+      text-align: center;
+    }
+
+    @keyframes toastSlideUp {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+
+    /* ============================================================
+       FIX: PROFILE MODAL STYLES
+       ============================================================ */
+    .profile-error {
+      display: none;
+      background: #fee2e2;
+      color: #dc2626;
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    .profile-success {
+      display: none;
+      background: #dcfce7;
+      color: #16a34a;
+      padding: 0.75rem 1rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    .profile-field {
+      margin-bottom: 1rem;
+    }
+
+    .profile-field label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: #1e293b;
+      margin-bottom: 0.25rem;
+    }
+
+    .profile-field input {
+      width: 100%;
+      padding: 0.6rem 0.75rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      transition: border-color 0.2s ease;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .profile-field input:focus {
+      outline: none;
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+    }
+
+    .profile-field .hint {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-top: 0.25rem;
+    }
+
+    .profile-actions {
+      display: flex;
+      gap: 0.75rem;
+      justify-content: flex-end;
+      margin-top: 1.5rem;
+    }
+
+    .profile-actions .btn-secondary {
+      padding: 0.5rem 1.5rem;
+      border: none;
+      background: #f1f5f9;
+      color: #475569;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .profile-actions .btn-secondary:hover {
+      background: #e2e8f0;
+    }
+
+    .profile-actions .btn-primary {
+      padding: 0.5rem 1.5rem;
+      border: none;
+      background: #3b82f6;
+      color: white;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .profile-actions .btn-primary:hover {
+      background: #2563eb;
+    }
+
+    .profile-actions .btn-primary:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    /* ============================================================
+       FIX: KEY CARD BORROW BUTTON
+       ============================================================ */
+    .borrow-btn {
+      margin-top: 0.5rem;
+      padding: 0.25rem 0.75rem;
+      border: none;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: #1e293b;
+      background: rgba(255,255,255,0.85);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: 'Inter', sans-serif;
+      letter-spacing: 0.02em;
+    }
+
+    .borrow-btn:hover {
+      background: white;
+      transform: scale(1.04);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+    }
+
+    /* ============================================================
+       FIX: KEY STATUS BADGE
+       ============================================================ */
+    .key-status {
+      display: inline-block;
+      padding: 0.15rem 0.6rem;
+      border-radius: 20px;
+      font-size: 0.6rem;
+      font-weight: 600;
+      color: white;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      margin-top: 0.3rem;
+    }
+
+    /* ============================================================
+       FIX: FILTER PILLS ACTIVE STATE
+       ============================================================ */
+    .filter-pill.active {
+      background: #1e293b !important;
+      color: white !important;
+      border-color: #1e293b !important;
+    }
+
+    .brand-pill.active {
+      background: #1e293b !important;
+      color: white !important;
+      border-color: #1e293b !important;
+    }
+
+    /* ============================================================
+       FIX: BASKET SIDEBAR HIDE
+       ============================================================ */
+    .hide-basket {
+      display: none !important;
+    }
+
+    /* ============================================================
+       FIX: SPINNER
+       ============================================================ */
+    .spinner {
+      display: inline-block;
+      width: 1.2rem;
+      height: 1.2rem;
+      border: 2px solid #e2e8f0;
+      border-radius: 50%;
+      border-top-color: #3b82f6;
+      animation: spin 0.6s linear infinite;
+    }
+
+    /* ============================================================
+       FIX: NOTIFICATION ICON COLORS
+       ============================================================ */
+    .notification-icon.success {
+      color: #22c55e;
+    }
+
+    .notification-icon.warning {
+      color: #f59e0b;
+    }
+
+    .notification-icon.error {
+      color: #ef4444;
+    }
+
+    .notification-icon.info {
+      color: #3b82f6;
+    }
+
+    /* ============================================================
+       FIX: SHIMMER LOADING
+       ============================================================ */
+    .shimmer {
+      background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+    }
+
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+
+    /* ============================================================
+       FIX: CUSTOM SCROLL
+       ============================================================ */
+    .custom-scroll::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .custom-scroll::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* ============================================================
+       FIX: FILTER HIDDEN
+       ============================================================ */
+    .filter-hidden {
+      display: none !important;
+    }
   </style>
 </head>
 <body>
+  <!-- LOADING -->
   <div id="loadingContainer" class="loading-container">
     <div class="spinner-large"></div>
     <p>Loading dashboard...</p>
   </div>
 
+  <!-- ACCESS DENIED -->
   <div id="accessDenied" class="access-denied" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:2rem;background:#F0F4F8;">
     <i class="fas fa-lock" style="font-size:4rem;color:#DC2626;margin-bottom:1rem;"></i>
     <h1 style="color:#1E2A3E;font-family:'Inter',sans-serif;font-size:2rem;margin-bottom:0.5rem;">Access Denied</h1>
@@ -236,6 +686,7 @@
     <button class="btn-back" onclick="window.location.href='/login'" style="margin-top:1.5rem;padding:0.75rem 2rem;background:#1E2A3E;color:white;border:none;border-radius:8px;font-size:1rem;cursor:pointer;font-family:'Inter',sans-serif;transition:background 0.2s;">Return to Login</button>
   </div>
 
+  <!-- MAIN CONTENT -->
   <div id="mainContentWrapper" class="main-content-wrapper">
     <div class="dashboard-container">
       <nav class="top-nav">
@@ -271,6 +722,7 @@
 
     <main class="main-content">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- KEYS GRID -->
         <div class="lg:col-span-2">
           <div class="flex flex-col md:flex-row gap-4 mb-6">
             <div class="flex flex-col sm:flex-row gap-3 flex-1">
@@ -305,6 +757,7 @@
           <div id="emptySearchState" class="hidden text-center py-8 text-slate-400">No keys match your search.</div>
         </div>
 
+        <!-- BASKET SIDEBAR -->
         <aside id="basketSidebar" class="basket-sidebar bg-white rounded-2xl border border-slate-200/80 shadow-md sticky top-24 h-fit overflow-visible custom-scroll transition-all duration-200">
           <div class="p-4 border-b border-slate-100 flex justify-between items-center">
             <div class="flex items-center gap-2">
@@ -326,6 +779,7 @@
             <p class="text-[10px] text-slate-400 text-center mt-2">Approval required · email confirmation</p>
           </div>
 
+          <!-- RETURN DROPDOWN -->
           <div class="px-4 pb-3 return-dropdown-wrapper">
             <div class="relative" id="returnDropdownContainer">
               <button id="returnDropdownBtn" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2">
@@ -374,11 +828,14 @@
       </div>
     </main>
 
+    <!-- ============================================================
+    REQUEST MODAL
+    ============================================================ -->
     <div id="requestModal" class="modal-overlay">
       <div class="modal-container">
         <div class="p-5 border-b border-slate-100 flex justify-between items-center">
           <h3 class="text-lg font-semibold text-slate-800">Submit key request</h3>
-          <button id="closeModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
+          <button id="closeModalBtn" class="close-btn">&times;</button>
         </div>
         <div class="p-5">
           <div class="mb-4 p-3 bg-slate-50 rounded-xl text-sm text-slate-600">
@@ -386,6 +843,7 @@
             <div id="modalSelectedKeysList" class="mt-1 text-slate-500"></div>
           </div>
 
+          <!-- FIX: Borrow Toggle Buttons -->
           <div class="mb-4">
             <label class="block text-sm font-medium text-slate-700 mb-1.5">Borrow date <span class="text-rose-500">*</span></label>
             <div class="borrow-toggle-group" id="borrowToggleGroup">
@@ -431,14 +889,17 @@
       </div>
     </div>
 
+    <!-- ============================================================
+    RETURN MODAL
+    ============================================================ -->
     <div id="returnModal" class="modal-overlay">
       <div class="modal-container">
         <div class="p-5 border-b border-slate-100 flex justify-between items-center">
           <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2"><span class="text-purple-600">↩️</span> Return Keys</h3>
-          <button id="closeReturnModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
+          <button id="closeReturnModalBtn" class="close-btn">&times;</button>
         </div>
         <div id="returnStep1" class="p-5">
-          <p class="text-sm text-slate-600 mb-3">Your active loans will be fetched automatically.</p>
+          <p class="text-sm text-slate-600 mb-3">Click the button below to load your active loans.</p>
           <button id="fetchLoansByEmailBtn" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 rounded-full transition shadow-sm">Load my active loans →</button>
         </div>
         <div id="returnStep2" style="display:none">
@@ -463,7 +924,9 @@
       </div>
     </div>
 
-    <!-- ─── REPORT LOST KEY MODAL (UPDATED - Removed Load Button) ─── -->
+    <!-- ============================================================
+    REPORT LOST KEY MODAL
+    ============================================================ -->
     <div id="reportLostModal" class="modal-overlay">
       <div class="modal-container max-w-2xl">
         <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -481,6 +944,9 @@
       </div>
     </div>
 
+    <!-- ============================================================
+    CONFIRM LOST MODAL
+    ============================================================ -->
     <div id="confirmLostModal" class="modal-overlay">
       <div class="modal-container max-w-sm">
         <div class="p-5 text-center">
@@ -497,6 +963,9 @@
       </div>
     </div>
 
+    <!-- ============================================================
+    EXTENSION MODAL
+    ============================================================ -->
     <div id="extensionModal" class="modal-overlay">
       <div class="modal-container max-w-2xl">
         <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50">
@@ -506,7 +975,7 @@
             </h3>
             <p class="text-xs text-slate-500 mt-0.5">Select an active loan and set a new return date.</p>
           </div>
-          <button id="closeExtensionModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
+          <button id="closeExtensionModalBtn" class="close-btn">&times;</button>
         </div>
         <div class="p-5">
           <div id="extensionLoansContainer" class="max-h-64 overflow-y-auto custom-scroll space-y-2 mb-4">
@@ -525,6 +994,9 @@
       </div>
     </div>
 
+    <!-- ============================================================
+    NOTIFICATION MODAL
+    ============================================================ -->
     <div id="notificationModal" class="modal-overlay">
       <div class="modal-container max-w-sm">
         <div class="p-6 text-center">
@@ -538,13 +1010,16 @@
       </div>
     </div>
 
+    <!-- ============================================================
+    PROFILE MODAL
+    ============================================================ -->
     <div id="profileModal" class="modal-overlay">
       <div class="modal-container">
         <div class="p-5 border-b border-slate-100 flex justify-between items-center">
           <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
             <i class="fas fa-user-circle text-blue-600"></i> My Profile
           </h3>
-          <button id="closeProfileModalBtn" class="text-slate-400 hover:text-slate-600 transition text-2xl leading-none">&times;</button>
+          <button id="closeProfileModalBtn" class="close-btn">&times;</button>
         </div>
         <div class="p-5">
           <div id="profileError" class="profile-error"></div>
@@ -575,8 +1050,10 @@
       </div>
     </div>
 
+    <!-- TOAST ROOT -->
     <div id="toastRoot"></div>
 
+    <!-- FOOTER -->
     <footer class="bg-white border-t border-slate-200 py-4 mt-8">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="text-center text-xs text-slate-500 flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4">
@@ -587,6 +1064,8 @@
       </div>
     </footer>
   </div>
+
+  <!-- SCRIPTS -->
   <script src="/js/force-logout.js?v=d48646c8860ce954"></script>
   <script src="/js/index.js?v=d48646c8860ce954"></script>
 </body>

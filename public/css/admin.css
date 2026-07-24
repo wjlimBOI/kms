@@ -423,6 +423,7 @@ body {
     padding: 1rem 1.25rem;
 }
 
+/* ─── FIX: Pagination Bar Layout ─── */
 .pagination-bar {
     display: flex;
     flex-wrap: wrap;
@@ -439,17 +440,21 @@ body {
     align-items: center;
     gap: 0.75rem;
     flex-wrap: wrap;
+    flex: 1 1 auto;
+    min-width: 0;
 }
 
 .pagination-info {
     font-size: 0.8rem;
     color: var(--text-muted);
     font-weight: 500;
+    white-space: nowrap;
 }
 
 .pagination-buttons {
     display: flex;
     gap: 0.5rem;
+    flex-shrink: 0;
 }
 
 .rows-per-page-select {
@@ -1967,6 +1972,7 @@ textarea:focus-visible {
     }
 }
 
+/* ─── FIX: Mobile Pagination Layout ─── */
 @media (max-width: 640px) {
     .bento-grid { 
         grid-template-columns: 1fr; 
@@ -2061,8 +2067,48 @@ textarea:focus-visible {
     .audit-table tbody td {
         padding: 0.4rem 0.5rem;
     }
+
+    /* ─── FIX: Pagination on mobile ─── */
+    .pagination-bar {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+    }
+    
+    .pagination-left {
+        flex: 1 1 auto;
+        min-width: 0;
+        gap: 0.5rem;
+    }
+    
+    .pagination-buttons {
+        flex-shrink: 0;
+        margin-left: auto;
+    }
+    
+    .pagination-info {
+        font-size: 0.7rem;
+        white-space: nowrap;
+    }
+    
+    .rows-per-page-select {
+        font-size: 0.65rem;
+        min-width: 45px;
+        padding: 0.15rem 0.35rem;
+        min-height: 1.5rem;
+    }
+    
+    .pagination-buttons .btn-sm {
+        font-size: 0.6rem;
+        padding: 0.15rem 0.5rem;
+        min-height: 1.5rem;
+        min-width: 50px;
+    }
 }
 
+/* ─── FIX: Very small screens ─── */
 @media (max-width: 480px) {
     .brand-text .brand-badge { display: none; }
     .brand-text .brand-name {
@@ -2103,6 +2149,28 @@ textarea:focus-visible {
         font-size: 1.2rem;
         padding: 4px 8px;
     }
+
+    /* ─── FIX: Pagination on very small screens ─── */
+    .pagination-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+    
+    .pagination-left {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+    
+    .pagination-buttons {
+        justify-content: center;
+        margin-left: 0;
+    }
+    
+    .pagination-info {
+        font-size: 0.65rem;
+        text-align: center;
+    }
 }
 
 @media (max-width: 360px) {
@@ -2114,6 +2182,20 @@ textarea:focus-visible {
     .dashboard-container { padding: 0 0.75rem; }
     .bento-card .card-header,
     .transaction-card .card-header { padding: 0.625rem 0.875rem; }
+
+    .rows-per-page-select {
+        font-size: 0.6rem;
+        min-width: 40px;
+        padding: 0.1rem 0.25rem;
+        min-height: 1.3rem;
+    }
+    
+    .pagination-buttons .btn-sm {
+        font-size: 0.55rem;
+        padding: 0.1rem 0.4rem;
+        min-height: 1.3rem;
+        min-width: 40px;
+    }
 }
 
 @media (min-width: 640px) {

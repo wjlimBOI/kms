@@ -28,6 +28,9 @@
         }
     };
 
+    // ─── FIX: Added audit search debounce timer ───
+    var auditSearchTimeout = null;
+
     function redirectToLogin() {
         if (isRedirecting) return;
         isRedirecting = true;
@@ -678,6 +681,14 @@
     async function loadAuditLogs(page, limit) {
         page = page || auditLogState.page;
         limit = limit || auditLogState.limit;
+        
+        if (typeof limit === 'string') {
+            limit = parseInt(limit, 10);
+        }
+        if (isNaN(limit) || limit < 1) {
+            limit = 25;
+        }
+        
         auditLogState.page = page;
         auditLogState.limit = limit;
 
@@ -750,10 +761,10 @@
             }
 
             if (prevBtn) {
-                prevBtn.disabled = auditLogState.page <= 1;
+                prevBtn.disabled = auditLogState.page <= 1 || total === 0;
             }
             if (nextBtn) {
-                nextBtn.disabled = auditLogState.page >= totalPages;
+                nextBtn.disabled = auditLogState.page >= totalPages || total === 0;
             }
 
             if (logs.length === 0) {
@@ -878,13 +889,23 @@
 
         if (refreshBtn) {
             refreshBtn.addEventListener('click', function() {
-                loadAuditLogs();
+                var originalHtml = this.innerHTML;
+                this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                this.disabled = true;
+                
+                loadAuditLogs().finally(function() {
+                    refreshBtn.innerHTML = originalHtml;
+                    refreshBtn.disabled = false;
+                });
             });
         }
 
         if (rowsPerPage) {
             rowsPerPage.addEventListener('change', function() {
-                var newLimit = parseInt(this.value);
+                var newLimit = parseInt(this.value, 10);
+                if (isNaN(newLimit) || newLimit < 1) {
+                    newLimit = 25;
+                }
                 auditLogState.limit = newLimit;
                 auditLogState.page = 1;
                 loadAuditLogs();
@@ -911,8 +932,22 @@
         }
 
         document.querySelectorAll('#auditFilterAction, #auditFilterUser, #auditFilterTarget, #auditFilterFrom, #auditFilterTo').forEach(function(input) {
+            input.addEventListener('input', function() {
+                if (auditSearchTimeout) {
+                    clearTimeout(auditSearchTimeout);
+                }
+                auditSearchTimeout = setTimeout(function() {
+                    if (searchBtn) {
+                        searchBtn.click();
+                    }
+                }, 500);
+            });
+            
             input.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter' && searchBtn) {
+                    if (auditSearchTimeout) {
+                        clearTimeout(auditSearchTimeout);
+                    }
                     searchBtn.click();
                 }
             });
@@ -3888,7 +3923,14 @@
 
         document.getElementById('refreshAdminRecipientsBtn') && document.getElementById('refreshAdminRecipientsBtn').addEventListener('click', loadAdminRecipients);
         document.getElementById('refreshAuditLogBtn') && document.getElementById('refreshAuditLogBtn').addEventListener('click', function() {
-            loadAuditLogs();
+            var originalHtml = this.innerHTML;
+            this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            this.disabled = true;
+            
+            loadAuditLogs().finally(function() {
+                refreshAuditLogBtn.innerHTML = originalHtml;
+                refreshAuditLogBtn.disabled = false;
+            });
         });
 
         document.getElementById('addRoleBtn') && document.getElementById('addRoleBtn').addEventListener('click', function() {

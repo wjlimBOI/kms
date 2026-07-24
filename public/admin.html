@@ -706,7 +706,8 @@
                 <div class="top-nav-inner">
                     <div class="brand">
                         <div class="brand-text">
-                            <a href="/" style="color:#ffffff;text-decoration:none;">
+                            <!-- FIX: Added id="brandHomeLink" for JS navigation -->
+                            <a href="/" id="brandHomeLink" style="color:#ffffff;text-decoration:none;">
                                 <span class="brand-name">Key Management System</span>
                                 <span class="brand-badge">ADMIN</span>
                             </a>
@@ -768,7 +769,8 @@
                     <div class="bento-card" id="lostKeysCard">
                         <div class="card-header">
                             <h3><i class="fas fa-exclamation-triangle"></i> Lost Keys</h3>
-                            <span class="badge-count" style="background:#fee2e2;color:#dc2626;">Fee applies</span>
+                            <!-- FIX: Removed inline style - using CSS class instead -->
+                            <span class="badge-count badge-danger">Fee applies</span>
                         </div>
                         <div class="card-body"><div id="lostKeysCount" class="big-number rose">0</div><div class="label">Key replacement fees apply</div></div>
                     </div>
@@ -811,6 +813,7 @@
                                 <tbody id="transactionsTableBody"><tr><td colspan="10" class="text-center py-8 text-slate-400"><div class="skeleton h-8 w-full"></div></td></tr></tbody>
                             </table>
                         </div>
+                        <!-- FIX: Pagination bar with proper classes -->
                         <div class="pagination-bar">
                             <div class="pagination-left">
                                 <span class="pagination-info" id="transactionsPaginationInfo">Showing 0 of 0 transactions</span>
@@ -998,7 +1001,8 @@
                             <h3><i class="fas fa-shield-alt"></i> Audit Log Integrity</h3>
                             <button id="refreshAuditBtn" class="btn btn-refresh btn-sm"><i class="fas fa-sync-alt"></i> Refresh</button>
                         </div>
-                        <div class="card-body" style="text-align:left;">
+                        <!-- FIX: Removed inline style, using CSS class -->
+                        <div class="card-body audit-status-body">
                             <div id="auditStatusText" class="text-sm font-medium">Checking...</div>
                             <div id="auditLastCheck" class="text-xs text-slate-500 mt-1">Last check: --</div>
                         </div>
@@ -1039,7 +1043,8 @@
                             <div class="audit-actions">
                                 <button id="auditSearchBtn" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
                                 <button id="auditResetBtn" class="btn btn-secondary"><i class="fas fa-times"></i> Reset</button>
-                                <span style="margin-left:auto;font-size:0.8rem;color:#64748b;" id="auditTotalCount">Total: 0 entries</span>
+                                <!-- FIX: Removed inline styles, using CSS class -->
+                                <span class="audit-total-count" id="auditTotalCount">Total: 0 entries</span>
                             </div>
 
                             <div class="audit-table-wrap" style="margin-top:1rem;">
@@ -1070,7 +1075,8 @@
                                         <option value="100">100 per page</option>
                                     </select>
                                     <button id="auditPrevPageBtn" disabled><i class="fas fa-chevron-left"></i> Prev</button>
-                                    <span id="auditPageInfo" style="font-size:0.8rem;color:#64748b;padding:0 0.5rem;">Page 1</span>
+                                    <!-- FIX: Removed inline styles, using CSS class -->
+                                    <span class="audit-page-info" id="auditPageInfo">Page 1</span>
                                     <button id="auditNextPageBtn">Next <i class="fas fa-chevron-right"></i></button>
                                 </div>
                             </div>

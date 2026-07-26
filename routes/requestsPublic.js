@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { sendRequestSubmittedEmail, sendAdminNewRequestAlert } = require('../services/emailService'); // ADDED
+const { sendRequestSubmittedEmail, sendAdminNewRequestAlert } = require('../services/emailService');
 
 router.post('/submit', async (req, res) => {
     const { requester_name, requester_email, items, reason, intended_draw_date, planned_return } = req.body;
@@ -16,7 +16,6 @@ router.post('/submit', async (req, res) => {
     try {
         await client.query('BEGIN');
 
-        // Check each key for an existing pending request
         for (const item of items) {
             const pendingCheck = await client.query(
                 `SELECT 1 FROM key_requests WHERE status = 'pending' AND EXISTS (
@@ -39,10 +38,7 @@ router.post('/submit', async (req, res) => {
 
         await client.query('COMMIT');
 
-        // Send email to requester
         await sendRequestSubmittedEmail(requester_email, requester_name, items, planned_return);
-
-        // Send admin alert
         await sendAdminNewRequestAlert(process.env.ADMIN_EMAIL, {
             id: newRequestId,
             requester_name,

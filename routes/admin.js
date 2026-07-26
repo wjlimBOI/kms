@@ -1,5 +1,5 @@
 const router = require('express').Router();
-const { requireAuth, authorize, requirePermission } = require('../middleware/auth');
+const { requireAuth, authorize, requirePermission, blockIfReadOnly } = require('../middleware/auth');
 const { 
     sendRequestApprovedEmail,
     sendManualWelcomeEmail,
@@ -21,24 +21,6 @@ async function setAuditContext(req) {
     }
 }
 
-const requireReadOnly = async (req, res, next) => {
-    try {
-        const result = await req.db.query(
-            `SELECT 1 FROM role_permissions rp
-             JOIN permissions p ON p.permission_id = rp.permission_id
-             WHERE rp.role_name = $1 AND p.permission_code = 'view_all'`,
-            [req.user.role]
-        );
-        if (result.rowCount > 0) {
-            req.isReadOnly = true;
-        }
-        next();
-    } catch (err) {
-        console.error('[admin] requireReadOnly error:', err);
-        next();
-    }
-};
-
 async function sendAdminNotification(db, subject, message) {
     try {
         const result = await db.query(`
@@ -58,7 +40,7 @@ async function sendAdminNotification(db, subject, message) {
     }
 }
 
-router.get('/transactions', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
+router.get('/transactions', requireAuth, authorize('admin'), async (req, res) => {
     await setAuditContext(req);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     
@@ -165,10 +147,7 @@ router.get('/transactions', requireAuth, authorize('admin'), requireReadOnly, as
     }
 });
 
-router.post('/force-return', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/force-return', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     await setAuditContext(req);
     const { transaction_id } = req.body;
     if (!transaction_id) return res.status(400).json({ error: 'transaction_id required' });
@@ -208,7 +187,7 @@ router.post('/force-return', requireAuth, authorize('admin'), async (req, res) =
     }
 });
 
-router.get('/requests/pending', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
+router.get('/requests/pending', requireAuth, authorize('admin'), async (req, res) => {
     await setAuditContext(req);
     const db = req.db;
     try {
@@ -247,10 +226,7 @@ router.get('/requests/pending', requireAuth, authorize('admin'), requireReadOnly
     }
 });
 
-router.post('/requests/approve', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/requests/approve', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     await setAuditContext(req);
     const { request_id, admin_notes } = req.body;
     if (!request_id) return res.status(400).json({ error: 'request_id required' });
@@ -320,10 +296,7 @@ router.post('/requests/approve', requireAuth, authorize('admin'), async (req, re
     }
 });
 
-router.post('/requests/deny', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/requests/deny', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     await setAuditContext(req);
     const { request_id, admin_notes } = req.body;
     if (!request_id) return res.status(400).json({ error: 'request_id required' });
@@ -366,7 +339,7 @@ router.post('/requests/deny', requireAuth, authorize('admin'), async (req, res) 
     }
 });
 
-router.get('/audit-health', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
+router.get('/audit-health', requireAuth, authorize('admin'), async (req, res) => {
     try {
         const result = await req.db.query(
             `SELECT status, message, checked_at, duration_ms FROM audit_health ORDER BY checked_at DESC LIMIT 1`
@@ -379,7 +352,7 @@ router.get('/audit-health', requireAuth, authorize('admin'), requireReadOnly, as
     }
 });
 
-router.get('/lost-keys', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
+router.get('/lost-keys', requireAuth, authorize('admin'), async (req, res) => {
     try {
         const result = await req.db.query(`
             SELECT 
@@ -408,7 +381,7 @@ router.get('/lost-keys', requireAuth, authorize('admin'), requireReadOnly, async
     }
 });
 
-router.get('/lost-keys/:id', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
+router.get('/lost-keys/:id', requireAuth, authorize('admin'), async (req, res) => {
     const { id } = req.params;
     try {
         const result = await req.db.query(`
@@ -467,10 +440,7 @@ router.get('/lost-keys/:id', requireAuth, authorize('admin'), requireReadOnly, a
     }
 });
 
-router.post('/lost-keys/:id/update', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/lost-keys/:id/update', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { id } = req.params;
     const { reason, lost_at, status } = req.body;
     
@@ -540,10 +510,7 @@ router.post('/lost-keys/:id/update', requireAuth, authorize('admin'), async (req
     }
 });
 
-router.post('/lost-keys/:id/close', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/lost-keys/:id/close', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { id } = req.params;
     const { resolution_notes } = req.body;
     
@@ -588,11 +555,7 @@ router.post('/lost-keys/:id/close', requireAuth, authorize('admin'), async (req,
     }
 });
 
-// ===== NEW: Make lost key available =====
-router.post('/lost-keys/:id/make-available', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/lost-keys/:id/make-available', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { id } = req.params;
     const { notes } = req.body;
     
@@ -707,10 +670,7 @@ router.post('/lost-keys/:id/make-available', requireAuth, authorize('admin'), as
     }
 });
 
-router.post('/fines/:fineId/:action', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/fines/:fineId/:action', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { fineId, action } = req.params;
     if (!['paid', 'waived'].includes(action)) {
         return res.status(400).json({ error: 'Invalid action. Use "paid" or "waived".' });
@@ -757,10 +717,7 @@ router.post('/fines/:fineId/:action', requireAuth, authorize('admin'), async (re
     }
 });
 
-router.post('/keys/:keyId/unavailable', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/keys/:keyId/unavailable', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const keyId = parseInt(req.params.keyId);
     if (isNaN(keyId)) return res.status(400).json({ error: 'Invalid key ID' });
     
@@ -807,10 +764,7 @@ router.post('/keys/:keyId/unavailable', requireAuth, authorize('admin'), async (
     }
 });
 
-router.post('/keys/:keyId/available', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/keys/:keyId/available', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const keyId = parseInt(req.params.keyId);
     if (isNaN(keyId)) return res.status(400).json({ error: 'Invalid key ID' });
     
@@ -857,10 +811,7 @@ router.post('/keys/:keyId/available', requireAuth, authorize('admin'), async (re
     }
 });
 
-router.post('/lost-keys/:transactionId/create-fine', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/lost-keys/:transactionId/create-fine', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const transactionId = parseInt(req.params.transactionId);
     if (isNaN(transactionId)) return res.status(400).json({ error: 'Invalid transaction ID' });
     
@@ -912,7 +863,7 @@ router.post('/lost-keys/:transactionId/create-fine', requireAuth, authorize('adm
     }
 });
 
-router.get('/keys', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
+router.get('/keys', requireAuth, authorize('admin'), async (req, res) => {
     try {
         const result = await req.db.query(`
             SELECT 
@@ -953,7 +904,7 @@ router.get('/keys', requireAuth, authorize('admin'), requireReadOnly, async (req
     }
 });
 
-router.get('/keys/:id', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
+router.get('/keys/:id', requireAuth, authorize('admin'), async (req, res) => {
     const { id } = req.params;
     try {
         const result = await req.db.query(`
@@ -993,10 +944,7 @@ router.get('/keys/:id', requireAuth, authorize('admin'), requireReadOnly, async 
     }
 });
 
-router.post('/keys', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/keys', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { code, brand, sets = [], status = 'available' } = req.body;
     if (!code || !brand) return res.status(400).json({ error: 'Code and brand are required' });
     if (!['available', 'lost', 'unavailable'].includes(status)) {
@@ -1068,10 +1016,7 @@ router.post('/keys', requireAuth, authorize('admin'), async (req, res) => {
     }
 });
 
-router.put('/keys/:id', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.put('/keys/:id', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { id } = req.params;
     const { code, brand, sets = [], status } = req.body;
     if (!code || !brand) return res.status(400).json({ error: 'Code and brand are required' });
@@ -1159,10 +1104,7 @@ router.put('/keys/:id', requireAuth, authorize('admin'), async (req, res) => {
     }
 });
 
-router.delete('/keys/:id', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.delete('/keys/:id', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { id } = req.params;
     const client = await req.db.connect();
     try {
@@ -1198,7 +1140,7 @@ router.delete('/keys/:id', requireAuth, authorize('admin'), async (req, res) => 
     }
 });
 
-router.get('/users', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
+router.get('/users', requireAuth, authorize('admin'), async (req, res) => {
     const { search, role, status, page = 1, limit = 10 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
     const params = [];
@@ -1251,10 +1193,7 @@ router.get('/users', requireAuth, authorize('admin'), requireReadOnly, async (re
     }
 });
 
-router.post('/users', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/users', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { name, email, role, status } = req.body;
     if (!name || !email || !role) {
         return res.status(400).json({ error: 'Name, email, and role are required' });
@@ -1307,10 +1246,7 @@ router.post('/users', requireAuth, authorize('admin'), async (req, res) => {
     }
 });
 
-router.put('/users/:id', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.put('/users/:id', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { id } = req.params;
     const { name, email, role, status } = req.body;
     if (!name || !email || !role) {
@@ -1362,10 +1298,7 @@ router.put('/users/:id', requireAuth, authorize('admin'), async (req, res) => {
     }
 });
 
-router.delete('/users/:id', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.delete('/users/:id', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { id } = req.params;
     const userId = req.user?.userId || req.session?.userId;
     if (parseInt(id) === parseInt(userId)) {
@@ -1406,10 +1339,7 @@ router.delete('/users/:id', requireAuth, authorize('admin'), async (req, res) =>
     }
 });
 
-router.patch('/users/:id/suspend', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.patch('/users/:id/suspend', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { id } = req.params;
     
     const db = req.db;
@@ -1452,10 +1382,7 @@ router.patch('/users/:id/suspend', requireAuth, authorize('admin'), async (req, 
     }
 });
 
-router.post('/users/:id/unlock', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/users/:id/unlock', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { id } = req.params;
     
     const db = req.db;
@@ -1501,11 +1428,7 @@ router.post('/users/:id/unlock', requireAuth, authorize('admin'), async (req, re
     }
 });
 
-router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
-    
+router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { userId } = req.params;
     const db = req.db;
     
@@ -1552,11 +1475,7 @@ router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), asyn
     }
 });
 
-router.post('/users/:userId/reset-password', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
-    
+router.post('/users/:userId/reset-password', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { userId } = req.params;
     const db = req.db;
     
@@ -1587,7 +1506,7 @@ router.post('/users/:userId/reset-password', requireAuth, authorize('admin'), as
     }
 });
 
-router.get('/permissions/roles', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
+router.get('/permissions/roles', requireAuth, authorize('admin'), async (req, res) => {
     try {
         const result = await req.db.query(`
             SELECT rp.role_name, array_agg(rp.permission_id) AS permission_ids
@@ -1605,10 +1524,7 @@ router.get('/permissions/roles', requireAuth, authorize('admin'), requireReadOnl
     }
 });
 
-router.post('/permissions/roles', requireAuth, authorize('admin'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/permissions/roles', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { role_name, permission_ids } = req.body;
     if (!role_name || !Array.isArray(permission_ids)) {
         return res.status(400).json({ error: 'role_name and permission_ids array required' });
@@ -1634,7 +1550,7 @@ router.post('/permissions/roles', requireAuth, authorize('admin'), async (req, r
     }
 });
 
-router.get('/permissions', requireAuth, authorize('admin'), requireReadOnly, async (req, res) => {
+router.get('/permissions', requireAuth, authorize('admin'), async (req, res) => {
     try {
         const result = await req.db.query(
             `SELECT permission_id, permission_code, permission_name FROM permissions ORDER BY permission_code`
@@ -1677,10 +1593,7 @@ router.get('/admin-notification-recipients/available', requireAuth, requirePermi
     }
 });
 
-router.post('/admin-notification-recipients', requireAuth, requirePermission('manage_notification_settings'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/admin-notification-recipients', requireAuth, requirePermission('manage_notification_settings'), blockIfReadOnly, async (req, res) => {
     const { user_id, enabled = true } = req.body;
     if (!user_id) return res.status(400).json({ error: 'user_id required' });
     try {
@@ -1698,10 +1611,7 @@ router.post('/admin-notification-recipients', requireAuth, requirePermission('ma
     }
 });
 
-router.delete('/admin-notification-recipients/:userId', requireAuth, requirePermission('manage_notification_settings'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.delete('/admin-notification-recipients/:userId', requireAuth, requirePermission('manage_notification_settings'), blockIfReadOnly, async (req, res) => {
     const { userId } = req.params;
     try {
         const result = await req.db.query('DELETE FROM admin_notification_recipients WHERE user_id = $1 RETURNING user_id', [userId]);
@@ -1713,7 +1623,7 @@ router.delete('/admin-notification-recipients/:userId', requireAuth, requirePerm
     }
 });
 
-router.get('/email/templates', requireAuth, requirePermission('manage_email_templates'), requireReadOnly, async (req, res) => {
+router.get('/email/templates', requireAuth, requirePermission('manage_email_templates'), async (req, res) => {
     try {
         const result = await req.db.query(
             `SELECT template_key, subject, body_html, is_active, created_at, updated_at
@@ -1727,10 +1637,7 @@ router.get('/email/templates', requireAuth, requirePermission('manage_email_temp
     }
 });
 
-router.post('/email/templates', requireAuth, requirePermission('manage_email_templates'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.post('/email/templates', requireAuth, requirePermission('manage_email_templates'), blockIfReadOnly, async (req, res) => {
     const { subject, body_html, is_active = true } = req.body;
     if (!subject || !body_html) {
         return res.status(400).json({ error: 'Subject and body are required' });
@@ -1754,10 +1661,7 @@ router.post('/email/templates', requireAuth, requirePermission('manage_email_tem
     }
 });
 
-router.put('/email/templates/:key', requireAuth, requirePermission('manage_email_templates'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.put('/email/templates/:key', requireAuth, requirePermission('manage_email_templates'), blockIfReadOnly, async (req, res) => {
     const { key } = req.params;
     const { subject, body_html, is_active } = req.body;
     if (!subject || !body_html) {
@@ -1779,10 +1683,7 @@ router.put('/email/templates/:key', requireAuth, requirePermission('manage_email
     }
 });
 
-router.delete('/email/templates/:key', requireAuth, requirePermission('manage_email_templates'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.delete('/email/templates/:key', requireAuth, requirePermission('manage_email_templates'), blockIfReadOnly, async (req, res) => {
     const { key } = req.params;
     try {
         const result = await req.db.query('DELETE FROM email_templates WHERE template_key = $1 RETURNING template_key', [key]);
@@ -1794,7 +1695,7 @@ router.delete('/email/templates/:key', requireAuth, requirePermission('manage_em
     }
 });
 
-router.get('/email/settings', requireAuth, requirePermission('manage_notification_settings'), requireReadOnly, async (req, res) => {
+router.get('/email/settings', requireAuth, requirePermission('manage_notification_settings'), async (req, res) => {
     try {
         const result = await req.db.query(
             `SELECT setting_key, enabled, config FROM notification_settings ORDER BY setting_key`
@@ -1806,10 +1707,7 @@ router.get('/email/settings', requireAuth, requirePermission('manage_notificatio
     }
 });
 
-router.put('/email/settings/:key', requireAuth, requirePermission('manage_notification_settings'), async (req, res) => {
-    if (req.isReadOnly) {
-        return res.status(403).json({ error: 'Read-only access. You cannot perform this action.' });
-    }
+router.put('/email/settings/:key', requireAuth, requirePermission('manage_notification_settings'), blockIfReadOnly, async (req, res) => {
     const { key } = req.params;
     const { enabled, config } = req.body;
     try {

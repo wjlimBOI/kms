@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const bcrypt = require('bcrypt');
-const { requireAuth, authorize } = require('../middleware/auth');
+const { requireAuth, authorize, blockIfReadOnly } = require('../middleware/auth');
 const { logInsert, logUpdate, logDelete } = require('../lib/audit');
 const validate = require('../middleware/validate');
 const { userSchema } = require('../lib/validationSchemas');
@@ -103,7 +103,7 @@ router.get('/', requireAuth, authorize('admin'), async (req, res) => {
   }
 });
 
-router.post('/', requireAuth, authorize('admin'), validate(userSchema), async (req, res) => {
+router.post('/', requireAuth, authorize('admin'), blockIfReadOnly, validate(userSchema), async (req, res) => {
   try {
     const { name, email, role, status } = req.body;
 
@@ -145,7 +145,7 @@ router.post('/', requireAuth, authorize('admin'), validate(userSchema), async (r
 });
 
 const updateUserSchema = userSchema.partial();
-router.put('/:id', requireAuth, authorize('admin'), validate(updateUserSchema), async (req, res) => {
+router.put('/:id', requireAuth, authorize('admin'), blockIfReadOnly, validate(updateUserSchema), async (req, res) => {
   try {
     const { id } = req.params;
     const { name, email, role, status } = req.body;
@@ -210,7 +210,7 @@ router.put('/:id', requireAuth, authorize('admin'), validate(updateUserSchema), 
   }
 });
 
-router.delete('/:id', requireAuth, authorize('admin'), async (req, res) => {
+router.delete('/:id', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -249,7 +249,7 @@ router.delete('/:id', requireAuth, authorize('admin'), async (req, res) => {
   }
 });
 
-router.patch('/:id/suspend', requireAuth, authorize('admin'), async (req, res) => {
+router.patch('/:id/suspend', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
   try {
     const { id } = req.params;
     if (parseInt(id) === req.user.id) {

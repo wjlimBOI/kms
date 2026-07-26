@@ -1,6 +1,6 @@
 const router = require('express').Router();
 const bcrypt = require('bcrypt');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, authorize, blockIfReadOnly } = require('../middleware/auth');
 const { logAuthEvent, logUpdate } = require('../lib/audit');
 const logger = require('../lib/logger');
 const { validatePasswordComplexity } = require('../lib/passwordValidator');

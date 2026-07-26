@@ -1,10 +1,10 @@
 const router = require('express').Router();
+const { requireAuth, authorize, blockIfReadOnly } = require('../middleware/auth');
 const { sendRequestSubmittedEmail, sendRequestApprovedEmail, sendAdminNewRequestAlert } = require('../services/emailService');
 const { logInsert, logUpdate } = require('../lib/audit');
 const validate = require('../middleware/validate');
 const { requestSchema } = require('../lib/validationSchemas');
 
-// Helper to check pending requests for keys
 async function hasPendingForKeys(db, items, excludeRequestId = null) {
   for (const item of items) {
     let query = `SELECT 1 FROM key_requests WHERE status = 'pending' AND items::jsonb @> jsonb_build_array(jsonb_build_object('key_id', $1))`;
@@ -19,7 +19,6 @@ async function hasPendingForKeys(db, items, excludeRequestId = null) {
   return false;
 }
 
-// Submit request – now accepts borrow_datetime
 router.post('/submit', validate(requestSchema), async (req, res) => {
   const { requester_name, requester_email, items, reason, planned_return, borrow_datetime, borrow_type } = req.body;
   const db = req.db;
@@ -66,7 +65,6 @@ router.post('/submit', validate(requestSchema), async (req, res) => {
   }
 });
 
-// Get last approved request (unchanged)
 router.get('/last-request', async (req, res) => {
   const { email } = req.query;
   if (!email) return res.status(400).json({ error: 'Email required' });
@@ -88,7 +86,6 @@ router.get('/last-request', async (req, res) => {
   }
 });
 
-// Pending requests (admin) – unchanged
 router.get('/pending', async (req, res) => {
   const db = req.db;
   try {
@@ -112,8 +109,7 @@ router.get('/pending', async (req, res) => {
   }
 });
 
-// Approve request (admin) – unchanged
-router.post('/approve', async (req, res) => {
+router.post('/approve', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
   const { request_id, admin_notes } = req.body;
   const db = req.db;
   const client = await db.connect();
@@ -135,7 +131,7 @@ router.post('/approve', async (req, res) => {
       return res.status(400).json({ error: 'Request has no items' });
     }
 
-    const adminEmail = req.session.userEmail || 'admin@kms.com';
+    const adminEmail = req.session.userEmail || req.user?.email || 'admin@kms.com';
     const oldRequestData = { ...request };
     const insertedTransactions = [];
 
@@ -192,8 +188,7 @@ router.post('/approve', async (req, res) => {
   }
 });
 
-// Deny request (admin) – unchanged
-router.post('/deny', async (req, res) => {
+router.post('/deny', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
   const { request_id, admin_notes } = req.body;
   const db = req.db;
   try {
@@ -227,8 +222,7 @@ router.post('/deny', async (req, res) => {
   }
 });
 
-// ========== NEW: Extension Request ==========
-router.post('/extend', async (req, res) => {
+router.post('/extend', requireAuth, async (req, res) => {
   const { transaction_id, new_return_date, borrower_email } = req.body;
   if (!transaction_id || !new_return_date || !borrower_email) {
     return res.status(400).json({ error: 'transaction_id, new_return_date, and borrower_email are required' });
@@ -239,7 +233,6 @@ router.post('/extend', async (req, res) => {
   try {
     await client.query('BEGIN');
 
-    // Fetch the transaction and verify it belongs to this email and is still borrowed
     const txResult = await client.query(
       `SELECT * FROM transactions WHERE id = $1 AND receiver_email = $2 AND status = 'borrowed'`,
       [transaction_id, borrower_email]
@@ -250,7 +243,6 @@ router.post('/extend', async (req, res) => {
     }
     const oldTx = txResult.rows[0];
 
-    // Ensure new date is after the current planned_return (or at least not earlier)
     const currentReturn = new Date(oldTx.planned_return);
     const newDate = new Date(new_return_date);
     if (newDate <= currentReturn) {
@@ -258,14 +250,12 @@ router.post('/extend', async (req, res) => {
       return res.status(400).json({ error: 'New return date must be later than the current planned return date' });
     }
 
-    // Update the transaction's planned_return
     const updateResult = await client.query(
       `UPDATE transactions SET planned_return = $1 WHERE id = $2 RETURNING *`,
       [new_return_date, transaction_id]
     );
     const newTx = updateResult.rows[0];
 
-    // Audit log for extension
     await logInsert({
       targetType: 'transactions',
       targetId: transaction_id,

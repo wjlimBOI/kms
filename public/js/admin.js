@@ -13,7 +13,6 @@
     var refreshInterval = null;
     var isPageVisible = true;
 
-    // ─── AUDIT LOG PAGINATION STATE ───
     var auditLogState = {
         page: 1,
         limit: 25,
@@ -28,7 +27,6 @@
         }
     };
 
-    // ─── FIX: Added audit search debounce timer ───
     var auditSearchTimeout = null;
 
     function redirectToLogin() {
@@ -676,8 +674,6 @@
     var currentRequestId = null;
     var searchTimeout = null;
 
-    // ─── AUDIT LOG FUNCTIONS ───
-
     async function loadAuditLogs(page, limit) {
         page = page || auditLogState.page;
         limit = limit || auditLogState.limit;
@@ -980,8 +976,6 @@
             showAlertModal(err.message || 'Failed to load audit health status.', 'error');
         }
     }
-
-    // ─── END AUDIT LOG FUNCTIONS ───
 
     async function loadTransactions() {
         var giver = document.getElementById('filterGiver') ? document.getElementById('filterGiver').value.trim() : '';

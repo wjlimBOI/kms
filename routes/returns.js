@@ -1,21 +1,19 @@
 const router = require('express').Router();
 const crypto = require('crypto');
+const { requireAuth, authorize, blockIfReadOnly } = require('../middleware/auth');
 const { sendConfirmationEmail } = require('../services/emailService');
 
-// ======================== SELF-SERVICE RETURN WORKFLOW ========================
-
-// GET active loans for a user (by email or name)
 router.get('/active-loans', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
     res.setHeader('Pragma', 'no-cache');
     res.setHeader('Expires', '0');
 
     const { borrower_email, borrower_name } = req.query;
-    
+
     if (!borrower_email && !borrower_name) {
         return res.status(400).json({ error: 'Either borrower_email or borrower_name query param is required' });
     }
-    
+
     const db = req.db;
     try {
         let result;
@@ -45,7 +43,6 @@ router.get('/active-loans', async (req, res) => {
     }
 });
 
-// Submit a return request (user) – uses return_requests table
 router.post('/request', async (req, res) => {
     const { borrower_name, borrower_email, loan_ids } = req.body;
     const identifier = borrower_name || borrower_email;
@@ -92,13 +89,12 @@ router.post('/request', async (req, res) => {
     }
 });
 
-// Get pending return requests (for admin) – unchanged
-router.get('/pending', async (req, res) => {
+router.get('/pending', requireAuth, authorize('admin'), async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     const db = req.db;
     try {
         const result = await db.query(`
-            SELECT rr.id, rr.requester_name, rr.requester_email, 
+            SELECT rr.id, rr.requester_name, rr.requester_email,
                    string_agg(rr.key_code, ', ') AS key_list,
                    rr.created_at
             FROM return_requests rr
@@ -113,8 +109,7 @@ router.get('/pending', async (req, res) => {
     }
 });
 
-// Admin verifies physical return – unchanged
-router.post('/verify', async (req, res) => {
+router.post('/verify', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { return_request_id } = req.body;
     if (!return_request_id) {
         return res.status(400).json({ error: 'return_request_id required' });
@@ -156,7 +151,6 @@ router.post('/verify', async (req, res) => {
     }
 });
 
-// Token-based return page (unchanged)
 router.get('/:token', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
     const { token } = req.params;

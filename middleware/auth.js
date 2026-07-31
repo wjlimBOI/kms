@@ -168,6 +168,37 @@ function isAuthenticated(req) {
     return !!(req.user || req.session?.userId);
 }
 
+async function blockIfReadOnly(req, res, next) {
+    try {
+        if (!req.user || !req.user.role) {
+            return next();
+        }
+
+        const db = req.db;
+        if (!db) {
+            console.error('[blockIfReadOnly] Database connection not available');
+            return next();
+        }
+
+        const result = await db.query(
+            `SELECT 1 FROM role_permissions rp
+             JOIN permissions p ON p.permission_id = rp.permission_id
+             WHERE rp.role_name = $1 AND p.permission_code = 'view_all'`,
+            [req.user.role]
+        );
+        
+        if (result.rowCount > 0) {
+            return res.status(403).json({ 
+                error: 'Read-only access. You cannot perform this action.' 
+            });
+        }
+        next();
+    } catch (error) {
+        console.error('[blockIfReadOnly] Error checking read-only status:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
 async function requireAuth(req, res, next) {
     if (isPublicPath(req.path)) {
         return next();
@@ -180,7 +211,8 @@ async function requireAuth(req, res, next) {
             role: req.session.role || 'user',
             username: req.session.username,
             email: req.session.username,
-            name: req.session.name || req.session.username
+            name: req.session.name || req.session.username,
+            permissions: req.session.permissions || []
         };
         req.userId = req.session.userId;
         return next();
@@ -198,6 +230,7 @@ async function requireAuth(req, res, next) {
                 req.session.username = decoded.username || decoded.email;
                 req.session.role = decoded.role || 'user';
                 req.session.name = decoded.name || decoded.username || decoded.email;
+                req.session.permissions = decoded.permissions || [];
             }
             
             return next();
@@ -251,7 +284,8 @@ function optionalAuth(req, res, next) {
             role: req.session.role || 'user',
             username: req.session.username,
             email: req.session.username,
-            name: req.session.name || req.session.username
+            name: req.session.name || req.session.username,
+            permissions: req.session.permissions || []
         };
         req.userId = req.session.userId;
         return next();
@@ -446,6 +480,7 @@ function loginSuccess(req, res, user, additionalData = {}) {
         req.session.username = user.username || user.email;
         req.session.role = user.role || 'user';
         req.session.name = user.name || user.username || user.email;
+        req.session.permissions = user.permissions || [];
     }
     
     logAuthEvent({
@@ -493,6 +528,7 @@ module.exports = {
     optionalAuth,
     authorize,
     requirePermission,
+    blockIfReadOnly,
     refreshTokenIfNeeded,
     isPublicPath,
     getTokenFromRequest,

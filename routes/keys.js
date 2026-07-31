@@ -1,6 +1,12 @@
 const router = require('express').Router();
 const { requireAuth, authorize, getUpdatedBy, blockIfReadOnly } = require('../middleware/auth');
 
+// Add a fallback if blockIfReadOnly is undefined
+const readOnlyMiddleware = blockIfReadOnly || ((req, res, next) => {
+    console.warn('blockIfReadOnly middleware not available - skipping');
+    next();
+});
+
 async function isKeyBorrowed(db, keyId) {
     const result = await db.query(
         `SELECT EXISTS (
@@ -165,7 +171,8 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-router.post('/', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
+// Use readOnlyMiddleware (which has a fallback)
+router.post('/', requireAuth, authorize('admin'), readOnlyMiddleware, async (req, res) => {
     const db = req.db;
     const { code, brand, colour, description, owner, sets, date_owned, remarks, status } = req.body;
 
@@ -198,7 +205,7 @@ router.post('/', requireAuth, authorize('admin'), blockIfReadOnly, async (req, r
     }
 });
 
-router.put('/:id', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
+router.put('/:id', requireAuth, authorize('admin'), readOnlyMiddleware, async (req, res) => {
     const db = req.db;
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: 'Invalid key ID' });
@@ -259,7 +266,7 @@ router.put('/:id', requireAuth, authorize('admin'), blockIfReadOnly, async (req,
     }
 });
 
-router.delete('/:id', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
+router.delete('/:id', requireAuth, authorize('admin'), readOnlyMiddleware, async (req, res) => {
     const db = req.db;
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: 'Invalid key ID' });
@@ -310,7 +317,7 @@ router.delete('/:id', requireAuth, authorize('admin'), blockIfReadOnly, async (r
     }
 });
 
-router.post('/:id/unavailable', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
+router.post('/:id/unavailable', requireAuth, authorize('admin'), readOnlyMiddleware, async (req, res) => {
     const db = req.db;
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: 'Invalid key ID' });
@@ -351,7 +358,7 @@ router.post('/:id/unavailable', requireAuth, authorize('admin'), blockIfReadOnly
     }
 });
 
-router.post('/:id/available', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
+router.post('/:id/available', requireAuth, authorize('admin'), readOnlyMiddleware, async (req, res) => {
     const db = req.db;
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: 'Invalid key ID' });
@@ -392,7 +399,7 @@ router.post('/:id/available', requireAuth, authorize('admin'), blockIfReadOnly, 
     }
 });
 
-router.post('/:id/status', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
+router.post('/:id/status', requireAuth, authorize('admin'), readOnlyMiddleware, async (req, res) => {
     const db = req.db;
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: 'Invalid key ID' });
@@ -438,7 +445,7 @@ router.post('/:id/status', requireAuth, authorize('admin'), blockIfReadOnly, asy
     }
 });
 
-router.post('/:id/borrow', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
+router.post('/:id/borrow', requireAuth, authorize('admin'), readOnlyMiddleware, async (req, res) => {
     const db = req.db;
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: 'Invalid key ID' });

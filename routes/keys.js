@@ -33,7 +33,6 @@ async function hasTransactionHistory(db, keyId) {
     return result.rows[0]?.has_history || false;
 }
 
-// GET routes - NO blockIfReadOnly (read-only operations)
 router.get('/', async (req, res) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     const db = req.db;
@@ -74,7 +73,7 @@ router.get('/', async (req, res) => {
                     LIMIT 1
                 ) AS borrower_name,
                 (
-                    SELECT borrower_email 
+                    SELECT receiver_email 
                     FROM transactions t
                     WHERE t.key_id = k.id AND t.status = 'borrowed'
                     ORDER BY t.borrowed_at DESC 
@@ -139,7 +138,7 @@ router.get('/:id', async (req, res) => {
                     LIMIT 1
                 ) AS borrower_name,
                 (
-                    SELECT borrower_email 
+                    SELECT receiver_email 
                     FROM transactions t
                     WHERE t.key_id = k.id AND t.status = 'borrowed'
                     ORDER BY t.borrowed_at DESC 
@@ -166,7 +165,6 @@ router.get('/:id', async (req, res) => {
     }
 });
 
-// WRITE routes - WITH blockIfReadOnly
 router.post('/', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const db = req.db;
     const { code, brand, colour, description, owner, sets, date_owned, remarks, status } = req.body;
@@ -475,7 +473,7 @@ router.post('/:id/borrow', requireAuth, authorize('admin'), blockIfReadOnly, asy
 
         const result = await db.query(
             `INSERT INTO transactions 
-                (key_id, borrower_email, receiver_signature_name, planned_return, status, borrowed_at)
+                (key_id, receiver_email, receiver_signature_name, planned_return, status, borrowed_at)
              VALUES ($1, $2, $3, $4, 'borrowed', NOW())
              RETURNING *`,
             [id, borrower_email, borrower_name, planned_return || null]

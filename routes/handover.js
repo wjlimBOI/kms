@@ -1,17 +1,11 @@
-// routes/handover.js
 const router = require('express').Router();
 const { validateSession, verifiedSessions } = require('./auth');
 const { sendConfirmationEmail } = require('../services/emailService');
 const { logInsert } = require('../lib/audit');
 
-/**
- * Format a UTC ISO timestamp to a human‑readable string in Singapore time (UTC+8)
- * Example: "15 Jul 2026, 14:30:45"
- */
 function formatSingaporeDateTime(isoUtcString) {
     if (!isoUtcString) return '—';
     const date = new Date(isoUtcString);
-    // Singapore is UTC+8
     const singaporeTime = new Date(date.getTime() + 8 * 60 * 60 * 1000);
     const options = {
         year: 'numeric',
@@ -26,10 +20,6 @@ function formatSingaporeDateTime(isoUtcString) {
     return singaporeTime.toLocaleString('en-SG', options);
 }
 
-/**
- * POST /api/handover/complete
- * Complete a handover (borrow or return) between two verified sessions.
- */
 router.post('/complete', async (req, res) => {
     const {
         giver_token,
@@ -42,7 +32,6 @@ router.post('/complete', async (req, res) => {
         reason
     } = req.body;
 
-    // Validate both tokens and retrieve emails
     const giverEmail = validateSession(giver_token, res);
     const receiverEmail = validateSession(receiver_token, res);
     if (!giverEmail || !receiverEmail) return;
@@ -134,12 +123,11 @@ router.post('/complete', async (req, res) => {
             insertedIds.push(newTrans.id);
             insertedRows.push(newTrans);
 
-            // Audit log for each inserted transaction
             await logInsert({
                 targetType: 'transactions',
                 targetId: newTrans.id,
                 newData: newTrans,
-                userId: null, // handover uses OTP, no persistent user ID
+                userId: null,
                 userEmail: giverEmail,
                 req,
                 extraDetails: {
@@ -152,7 +140,6 @@ router.post('/complete', async (req, res) => {
 
         await client.query('COMMIT');
 
-        // Build a human‑readable list of keys for the email notification
         const keyDetails = await Promise.all(
             items.map(async (item) => {
                 const { rows } = await db.query(
@@ -165,7 +152,6 @@ router.post('/complete', async (req, res) => {
         );
         const keyList = keyDetails.join(', ');
 
-        // Prepare email content
         let subject, body;
         const nowFormatted = formatSingaporeDateTime(new Date().toISOString());
 
@@ -184,7 +170,6 @@ router.post('/complete', async (req, res) => {
                 <p>Please keep this email for your records.</p>
             `;
         } else {
-            // return action
             subject = `[BOI KMS] Key Return Handover Confirmation – ${nowFormatted}`;
             body = `
                 <p>This is to confirm a key return handover.</p>
@@ -198,13 +183,11 @@ router.post('/complete', async (req, res) => {
             `;
         }
 
-        // Send confirmation emails to both parties
         await Promise.all([
             sendConfirmationEmail(giverEmail, subject, body, null),
             sendConfirmationEmail(receiverEmail, subject, body, null)
         ]);
 
-        // Invalidate the OTP sessions
         verifiedSessions.delete(giver_token);
         verifiedSessions.delete(receiver_token);
 

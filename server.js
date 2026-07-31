@@ -254,21 +254,22 @@ app.use((req, res, next) => {
     next();
 });
 
-// ===== CSRF MIDDLEWARE - WITH EXCLUSIONS FOR TOKEN-BASED ENDPOINTS =====
 app.use('/api', (req, res, next) => {
-    // Skip CSRF for token-based return process endpoint (magic link flow)
-    // The token itself provides the authentication
-    if (req.path === '/return/process') {
+    // Exclude token-based endpoints from CSRF protection
+    // These endpoints use their own token authentication (magic links, OTP)
+    const csrfExcludedPaths = [
+        '/return/process',      // Magic link self-service return
+        '/handover/complete'    // OTP-based handover
+    ];
+    
+    if (csrfExcludedPaths.some(path => req.path === path)) {
         return next();
     }
-    // Skip CSRF for handover endpoint (uses OTP tokens)
-    if (req.path === '/handover/complete') {
-        return next();
-    }
-    // Skip CSRF for GET, HEAD, OPTIONS
+    
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
         return next();
     }
+    
     csrfProtection(req, res, next);
 });
 
@@ -297,19 +298,14 @@ if (IS_DEVELOPMENT) {
     });
 }
 
-// ===== API ROUTES - ORDER MATTERS! Mount specific routes FIRST =====
-
-// Public routes (no auth required)
 app.use('/api/auth', authRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/handover', handoverRoutes);
 
-// Protected routes - mount specific paths BEFORE generic admin routes
 app.use('/api/admin/users', requireAuth, adminUsersRoutes);
 app.use('/api/admin/email', requireAuth, emailSettingsRoutes);
 app.use('/api/admin', requireAuth, adminRoutes);
 
-// Other protected routes
 app.use('/api/keys', keysRoutes);
 app.use('/api/requests', requestsRoutes);
 app.use('/api/requests/public', requestsPublic);

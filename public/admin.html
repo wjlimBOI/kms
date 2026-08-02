@@ -2,23 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="0" />
-    <meta name="build-hash" content="d48646c8860ce954" />
-    <meta name="build-version" content="1.0.0" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="csrf-token" content="" />
     <title>BOI KMS | Admin Portal</title>
-    
-    <link rel="stylesheet" href="/css/style.css?v=d48646c8860ce954" />
-    <link rel="stylesheet" href="/css/admin.css?v=d48646c8860ce954" />
-    
+
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/admin.css" />
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    
+
     <style>
-        /* ─── LOADING ─── */
         .loading-container {
             display: flex;
             flex-direction: column;
@@ -44,16 +38,12 @@
             font-family: 'Inter', sans-serif;
             font-size: 0.95rem;
         }
-
-        /* ─── ADMIN CONTENT WRAPPER ─── */
         .admin-content-wrapper {
             display: none;
             flex: 1 0 auto;
             flex-direction: column;
             min-height: 100dvh;
         }
-
-        /* ─── ACCESS DENIED ─── */
         .access-denied {
             display: none;
             flex-direction: column;
@@ -95,8 +85,6 @@
         .access-denied .btn-back:hover {
             background: #0F1A2E;
         }
-
-        /* ─── STATUS BADGE ─── */
         .status-badge {
             padding: 0.15rem 0.6rem;
             border-radius: 40px;
@@ -129,8 +117,6 @@
             background: #FEF3C7;
             color: #92400E;
         }
-
-        /* ─── ACTION BUTTONS ─── */
         .action-btn-group {
             display: flex;
             gap: 4px;
@@ -167,8 +153,6 @@
         .btn-make-available i {
             font-size: 0.6rem;
         }
-
-        /* ─── TOAST ─── */
         #toastRoot {
             position: fixed;
             bottom: 24px;
@@ -201,7 +185,6 @@
         .toast-error { background: #EF4444; }
         .toast-warning { background: #F59E0B; }
         .toast-info { background: #1E293B; }
-        
         .toast-icon {
             font-size: 1.2rem;
             font-weight: 600;
@@ -217,32 +200,26 @@
         .toast-close:hover {
             color: white;
         }
-        
         @keyframes slideUp {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
-
-        /* ─── AUDIT TABLE ─── */
         .audit-table-wrap {
             width: 100%;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
         }
-
         .audit-table {
             width: 100%;
             min-width: 600px;
             border-collapse: collapse;
             font-size: 0.85rem;
         }
-
         .audit-table thead {
             position: sticky;
             top: 0;
             z-index: 10;
         }
-
         .audit-table thead th {
             background: #f1f5f9;
             padding: 0.6rem 0.75rem;
@@ -252,7 +229,6 @@
             border-bottom: 2px solid #e2e8f0;
             white-space: nowrap;
         }
-
         .audit-table tbody td {
             padding: 0.5rem 0.75rem;
             border-bottom: 1px solid #f1f5f9;
@@ -262,47 +238,38 @@
             text-overflow: ellipsis;
             white-space: nowrap;
         }
-
         .audit-table tbody tr {
             cursor: pointer;
             transition: background 0.15s;
         }
-
         .audit-table tbody tr:hover {
             background: #f8fafc;
         }
-
         .audit-table .action-cell {
             font-weight: 500;
             color: #0f172a;
         }
-
         .audit-table .target-cell {
             color: #475569;
         }
-
         .audit-table .user-cell {
             color: #334155;
         }
-
         .audit-table .time-cell {
             color: #64748b;
             font-size: 0.8rem;
         }
-
         .audit-filters {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
             gap: 0.75rem;
             margin-bottom: 1rem;
         }
-
         .audit-filters .filter-group {
             display: flex;
             flex-direction: column;
             gap: 0.25rem;
         }
-
         .audit-filters label {
             font-size: 0.7rem;
             font-weight: 600;
@@ -310,7 +277,6 @@
             letter-spacing: 0.05em;
             color: #64748b;
         }
-
         .audit-filters input,
         .audit-filters select {
             padding: 0.4rem 0.6rem;
@@ -321,13 +287,11 @@
             transition: border-color 0.15s;
             width: 100%;
         }
-
         .audit-filters input:focus,
         .audit-filters select:focus {
             outline: none;
             border-color: #1e293b;
         }
-
         .audit-actions {
             display: flex;
             gap: 0.5rem;
@@ -335,7 +299,6 @@
             flex-wrap: wrap;
             margin-top: 0.5rem;
         }
-
         .audit-actions .btn {
             padding: 0.4rem 1rem;
             font-size: 0.8rem;
@@ -348,26 +311,21 @@
             align-items: center;
             gap: 0.4rem;
         }
-
         .audit-actions .btn-primary {
             background: #1e293b;
             color: white;
             border-color: #1e293b;
         }
-
         .audit-actions .btn-primary:hover {
             background: #0f172a;
         }
-
         .audit-actions .btn-secondary {
             background: white;
             color: #475569;
         }
-
         .audit-actions .btn-secondary:hover {
             background: #f1f5f9;
         }
-
         .audit-pagination {
             display: flex;
             flex-wrap: wrap;
@@ -378,18 +336,15 @@
             border-top: 1px solid #e2e8f0;
             margin-top: 1rem;
         }
-
         .audit-pagination .pagination-info {
             font-size: 0.8rem;
             color: #64748b;
         }
-
         .audit-pagination .pagination-controls {
             display: flex;
             gap: 0.5rem;
             align-items: center;
         }
-
         .audit-pagination .pagination-controls select {
             padding: 0.3rem 0.5rem;
             border: 1.5px solid #e2e8f0;
@@ -397,7 +352,6 @@
             font-size: 0.8rem;
             font-family: inherit;
         }
-
         .audit-pagination .pagination-controls button {
             padding: 0.3rem 0.8rem;
             border: 1.5px solid #e2e8f0;
@@ -407,41 +361,34 @@
             font-size: 0.8rem;
             transition: all 0.15s;
         }
-
         .audit-pagination .pagination-controls button:hover:not(:disabled) {
             background: #f1f5f9;
         }
-
         .audit-pagination .pagination-controls button:disabled {
             opacity: 0.4;
             cursor: not-allowed;
         }
-
         .audit-detail-content {
             max-height: 60vh;
             overflow-y: auto;
         }
-
         .audit-detail-content .detail-row {
             display: flex;
             padding: 0.5rem 0;
             border-bottom: 1px solid #f1f5f9;
         }
-
         .audit-detail-content .detail-label {
             font-weight: 600;
             min-width: 100px;
             color: #475569;
             font-size: 0.85rem;
         }
-
         .audit-detail-content .detail-value {
             flex: 1;
             color: #0f172a;
             font-size: 0.85rem;
             word-break: break-word;
         }
-
         .audit-detail-content .detail-value pre {
             background: #f1f5f9;
             padding: 0.5rem;
@@ -453,8 +400,6 @@
             white-space: pre-wrap;
             word-break: break-all;
         }
-
-        /* ─── FOOTER ─── */
         .app-footer {
             background: #1e293b;
             border-top: 3px solid #d4a843;
@@ -465,7 +410,6 @@
             position: relative;
             bottom: 0;
         }
-
         .app-footer-inner {
             max-width: 1440px;
             margin: 0 auto;
@@ -477,7 +421,6 @@
             font-size: 0.8rem;
             color: #ffffff;
         }
-
         .app-footer-inner a {
             color: #ffffff;
             text-decoration: underline;
@@ -485,17 +428,13 @@
             text-underline-offset: 2px;
             transition: color 0.15s;
         }
-
         .app-footer-inner a:hover {
             color: #d4a843;
             text-decoration-color: #d4a843;
         }
-
         .footer-divider {
             color: rgba(255,255,255,0.3);
         }
-
-        /* ─── RESPONSIVE ─── */
         @media (max-width: 768px) {
             .audit-filters {
                 grid-template-columns: 1fr 1fr;
@@ -516,7 +455,6 @@
                 display: none;
             }
         }
-
         @media (max-width: 480px) {
             .audit-filters {
                 grid-template-columns: 1fr;
@@ -530,7 +468,6 @@
                 padding: 0.4rem 0.5rem;
             }
         }
-
         @media (min-width: 640px) {
             .app-footer-inner {
                 flex-direction: row;
@@ -541,8 +478,6 @@
                 display: inline;
             }
         }
-
-        /* ─── GLOBAL FIX: Remove all black outlines and borders ─── */
         *:focus,
         *:focus-visible,
         *:focus-within {
@@ -550,7 +485,6 @@
             outline-color: transparent !important;
             outline-offset: 0 !important;
         }
-
         button,
         [role="button"],
         input[type="button"],
@@ -578,7 +512,6 @@
             outline-offset: 0 !important;
             border-color: transparent !important;
         }
-
         #clearBasketBtn,
         .remove-btn,
         .basket-item .remove-btn,
@@ -589,13 +522,11 @@
             outline: none !important;
             box-shadow: none !important;
         }
-
         *:focus-visible:not(.no-focus-ring) {
             outline: none !important;
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
             border-radius: 4px;
         }
-
         .close-btn:focus-visible,
         .modal-container .close-btn:focus-visible,
         #clearBasketBtn:focus-visible,
@@ -605,14 +536,12 @@
             box-shadow: none !important;
             border: none !important;
         }
-
         #clearBasketBtn {
             background: transparent !important;
             border: none !important;
             outline: none !important;
             box-shadow: none !important;
         }
-
         #clearBasketBtn:focus,
         #clearBasketBtn:focus-visible,
         #clearBasketBtn:active {
@@ -620,20 +549,17 @@
             box-shadow: none !important;
             border: none !important;
         }
-
         #returnDropdownBtn:focus,
         #returnDropdownBtn:focus-visible {
             outline: none !important;
             box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.3) !important;
         }
-
         .remove-item:focus,
         .remove-item:focus-visible {
             outline: none !important;
             box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
             border: none !important;
         }
-
         input:focus,
         input:focus-visible,
         select:focus,
@@ -644,7 +570,6 @@
             box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15) !important;
             border-color: #3B82F6 !important;
         }
-
         .modal-container .close-btn {
             background: none !important;
             border: none !important;
@@ -655,18 +580,15 @@
             cursor: pointer !important;
             transition: color 0.15s !important;
         }
-
         .modal-container .close-btn:hover {
             color: #0f172a !important;
         }
-
         .modal-container .close-btn:focus,
         .modal-container .close-btn:focus-visible {
             outline: none !important;
             box-shadow: none !important;
             border: none !important;
         }
-
         .btn,
         .btn-sm,
         .btn-primary,
@@ -675,7 +597,6 @@
             border: none !important;
             outline: none !important;
         }
-
         .btn:focus,
         .btn:focus-visible,
         .btn-sm:focus,
@@ -706,7 +627,6 @@
                 <div class="top-nav-inner">
                     <div class="brand">
                         <div class="brand-text">
-                            <!-- FIX: Added id="brandHomeLink" for JS navigation -->
                             <a href="/" id="brandHomeLink" style="color:#ffffff;text-decoration:none;">
                                 <span class="brand-name">Key Management System</span>
                                 <span class="brand-badge">ADMIN</span>
@@ -769,7 +689,6 @@
                     <div class="bento-card" id="lostKeysCard">
                         <div class="card-header">
                             <h3><i class="fas fa-exclamation-triangle"></i> Lost Keys</h3>
-                            <!-- FIX: Removed inline style - using CSS class instead -->
                             <span class="badge-count badge-danger">Fee applies</span>
                         </div>
                         <div class="card-body"><div id="lostKeysCount" class="big-number rose">0</div><div class="label">Key replacement fees apply</div></div>
@@ -813,7 +732,6 @@
                                 <tbody id="transactionsTableBody"><tr><td colspan="10" class="text-center py-8 text-slate-400"><div class="skeleton h-8 w-full"></div></td></tr></tbody>
                             </table>
                         </div>
-                        <!-- FIX: Pagination bar with proper classes -->
                         <div class="pagination-bar">
                             <div class="pagination-left">
                                 <span class="pagination-info" id="transactionsPaginationInfo">Showing 0 of 0 transactions</span>
@@ -1001,7 +919,6 @@
                             <h3><i class="fas fa-shield-alt"></i> Audit Log Integrity</h3>
                             <button id="refreshAuditBtn" class="btn btn-refresh btn-sm"><i class="fas fa-sync-alt"></i> Refresh</button>
                         </div>
-                        <!-- FIX: Removed inline style, using CSS class -->
                         <div class="card-body audit-status-body">
                             <div id="auditStatusText" class="text-sm font-medium">Checking...</div>
                             <div id="auditLastCheck" class="text-xs text-slate-500 mt-1">Last check: --</div>
@@ -1039,11 +956,10 @@
                                     <input type="date" id="auditFilterTo" />
                                 </div>
                             </div>
-                            
+
                             <div class="audit-actions">
                                 <button id="auditSearchBtn" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
                                 <button id="auditResetBtn" class="btn btn-secondary"><i class="fas fa-times"></i> Reset</button>
-                                <!-- FIX: Removed inline styles, using CSS class -->
                                 <span class="audit-total-count" id="auditTotalCount">Total: 0 entries</span>
                             </div>
 
@@ -1075,7 +991,6 @@
                                         <option value="100">100 per page</option>
                                     </select>
                                     <button id="auditPrevPageBtn" disabled><i class="fas fa-chevron-left"></i> Prev</button>
-                                    <!-- FIX: Removed inline styles, using CSS class -->
                                     <span class="audit-page-info" id="auditPageInfo">Page 1</span>
                                     <button id="auditNextPageBtn">Next <i class="fas fa-chevron-right"></i></button>
                                 </div>
@@ -1136,7 +1051,7 @@
             </div>
         </div>
 
-        <!-- ─── MODALS ─── -->
+        <!-- MODALS -->
         <div id="detailModal" class="modal-overlay">
             <div class="modal-container">
                 <div class="modal-header"><h3 id="detailModalTitle">Details</h3><button id="closeDetailModalBtn" class="close-btn">&times;</button></div>
@@ -1317,7 +1232,6 @@
             </div>
         </div>
 
-        <!-- ─── REPORT LOST KEY MODAL ─── -->
         <div id="reportLostModal" class="modal-overlay">
             <div class="modal-container max-w-2xl">
                 <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -1591,7 +1505,6 @@
         <div id="toastRoot"></div>
     </div>
 
-    <!-- ─── FOOTER ─── -->
     <footer class="app-footer">
         <div class="app-footer-inner">
             <span>&copy; 2026 Beauty One International Pte Ltd. All rights reserved.</span>
@@ -1600,7 +1513,8 @@
         </div>
     </footer>
 
-    <script src="/js/force-logout.js?v=d48646c8860ce954"></script>
-    <script src="/js/admin.js?v=d48646c8860ce954"></script>
+    <script src="/js/csrf.js"></script>
+    <script src="/js/force-logout.js"></script>
+    <script src="/js/admin.js"></script>
 </body>
 </html>

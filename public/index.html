@@ -1,1093 +1,920 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
-  <meta name="build-hash" content="d48646c8860ce954" />
-  <meta name="build-version" content="1.0.0" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="csrf-token" content="" />
-  <title>BOI KMS | Key Request Portal</title>
-  
-  <link rel="stylesheet" href="/css/style.css?v=d48646c8860ce954" />
-  <link rel="stylesheet" href="/css/index.css?v=d48646c8860ce954" />
-  
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
-  
-  <style>
-    /* ============================================================
-       CORE STYLES
-       ============================================================ */
-    .loading-container {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      gap: 1rem;
-      background: #F0F4F8;
-    }
-    .spinner-large {
-      width: 50px;
-      height: 50px;
-      border: 4px solid #E2E8F0;
-      border-radius: 50%;
-      border-top-color: #1E2A3E;
-      animation: spin 0.8s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    .loading-container p {
-      color: #64748B;
-      font-family: 'Inter', sans-serif;
-      font-size: 0.95rem;
-    }
-    .main-content-wrapper {
-      display: none;
-    }
-    .logout-item {
-      cursor: pointer;
-    }
-
-    /* ============================================================
-       MOBILE MENU
-       ============================================================ */
-    .mobile-menu-btn {
-      display: block;
-      background: none;
-      border: none;
-      color: #ffffff;
-      font-size: 1.6rem;
-      cursor: pointer;
-      padding: 8px 12px;
-      flex-shrink: 0;
-      transition: opacity 0.15s ease;
-    }
-    .mobile-menu-btn:hover {
-      opacity: 0.8;
-    }
-
-    .mobile-menu {
-      display: none;
-      position: absolute;
-      top: var(--header-height, 72px);
-      left: 0;
-      right: 0;
-      background: #ffffff;
-      border-bottom: 2px solid #d4a843;
-      padding: 16px 24px 20px;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.1);
-      z-index: 999;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .mobile-menu.open {
-      display: flex;
-    }
-
-    .mobile-menu-items {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .mobile-menu-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      border-radius: 6px;
-      border: none;
-      background: rgba(0,0,0,0.03);
-      color: #1a2a4a;
-      font-size: 0.9rem;
-      cursor: pointer;
-      transition: background 0.1s ease;
-      font-family: inherit;
-      width: 100%;
-      text-align: left;
-      text-decoration: none;
-    }
-
-    .mobile-menu-item:hover {
-      background: rgba(0,0,0,0.06);
-    }
-
-    .mobile-menu-item.logout-item {
-      color: #dc2626;
-    }
-
-    .mobile-menu-item.logout-item:hover {
-      background: rgba(239,68,68,0.1);
-    }
-
-    .mobile-menu-item i {
-      width: 20px;
-      color: rgba(26,42,74,0.5);
-    }
-
-    .mobile-menu-item.logout-item i {
-      color: #dc2626;
-    }
-
-    .mobile-menu-divider {
-      height: 1px;
-      background: #e2e8f0;
-      margin: 4px 8px;
-    }
-
-    /* ============================================================
-       TOP NAVIGATION
-       ============================================================ */
-    .top-nav {
-      background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
-      border-bottom: 3px solid #d4a843;
-      padding: 0 1.5rem;
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-      height: var(--header-height, 72px);
-      display: flex;
-      align-items: center;
-      min-height: var(--header-height, 72px);
-    }
-
-    .top-nav-inner {
-      max-width: 1440px;
-      margin: 0 auto;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      width: 100%;
-      height: 100%;
-      gap: 0.75rem;
-    }
-
-    .brand-text {
-      display: flex;
-      align-items: baseline;
-      gap: 0.5rem;
-      line-height: 1.2;
-      white-space: nowrap;
-      min-width: 0;
-      overflow: hidden;
-    }
-
-    .brand-name {
-      color: #ffffff;
-      font-weight: 700;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-      font-size: 1.15rem;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    .nav-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      flex-shrink: 0;
-      margin-left: auto;
-    }
-
-    /* ============================================================
-       RESPONSIVE
-       ============================================================ */
-    @media (max-width: 768px) {
-      .top-nav {
-        padding: 0 1rem;
-        height: 60px;
-        min-height: 60px;
-      }
-      .brand-name {
-        font-size: 0.95rem;
-        max-width: 38vw;
-      }
-      .mobile-menu {
-        top: 60px;
-      }
-    }
-
-    @media (max-width: 480px) {
-      .brand-name {
-        font-size: 0.85rem;
-        max-width: 50vw;
-      }
-      .mobile-menu-btn {
-        font-size: 1.4rem;
-        padding: 6px 10px;
-      }
-    }
-
-    @media (max-width: 360px) {
-      .brand-name {
-        font-size: 0.75rem;
-        max-width: 40vw;
-      }
-    }
-
-    /* ============================================================
-       FIX: BORROW TOGGLE BUTTONS
-       ============================================================ */
-    .borrow-toggle-group {
-      display: flex;
-      gap: 0.5rem;
-      background: #f1f5f9;
-      padding: 0.25rem;
-      border-radius: 12px;
-    }
-
-    .borrow-toggle-btn {
-      flex: 1;
-      padding: 0.5rem 1rem;
-      border: none;
-      border-radius: 10px;
-      font-size: 0.85rem;
-      font-weight: 500;
-      color: #64748b;
-      background: transparent;
-      cursor: pointer;
-      transition: all 0.2s ease;
-    }
-
-    .borrow-toggle-btn:hover {
-      color: #334155;
-    }
-
-    .borrow-toggle-btn.active {
-      background: white;
-      color: #1e293b;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
-    }
-
-    /* ============================================================
-       FIX: RETURN DROPDOWN MENU
-       ============================================================ */
-    .return-dropdown-wrapper {
-      position: relative;
-    }
-
-    .return-dropdown-menu {
-      position: absolute;
-      top: calc(100% + 4px);
-      left: 0;
-      right: 0;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.15);
-      z-index: 50;
-      overflow: hidden;
-      border: 1px solid #e2e8f0;
-    }
-
-    .return-dropdown-menu.hidden {
-      display: none !important;
-    }
-
-    .return-dropdown-menu:not(.hidden) {
-      display: block !important;
-    }
-
-    /* ============================================================
-       FIX: EXTENSION ITEMS - SELECTED STATE
-       ============================================================ */
-    .extension-item {
-      cursor: pointer;
-      transition: all 0.2s ease;
-      border: 2px solid transparent;
-      padding: 0.75rem;
-      border-radius: 12px;
-      background: white;
-    }
-
-    .extension-item:hover {
-      background: #faf5ff;
-      border-color: #e9d5ff;
-    }
-
-    .extension-item.selected {
-      border-color: #8B5CF6 !important;
-      background-color: #F5F3FF !important;
-    }
-
-    .extension-item.selected .text-slate-400 {
-      color: #8B5CF6 !important;
-    }
-
-    /* ============================================================
-       FIX: MODAL OVERLAY - ENSURE PROPER DISPLAY
-       ============================================================ */
-    .modal-overlay {
-      display: none;
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
-      backdrop-filter: blur(4px);
-      z-index: 9999;
-      align-items: center;
-      justify-content: center;
-      padding: 1rem;
-    }
-
-    .modal-overlay.active,
-    .modal-overlay[style*="display: flex"] {
-      display: flex !important;
-    }
-
-    .modal-container {
-      background: white;
-      border-radius: 20px;
-      max-width: 560px;
-      width: 100%;
-      max-height: 90vh;
-      overflow-y: auto;
-      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
-      animation: modalFadeIn 0.25s ease;
-    }
-
-    .modal-container.max-w-2xl {
-      max-width: 672px;
-    }
-
-    .modal-container.max-w-sm {
-      max-width: 440px;
-    }
-
-    @keyframes modalFadeIn {
-      from {
-        opacity: 0;
-        transform: scale(0.96) translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: scale(1) translateY(0);
-      }
-    }
-
-    .close-btn {
-      background: none;
-      border: none;
-      font-size: 1.8rem;
-      line-height: 1;
-      color: #94a3b8;
-      cursor: pointer;
-      transition: color 0.2s ease;
-      padding: 0 0.25rem;
-    }
-
-    .close-btn:hover {
-      color: #475569;
-    }
-
-    /* ============================================================
-       FIX: TOAST NOTIFICATIONS
-       ============================================================ */
-    #toastRoot {
-      position: fixed;
-      bottom: 2rem;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 100000;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.5rem;
-      pointer-events: none;
-      max-width: 90vw;
-    }
-
-    .toast-notification {
-      pointer-events: auto;
-      padding: 0.75rem 1.5rem;
-      border-radius: 12px;
-      color: white;
-      font-size: 0.9rem;
-      font-weight: 500;
-      font-family: 'Inter', sans-serif;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-      animation: toastSlideUp 0.3s ease;
-      max-width: 100%;
-      text-align: center;
-    }
-
-    @keyframes toastSlideUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px) scale(0.95);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-
-    /* ============================================================
-       FIX: PROFILE MODAL STYLES
-       ============================================================ */
-    .profile-error {
-      display: none;
-      background: #fee2e2;
-      color: #dc2626;
-      padding: 0.75rem 1rem;
-      border-radius: 10px;
-      font-size: 0.85rem;
-      margin-bottom: 1rem;
-    }
-
-    .profile-success {
-      display: none;
-      background: #dcfce7;
-      color: #16a34a;
-      padding: 0.75rem 1rem;
-      border-radius: 10px;
-      font-size: 0.85rem;
-      margin-bottom: 1rem;
-    }
-
-    .profile-field {
-      margin-bottom: 1rem;
-    }
-
-    .profile-field label {
-      display: block;
-      font-size: 0.85rem;
-      font-weight: 500;
-      color: #1e293b;
-      margin-bottom: 0.25rem;
-    }
-
-    .profile-field input {
-      width: 100%;
-      padding: 0.6rem 0.75rem;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      font-size: 0.9rem;
-      transition: border-color 0.2s ease;
-      font-family: 'Inter', sans-serif;
-    }
-
-    .profile-field input:focus {
-      outline: none;
-      border-color: #3b82f6;
-      box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
-    }
-
-    .profile-field .hint {
-      font-size: 0.75rem;
-      color: #94a3b8;
-      margin-top: 0.25rem;
-    }
-
-    .profile-actions {
-      display: flex;
-      gap: 0.75rem;
-      justify-content: flex-end;
-      margin-top: 1.5rem;
-    }
-
-    .profile-actions .btn-secondary {
-      padding: 0.5rem 1.5rem;
-      border: none;
-      background: #f1f5f9;
-      color: #475569;
-      border-radius: 10px;
-      font-size: 0.85rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s ease;
-      font-family: 'Inter', sans-serif;
-    }
-
-    .profile-actions .btn-secondary:hover {
-      background: #e2e8f0;
-    }
-
-    .profile-actions .btn-primary {
-      padding: 0.5rem 1.5rem;
-      border: none;
-      background: #3b82f6;
-      color: white;
-      border-radius: 10px;
-      font-size: 0.85rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: background 0.2s ease;
-      font-family: 'Inter', sans-serif;
-    }
-
-    .profile-actions .btn-primary:hover {
-      background: #2563eb;
-    }
-
-    .profile-actions .btn-primary:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-
-    /* ============================================================
-       FIX: KEY CARD - Clickable card (no borrow button)
-       ============================================================ */
-    .key-card {
-      cursor: pointer;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .key-card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 8px 25px rgba(0,0,0,0.12);
-    }
-
-    .key-card:active {
-      transform: scale(0.97);
-    }
-
-    /* ============================================================
-       FIX: KEY STATUS BADGE
-       ============================================================ */
-    .key-status {
-      display: inline-block;
-      padding: 0.15rem 0.6rem;
-      border-radius: 20px;
-      font-size: 0.6rem;
-      font-weight: 600;
-      color: white;
-      letter-spacing: 0.03em;
-      text-transform: uppercase;
-      margin-top: 0.3rem;
-    }
-
-    /* ============================================================
-       FIX: FILTER PILLS ACTIVE STATE
-       ============================================================ */
-    .filter-pill.active {
-      background: #1e293b !important;
-      color: white !important;
-      border-color: #1e293b !important;
-    }
-
-    .brand-pill.active {
-      background: #1e293b !important;
-      color: white !important;
-      border-color: #1e293b !important;
-    }
-
-    /* ============================================================
-       FIX: BASKET SIDEBAR HIDE
-       ============================================================ */
-    .hide-basket {
-      display: none !important;
-    }
-
-    /* ============================================================
-       FIX: SPINNER
-       ============================================================ */
-    .spinner {
-      display: inline-block;
-      width: 1.2rem;
-      height: 1.2rem;
-      border: 2px solid #e2e8f0;
-      border-radius: 50%;
-      border-top-color: #3b82f6;
-      animation: spin 0.6s linear infinite;
-    }
-
-    /* ============================================================
-       FIX: NOTIFICATION ICON COLORS
-       ============================================================ */
-    .notification-icon.success {
-      color: #22c55e;
-    }
-
-    .notification-icon.warning {
-      color: #f59e0b;
-    }
-
-    .notification-icon.error {
-      color: #ef4444;
-    }
-
-    .notification-icon.info {
-      color: #3b82f6;
-    }
-
-    /* ============================================================
-       FIX: SHIMMER LOADING
-       ============================================================ */
-    .shimmer {
-      background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
-      background-size: 200% 100%;
-      animation: shimmer 1.5s infinite;
-    }
-
-    @keyframes shimmer {
-      0% { background-position: 200% 0; }
-      100% { background-position: -200% 0; }
-    }
-
-    /* ============================================================
-       FIX: CUSTOM SCROLL
-       ============================================================ */
-    .custom-scroll::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    .custom-scroll::-webkit-scrollbar-track {
-      background: #f1f5f9;
-      border-radius: 4px;
-    }
-
-    .custom-scroll::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
-      border-radius: 4px;
-    }
-
-    .custom-scroll::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8;
-    }
-
-    /* ============================================================
-       FIX: FILTER HIDDEN
-       ============================================================ */
-    .filter-hidden {
-      display: none !important;
-    }
-
-    /* ============================================================
-       FIX: MODAL READ-ONLY USER INFO
-       ============================================================ */
-    .user-info-display {
-      background: #f8fafc;
-      border: 1px solid #e2e8f0;
-      border-radius: 10px;
-      padding: 0.75rem 1rem;
-      color: #1e293b;
-      font-size: 0.9rem;
-    }
-
-    .user-info-display .label {
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: #94a3b8;
-      font-weight: 600;
-    }
-
-    .user-info-display .value {
-      font-weight: 500;
-      margin-top: 0.1rem;
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="csrf-token" content="" />
+    <title>BOI KMS | Key Request Portal</title>
+
+    <link rel="stylesheet" href="/css/style.css" />
+    <link rel="stylesheet" href="/css/index.css" />
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <style>
+        .loading-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            gap: 1rem;
+            background: #F0F4F8;
+        }
+        .spinner-large {
+            width: 50px;
+            height: 50px;
+            border: 4px solid #E2E8F0;
+            border-radius: 50%;
+            border-top-color: #1E2A3E;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .loading-container p {
+            color: #64748B;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.95rem;
+        }
+        .main-content-wrapper {
+            display: none;
+        }
+        .logout-item {
+            cursor: pointer;
+        }
+        .mobile-menu-btn {
+            display: block;
+            background: none;
+            border: none;
+            color: #ffffff;
+            font-size: 1.6rem;
+            cursor: pointer;
+            padding: 8px 12px;
+            flex-shrink: 0;
+            transition: opacity 0.15s ease;
+        }
+        .mobile-menu-btn:hover {
+            opacity: 0.8;
+        }
+        .mobile-menu {
+            display: none;
+            position: absolute;
+            top: var(--header-height, 72px);
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border-bottom: 2px solid #d4a843;
+            padding: 16px 24px 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+            z-index: 999;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .mobile-menu.open {
+            display: flex;
+        }
+        .mobile-menu-items {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .mobile-menu-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: 6px;
+            border: none;
+            background: rgba(0,0,0,0.03);
+            color: #1a2a4a;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: background 0.1s ease;
+            font-family: inherit;
+            width: 100%;
+            text-align: left;
+            text-decoration: none;
+        }
+        .mobile-menu-item:hover {
+            background: rgba(0,0,0,0.06);
+        }
+        .mobile-menu-item.logout-item {
+            color: #dc2626;
+        }
+        .mobile-menu-item.logout-item:hover {
+            background: rgba(239,68,68,0.1);
+        }
+        .mobile-menu-item i {
+            width: 20px;
+            color: rgba(26,42,74,0.5);
+        }
+        .mobile-menu-item.logout-item i {
+            color: #dc2626;
+        }
+        .mobile-menu-divider {
+            height: 1px;
+            background: #e2e8f0;
+            margin: 4px 8px;
+        }
+        .top-nav {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            border-bottom: 3px solid #d4a843;
+            padding: 0 1.5rem;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+            height: var(--header-height, 72px);
+            display: flex;
+            align-items: center;
+            min-height: var(--header-height, 72px);
+        }
+        .top-nav-inner {
+            max-width: 1440px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+            gap: 0.75rem;
+        }
+        .brand-text {
+            display: flex;
+            align-items: baseline;
+            gap: 0.5rem;
+            line-height: 1.2;
+            white-space: nowrap;
+            min-width: 0;
+            overflow: hidden;
+        }
+        .brand-name {
+            color: #ffffff;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            font-size: 1.15rem;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .nav-actions {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+        @media (max-width: 768px) {
+            .top-nav {
+                padding: 0 1rem;
+                height: 60px;
+                min-height: 60px;
+            }
+            .brand-name {
+                font-size: 0.95rem;
+                max-width: 38vw;
+            }
+            .mobile-menu {
+                top: 60px;
+            }
+        }
+        @media (max-width: 480px) {
+            .brand-name {
+                font-size: 0.85rem;
+                max-width: 50vw;
+            }
+            .mobile-menu-btn {
+                font-size: 1.4rem;
+                padding: 6px 10px;
+            }
+        }
+        @media (max-width: 360px) {
+            .brand-name {
+                font-size: 0.75rem;
+                max-width: 40vw;
+            }
+        }
+        .borrow-toggle-group {
+            display: flex;
+            gap: 0.5rem;
+            background: #f1f5f9;
+            padding: 0.25rem;
+            border-radius: 12px;
+        }
+        .borrow-toggle-btn {
+            flex: 1;
+            padding: 0.5rem 1rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #64748b;
+            background: transparent;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .borrow-toggle-btn:hover {
+            color: #334155;
+        }
+        .borrow-toggle-btn.active {
+            background: white;
+            color: #1e293b;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        .return-dropdown-wrapper {
+            position: relative;
+        }
+        .return-dropdown-menu {
+            position: absolute;
+            top: calc(100% + 4px);
+            left: 0;
+            right: 0;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.15);
+            z-index: 50;
+            overflow: hidden;
+            border: 1px solid #e2e8f0;
+        }
+        .return-dropdown-menu.hidden {
+            display: none !important;
+        }
+        .return-dropdown-menu:not(.hidden) {
+            display: block !important;
+        }
+        .extension-item {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+            padding: 0.75rem;
+            border-radius: 12px;
+            background: white;
+        }
+        .extension-item:hover {
+            background: #faf5ff;
+            border-color: #e9d5ff;
+        }
+        .extension-item.selected {
+            border-color: #8B5CF6 !important;
+            background-color: #F5F3FF !important;
+        }
+        .extension-item.selected .text-slate-400 {
+            color: #8B5CF6 !important;
+        }
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        .modal-overlay.active,
+        .modal-overlay[style*="display: flex"] {
+            display: flex !important;
+        }
+        .modal-container {
+            background: white;
+            border-radius: 20px;
+            max-width: 560px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+            animation: modalFadeIn 0.25s ease;
+        }
+        .modal-container.max-w-2xl {
+            max-width: 672px;
+        }
+        .modal-container.max-w-sm {
+            max-width: 440px;
+        }
+        @keyframes modalFadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.96) translateY(10px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
+        }
+        .close-btn {
+            background: none;
+            border: none;
+            font-size: 1.8rem;
+            line-height: 1;
+            color: #94a3b8;
+            cursor: pointer;
+            transition: color 0.2s ease;
+            padding: 0 0.25rem;
+        }
+        .close-btn:hover {
+            color: #475569;
+        }
+        #toastRoot {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 100000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.5rem;
+            pointer-events: none;
+            max-width: 90vw;
+        }
+        .toast-notification {
+            pointer-events: auto;
+            padding: 0.75rem 1.5rem;
+            border-radius: 12px;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+            animation: toastSlideUp 0.3s ease;
+            max-width: 100%;
+            text-align: center;
+        }
+        @keyframes toastSlideUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        .profile-error {
+            display: none;
+            background: #fee2e2;
+            color: #dc2626;
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+        .profile-success {
+            display: none;
+            background: #dcfce7;
+            color: #16a34a;
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            margin-bottom: 1rem;
+        }
+        .profile-field {
+            margin-bottom: 1rem;
+        }
+        .profile-field label {
+            display: block;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: #1e293b;
+            margin-bottom: 0.25rem;
+        }
+        .profile-field input {
+            width: 100%;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 0.9rem;
+            transition: border-color 0.2s ease;
+            font-family: 'Inter', sans-serif;
+        }
+        .profile-field input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        }
+        .profile-field .hint {
+            font-size: 0.75rem;
+            color: #94a3b8;
+            margin-top: 0.25rem;
+        }
+        .profile-actions {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            margin-top: 1.5rem;
+        }
+        .profile-actions .btn-secondary {
+            padding: 0.5rem 1.5rem;
+            border: none;
+            background: #f1f5f9;
+            color: #475569;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            font-family: 'Inter', sans-serif;
+        }
+        .profile-actions .btn-secondary:hover {
+            background: #e2e8f0;
+        }
+        .profile-actions .btn-primary {
+            padding: 0.5rem 1.5rem;
+            border: none;
+            background: #3b82f6;
+            color: white;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s ease;
+            font-family: 'Inter', sans-serif;
+        }
+        .profile-actions .btn-primary:hover {
+            background: #2563eb;
+        }
+        .profile-actions .btn-primary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .key-card {
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .key-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+        }
+        .key-card:active {
+            transform: scale(0.97);
+        }
+        .key-status {
+            display: inline-block;
+            padding: 0.15rem 0.6rem;
+            border-radius: 20px;
+            font-size: 0.6rem;
+            font-weight: 600;
+            color: white;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+            margin-top: 0.3rem;
+        }
+        .filter-pill.active {
+            background: #1e293b !important;
+            color: white !important;
+            border-color: #1e293b !important;
+        }
+        .brand-pill.active {
+            background: #1e293b !important;
+            color: white !important;
+            border-color: #1e293b !important;
+        }
+        .hide-basket {
+            display: none !important;
+        }
+        .spinner {
+            display: inline-block;
+            width: 1.2rem;
+            height: 1.2rem;
+            border: 2px solid #e2e8f0;
+            border-radius: 50%;
+            border-top-color: #3b82f6;
+            animation: spin 0.6s linear infinite;
+        }
+        .notification-icon.success {
+            color: #22c55e;
+        }
+        .notification-icon.warning {
+            color: #f59e0b;
+        }
+        .notification-icon.error {
+            color: #ef4444;
+        }
+        .notification-icon.info {
+            color: #3b82f6;
+        }
+        .shimmer {
+            background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+        .custom-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .filter-hidden {
+            display: none !important;
+        }
+        .user-info-display {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            color: #1e293b;
+            font-size: 0.9rem;
+        }
+        .user-info-display .label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            font-weight: 600;
+        }
+        .user-info-display .value {
+            font-weight: 500;
+            margin-top: 0.1rem;
+        }
+    </style>
 </head>
 <body>
-  <!-- LOADING -->
-  <div id="loadingContainer" class="loading-container">
-    <div class="spinner-large"></div>
-    <p>Loading dashboard...</p>
-  </div>
-
-  <!-- ACCESS DENIED -->
-  <div id="accessDenied" class="access-denied" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:2rem;background:#F0F4F8;">
-    <i class="fas fa-lock" style="font-size:4rem;color:#DC2626;margin-bottom:1rem;"></i>
-    <h1 style="color:#1E2A3E;font-family:'Inter',sans-serif;font-size:2rem;margin-bottom:0.5rem;">Access Denied</h1>
-    <p style="color:#64748B;font-family:'Inter',sans-serif;max-width:400px;">You do not have permission to access this page.</p>
-    <button class="btn-back" onclick="window.location.href='/login'" style="margin-top:1.5rem;padding:0.75rem 2rem;background:#1E2A3E;color:white;border:none;border-radius:8px;font-size:1rem;cursor:pointer;font-family:'Inter',sans-serif;transition:background 0.2s;">Return to Login</button>
-  </div>
-
-  <!-- MAIN CONTENT -->
-  <div id="mainContentWrapper" class="main-content-wrapper">
-    <div class="dashboard-container">
-      <nav class="top-nav">
-        <div class="top-nav-inner">
-          <div class="brand-text">
-            <span class="brand-name">Key Management System</span>
-          </div>
-          <div class="nav-actions">
-            <button class="mobile-menu-btn" id="mobileMenuBtn">
-              <i class="fas fa-bars"></i>
-            </button>
-          </div>
-        </div>
-        <div class="mobile-menu" id="mobileMenu">
-          <div class="mobile-menu-items">
-            <a href="/admin" class="mobile-menu-item">
-              <i class="fas fa-user-shield"></i>
-              Admin Portal
-            </a>
-            <button class="mobile-menu-item" id="mobileProfileBtn">
-              <i class="fas fa-user"></i>
-              My Profile
-            </button>
-            <div class="mobile-menu-divider"></div>
-            <button class="mobile-menu-item logout-item" id="mobileLogoutBtn">
-              <i class="fas fa-sign-out-alt"></i>
-              Logout
-            </button>
-          </div>
-        </div>
-      </nav>
+    <div id="loadingContainer" class="loading-container">
+        <div class="spinner-large"></div>
+        <p>Loading dashboard...</p>
     </div>
 
-    <main class="main-content">
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <!-- KEYS GRID -->
-        <div class="lg:col-span-2">
-          <div class="flex flex-col md:flex-row gap-4 mb-6">
-            <div class="flex flex-col sm:flex-row gap-3 flex-1">
-              <div class="flex flex-wrap gap-2 items-center">
-                <button data-filter="all" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all active">All Keys</button>
-                <button data-filter="available" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Available Now</button>
-                <button data-filter="loaned" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Currently Loaned Out</button>
-              </div>
-              <div class="relative flex-1 min-w-[200px]">
-                <input type="text" id="globalSearch" placeholder="Search by key code or borrower email..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-full text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white" />
-                <svg class="absolute left-3 top-2.5 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-              </div>
-            </div>
-          </div>
-
-          <div class="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
-            <button data-brand="all" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all active">All brands</button>
-            <button data-brand="Yun Nam" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Yun Nam</button>
-            <button data-brand="London" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">London</button>
-            <button data-brand="New York" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">New York</button>
-            <button data-brand="Dorra" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Dorra</button>
-            <button data-brand="Shakura" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Shakura</button>
-            <button data-brand="Victoria" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Victoria</button>
-            <button data-brand="Jonsson" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Jonsson</button>
-          </div>
-
-          <div id="keysGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 flex flex-col shimmer h-28"></div>
-            <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 flex flex-col shimmer h-28"></div>
-            <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 flex flex-col shimmer h-28"></div>
-          </div>
-          <div id="emptySearchState" class="hidden text-center py-8 text-slate-400">No keys match your search.</div>
-        </div>
-
-        <!-- BASKET SIDEBAR -->
-        <aside id="basketSidebar" class="basket-sidebar bg-white rounded-2xl border border-slate-200/80 shadow-md sticky top-24 h-fit overflow-visible custom-scroll transition-all duration-200">
-          <div class="p-4 border-b border-slate-100 flex justify-between items-center">
-            <div class="flex items-center gap-2">
-              <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
-              <h3 class="font-semibold text-slate-800">Borrow basket</h3>
-              <span id="basketCountBadge" class="bg-slate-100 text-slate-700 text-xs font-medium px-2 py-0.5 rounded-full">0</span>
-            </div>
-            <button id="clearBasketBtn" class="text-xs text-rose-600 hover:text-rose-700 transition font-medium">Clear all</button>
-          </div>
-          <div id="basketItemsContainer" class="divide-y divide-slate-100 max-h-48 overflow-y-auto custom-scroll">
-            <div class="p-6 text-center text-slate-400 text-sm">No keys selected. Click on available keys to add.</div>
-          </div>
-          <div class="p-4 border-t border-slate-100 bg-slate-50/50">
-            <div class="flex justify-between text-sm mb-3">
-              <span class="text-slate-600">Total keys</span>
-              <span id="totalQuantity" class="font-semibold text-slate-800">0</span>
-            </div>
-            <button id="submitRequestBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2.5 rounded-xl transition shadow-sm disabled:opacity-50">Submit request →</button>
-            <p class="text-[10px] text-slate-400 text-center mt-2">Approval required · email confirmation</p>
-          </div>
-
-          <!-- RETURN DROPDOWN -->
-          <div class="px-4 pb-3 return-dropdown-wrapper">
-            <div class="relative" id="returnDropdownContainer">
-              <button id="returnDropdownBtn" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2">
-                <i class="fas fa-key"></i>
-                <span>Return Key</span>
-                <i class="fas fa-chevron-down text-xs ml-1 transition-transform duration-200" id="returnDropdownChevron"></i>
-              </button>
-              <div id="returnDropdownMenu" class="return-dropdown-menu hidden">
-                <button id="returnNowBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3 border-b border-slate-100">
-                  <i class="fas fa-undo-alt text-emerald-600 w-5"></i>
-                  <div>
-                    <div class="font-medium text-slate-800 text-sm">Return Key Now</div>
-                    <div class="text-xs text-slate-500">Return your borrowed keys immediately</div>
-                  </div>
-                </button>
-                <button id="extensionRequestBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3 border-b border-slate-100">
-                  <i class="fas fa-calendar-plus text-purple-600 w-5"></i>
-                  <div>
-                    <div class="font-medium text-slate-800 text-sm">Extension Request</div>
-                    <div class="text-xs text-slate-500">Extend your return date</div>
-                  </div>
-                </button>
-                <button id="reportLostKeyBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3">
-                  <i class="fas fa-exclamation-triangle text-rose-600 w-5"></i>
-                  <div>
-                    <div class="font-medium text-slate-800 text-sm">Report Lost Key</div>
-                    <div class="text-xs text-slate-500">Report a key as lost (SGD 50 fee)</div>
-                  </div>
-                </button>
-              </div>
-            </div>
-            <p class="text-[10px] text-slate-400 text-center mt-2">
-              <i class="fas fa-chevron-up text-[8px] mr-1"></i>
-              Click for more return options
-              <i class="fas fa-chevron-up text-[8px] ml-1"></i>
-            </p>
-          </div>
-
-          <div id="adminActions" class="admin-only mt-1 p-4 bg-white rounded-xl border border-slate-200/80 shadow-sm">
-            <div class="flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
-              <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-              <span>A Key Replacement Fee of 50 SGD will be charged for each lost key.</span>
-            </div>
-          </div>
-        </aside>
-      </div>
-    </main>
-
-    <!-- ============================================================
-    REQUEST MODAL (FIXED: Removed Name and Email fields)
-    ============================================================ -->
-    <div id="requestModal" class="modal-overlay">
-      <div class="modal-container">
-        <div class="p-5 border-b border-slate-100 flex justify-between items-center">
-          <h3 class="text-lg font-semibold text-slate-800">Submit key request</h3>
-          <button id="closeModalBtn" class="close-btn">&times;</button>
-        </div>
-        <div class="p-5">
-          <div class="mb-4 p-3 bg-slate-50 rounded-xl text-sm text-slate-600">
-            <span class="font-medium">Selected keys:</span>
-            <div id="modalSelectedKeysList" class="mt-1 text-slate-500"></div>
-          </div>
-
-          <!-- FIX: User Info Display (read-only, auto-populated) -->
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Requesting as</label>
-            <div class="user-info-display">
-              <div class="label">Name</div>
-              <div class="value" id="modalUserDisplayName">Loading...</div>
-              <div class="label mt-2">Email</div>
-              <div class="value" id="modalUserDisplayEmail">Loading...</div>
-            </div>
-          </div>
-
-          <!-- FIX: Borrow Toggle Buttons -->
-          <div class="mb-4">
-            <label class="block text-sm font-medium text-slate-700 mb-1.5">Borrow date <span class="text-rose-500">*</span></label>
-            <div class="borrow-toggle-group" id="borrowToggleGroup">
-              <button type="button" class="borrow-toggle-btn active" data-borrow-type="now">Borrow Now</button>
-              <button type="button" class="borrow-toggle-btn" data-borrow-type="today">Borrow Today</button>
-            </div>
-            <div id="borrowTimeContainer" style="display:none;" class="mt-2">
-              <label class="block text-xs font-medium text-slate-600 mb-1">Pick time</label>
-              <input type="time" id="borrowTimePicker" value="09:00" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
-              <p class="text-[11px] text-slate-400 mt-1">Date will be set to today automatically.</p>
-            </div>
-            <input type="hidden" id="borrowDateHidden" value="" />
-          </div>
-
-          <div class="space-y-3">
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Reason (optional)</label>
-              <textarea id="modalReason" rows="2" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="e.g., Office event..."></textarea>
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-slate-700 mb-1">Planned return date <span class="text-rose-500">*</span></label>
-              <input type="datetime-local" id="modalPlannedReturn" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
-            </div>
-            <div class="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <input type="checkbox" id="consentCheckbox" class="consent-checkbox mt-0.5" />
-              <label for="consentCheckbox" class="text-xs text-slate-600 leading-relaxed">I acknowledge that keys must be returned by the planned return date. I agree to be liable for a <strong>Key Replacement Fee of SGD 50</strong> if the key is lost or not returned.</label>
-            </div>
-          </div>
-          <div id="modalError" class="mt-3 text-sm text-rose-600 hidden"></div>
-          <div class="mt-5 flex gap-3 justify-end">
-            <button id="cancelModalBtn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-sm font-medium transition">Cancel</button>
-            <button id="confirmSubmitBtn" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full text-sm font-medium transition shadow-sm" disabled>Submit request</button>
-          </div>
-        </div>
-      </div>
+    <div id="accessDenied" class="access-denied" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;text-align:center;padding:2rem;background:#F0F4F8;">
+        <i class="fas fa-lock" style="font-size:4rem;color:#DC2626;margin-bottom:1rem;"></i>
+        <h1 style="color:#1E2A3E;font-family:'Inter',sans-serif;font-size:2rem;margin-bottom:0.5rem;">Access Denied</h1>
+        <p style="color:#64748B;font-family:'Inter',sans-serif;max-width:400px;">You do not have permission to access this page.</p>
+        <button class="btn-back" onclick="window.location.href='/login'" style="margin-top:1.5rem;padding:0.75rem 2rem;background:#1E2A3E;color:white;border:none;border-radius:8px;font-size:1rem;cursor:pointer;font-family:'Inter',sans-serif;transition:background 0.2s;">Return to Login</button>
     </div>
 
-    <!-- ============================================================
-    RETURN MODAL
-    ============================================================ -->
-    <div id="returnModal" class="modal-overlay">
-      <div class="modal-container">
-        <div class="p-5 border-b border-slate-100 flex justify-between items-center">
-          <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2"><span class="text-purple-600">↩️</span> Return Keys</h3>
-          <button id="closeReturnModalBtn" class="close-btn">&times;</button>
+    <div id="mainContentWrapper" class="main-content-wrapper">
+        <div class="dashboard-container">
+            <nav class="top-nav">
+                <div class="top-nav-inner">
+                    <div class="brand-text">
+                        <span class="brand-name">Key Management System</span>
+                    </div>
+                    <div class="nav-actions">
+                        <button class="mobile-menu-btn" id="mobileMenuBtn">
+                            <i class="fas fa-bars"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="mobile-menu" id="mobileMenu">
+                    <div class="mobile-menu-items">
+                        <a href="/admin" class="mobile-menu-item">
+                            <i class="fas fa-user-shield"></i>
+                            Admin Portal
+                        </a>
+                        <button class="mobile-menu-item" id="mobileProfileBtn">
+                            <i class="fas fa-user"></i>
+                            My Profile
+                        </button>
+                        <div class="mobile-menu-divider"></div>
+                        <button class="mobile-menu-item logout-item" id="mobileLogoutBtn">
+                            <i class="fas fa-sign-out-alt"></i>
+                            Logout
+                        </button>
+                    </div>
+                </div>
+            </nav>
         </div>
-        <div id="returnStep1" class="p-5">
-          <p class="text-sm text-slate-600 mb-3">Click the button below to load your active loans.</p>
-          <button id="fetchLoansByEmailBtn" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 rounded-full transition shadow-sm">Load my active loans →</button>
-        </div>
-        <div id="returnStep2" style="display:none">
-          <div class="px-5 pt-3 pb-2 border-b border-slate-100 flex justify-between items-center">
-            <span class="text-sm font-medium text-slate-700">Select keys to return</span>
-            <button id="selectAllReturnBtn" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-full transition">✓ Select all</button>
-          </div>
-          <div class="p-5">
-            <div id="activeLoansListContainer" class="max-h-64 overflow-y-auto custom-scroll space-y-2 mb-4"></div>
-            <div id="returnSelectionError" class="text-sm text-rose-600 hidden mb-2"></div>
-            <button id="submitReturnConfirmBtn" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 rounded-full transition shadow-sm">Submit return request →</button>
-          </div>
-        </div>
-        <div id="returnStep3" style="display:none" class="p-6 text-center">
-          <div class="flex flex-col items-center">
-            <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-3xl mb-4">✓</div>
-            <h4 class="text-xl font-semibold text-slate-800">Return submitted</h4>
-            <p class="text-slate-500 mt-2 text-sm">Please hand your keys to the Administrator for physical verification.</p>
-            <button id="closeReturnSuccessBtn" class="mt-6 px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full transition text-sm font-medium">Close</button>
-          </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- ============================================================
-    REPORT LOST KEY MODAL
-    ============================================================ -->
-    <div id="reportLostModal" class="modal-overlay">
-      <div class="modal-container max-w-2xl">
-        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-          <div>
-            <h3 class="text-lg font-semibold text-slate-900">Report Lost Key</h3>
-            <p class="text-xs text-slate-600 mt-0.5">Select the key you have lost. A Key Replacement Fee of 50 SGD will be levied.</p>
-          </div>
-          <button id="closeReportLostModalBtn" class="close-btn">&times;</button>
-        </div>
-        <div class="p-5">
-          <div id="reportLostKeysListContainer" class="max-h-80 overflow-y-auto custom-scroll space-y-3 mt-4">
-            <div class="text-center py-8 text-slate-400">Loading your borrowed keys...</div>
-          </div>
-        </div>
-      </div>
-    </div>
+        <main class="main-content">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2">
+                    <div class="flex flex-col md:flex-row gap-4 mb-6">
+                        <div class="flex flex-col sm:flex-row gap-3 flex-1">
+                            <div class="flex flex-wrap gap-2 items-center">
+                                <button data-filter="all" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all active">All Keys</button>
+                                <button data-filter="available" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Available Now</button>
+                                <button data-filter="loaned" class="filter-pill px-4 py-1.5 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Currently Loaned Out</button>
+                            </div>
+                            <div class="relative flex-1 min-w-[200px]">
+                                <input type="text" id="globalSearch" placeholder="Search by key code or borrower email..." class="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-full text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition bg-white" />
+                                <svg class="absolute left-3 top-2.5 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            </div>
+                        </div>
+                    </div>
 
-    <!-- ============================================================
-    CONFIRM LOST MODAL
-    ============================================================ -->
-    <div id="confirmLostModal" class="modal-overlay">
-      <div class="modal-container max-w-sm">
-        <div class="p-5 text-center">
-          <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-rose-100 mb-4">
-            <svg class="h-6 w-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-          </div>
-          <h3 class="text-lg font-semibold text-slate-800 mb-2">Confirm Lost Key</h3>
-          <p class="text-sm text-slate-600 mb-4" id="confirmLostMessage">Are you sure you want to report this key as lost? A Key Replacement Fee of 50 SGD will be applied to your account.</p>
-          <div class="flex gap-3 justify-center">
-            <button id="cancelLostBtn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition">Cancel</button>
-            <button id="confirmLostBtn" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition">Yes, Report Lost</button>
-          </div>
-        </div>
-      </div>
-    </div>
+                    <div class="mb-5 flex flex-wrap gap-2 border-b border-slate-200 pb-3">
+                        <button data-brand="all" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all active">All brands</button>
+                        <button data-brand="Yun Nam" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Yun Nam</button>
+                        <button data-brand="London" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">London</button>
+                        <button data-brand="New York" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">New York</button>
+                        <button data-brand="Dorra" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Dorra</button>
+                        <button data-brand="Shakura" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Shakura</button>
+                        <button data-brand="Victoria" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Victoria</button>
+                        <button data-brand="Jonsson" class="brand-pill filter-pill px-3 py-1 rounded-full text-sm font-medium bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition-all">Jonsson</button>
+                    </div>
 
-    <!-- ============================================================
-    EXTENSION MODAL
-    ============================================================ -->
-    <div id="extensionModal" class="modal-overlay">
-      <div class="modal-container max-w-2xl">
-        <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50">
-          <div>
-            <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
-              <i class="fas fa-calendar-plus text-purple-600"></i> Extension Request
-            </h3>
-            <p class="text-xs text-slate-500 mt-0.5">Select an active loan and set a new return date.</p>
-          </div>
-          <button id="closeExtensionModalBtn" class="close-btn">&times;</button>
-        </div>
-        <div class="p-5">
-          <div id="extensionLoansContainer" class="max-h-64 overflow-y-auto custom-scroll space-y-2 mb-4">
-            <div class="text-center py-8 text-slate-400 text-sm">Loading your active loans...</div>
-          </div>
-          <div id="extensionSelectionArea" style="display:none;" class="border-t border-slate-200 pt-4 mt-2">
-            <div class="mb-3">
-              <label class="block text-sm font-medium text-slate-700 mb-1">New return date <span class="text-rose-500">*</span></label>
-              <input type="datetime-local" id="extensionNewReturnDate" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition" />
+                    <div id="keysGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 flex flex-col shimmer h-28"></div>
+                        <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 flex flex-col shimmer h-28"></div>
+                        <div class="bg-white rounded-xl border border-slate-200/80 shadow-sm p-4 flex flex-col shimmer h-28"></div>
+                    </div>
+                    <div id="emptySearchState" class="hidden text-center py-8 text-slate-400">No keys match your search.</div>
+                </div>
+
+                <aside id="basketSidebar" class="basket-sidebar bg-white rounded-2xl border border-slate-200/80 shadow-md sticky top-24 h-fit overflow-visible custom-scroll transition-all duration-200">
+                    <div class="p-4 border-b border-slate-100 flex justify-between items-center">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+                            <h3 class="font-semibold text-slate-800">Borrow basket</h3>
+                            <span id="basketCountBadge" class="bg-slate-100 text-slate-700 text-xs font-medium px-2 py-0.5 rounded-full">0</span>
+                        </div>
+                        <button id="clearBasketBtn" class="text-xs text-rose-600 hover:text-rose-700 transition font-medium">Clear all</button>
+                    </div>
+                    <div id="basketItemsContainer" class="divide-y divide-slate-100 max-h-48 overflow-y-auto custom-scroll">
+                        <div class="p-6 text-center text-slate-400 text-sm">No keys selected. Click on available keys to add.</div>
+                    </div>
+                    <div class="p-4 border-t border-slate-100 bg-slate-50/50">
+                        <div class="flex justify-between text-sm mb-3">
+                            <span class="text-slate-600">Total keys</span>
+                            <span id="totalQuantity" class="font-semibold text-slate-800">0</span>
+                        </div>
+                        <button id="submitRequestBtn" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold py-2.5 rounded-xl transition shadow-sm disabled:opacity-50">Submit request →</button>
+                        <p class="text-[10px] text-slate-400 text-center mt-2">Approval required · email confirmation</p>
+                    </div>
+
+                    <div class="px-4 pb-3 return-dropdown-wrapper">
+                        <div class="relative" id="returnDropdownContainer">
+                            <button id="returnDropdownBtn" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2.5 px-4 rounded-xl transition-all duration-200 shadow-sm hover:shadow-md flex items-center justify-center gap-2">
+                                <i class="fas fa-key"></i>
+                                <span>Return Key</span>
+                                <i class="fas fa-chevron-down text-xs ml-1 transition-transform duration-200" id="returnDropdownChevron"></i>
+                            </button>
+                            <div id="returnDropdownMenu" class="return-dropdown-menu hidden">
+                                <button id="returnNowBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3 border-b border-slate-100">
+                                    <i class="fas fa-undo-alt text-emerald-600 w-5"></i>
+                                    <div>
+                                        <div class="font-medium text-slate-800 text-sm">Return Key Now</div>
+                                        <div class="text-xs text-slate-500">Return your borrowed keys immediately</div>
+                                    </div>
+                                </button>
+                                <button id="extensionRequestBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3 border-b border-slate-100">
+                                    <i class="fas fa-calendar-plus text-purple-600 w-5"></i>
+                                    <div>
+                                        <div class="font-medium text-slate-800 text-sm">Extension Request</div>
+                                        <div class="text-xs text-slate-500">Extend your return date</div>
+                                    </div>
+                                </button>
+                                <button id="reportLostKeyBtn" class="w-full text-left px-4 py-3 hover:bg-purple-50 transition flex items-center gap-3">
+                                    <i class="fas fa-exclamation-triangle text-rose-600 w-5"></i>
+                                    <div>
+                                        <div class="font-medium text-slate-800 text-sm">Report Lost Key</div>
+                                        <div class="text-xs text-slate-500">Report a key as lost (SGD 50 fee)</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                        <p class="text-[10px] text-slate-400 text-center mt-2">
+                            <i class="fas fa-chevron-up text-[8px] mr-1"></i>
+                            Click for more return options
+                            <i class="fas fa-chevron-up text-[8px] ml-1"></i>
+                        </p>
+                    </div>
+
+                    <div id="adminActions" class="admin-only mt-1 p-4 bg-white rounded-xl border border-slate-200/80 shadow-sm">
+                        <div class="flex items-center justify-center gap-1.5 text-[11px] text-slate-500">
+                            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                            <span>A Key Replacement Fee of 50 SGD will be charged for each lost key.</span>
+                        </div>
+                    </div>
+                </aside>
             </div>
-            <div id="extensionError" class="text-sm text-rose-600 hidden mb-2"></div>
-            <button id="submitExtensionBtn" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2.5 rounded-xl transition shadow-sm disabled:opacity-50">Submit extension request</button>
-            <p class="text-[11px] text-slate-400 text-center mt-2">Extension requests require admin approval.</p>
-          </div>
+        </main>
+
+        <div id="requestModal" class="modal-overlay">
+            <div class="modal-container">
+                <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-slate-800">Submit key request</h3>
+                    <button id="closeModalBtn" class="close-btn">&times;</button>
+                </div>
+                <div class="p-5">
+                    <div class="mb-4 p-3 bg-slate-50 rounded-xl text-sm text-slate-600">
+                        <span class="font-medium">Selected keys:</span>
+                        <div id="modalSelectedKeysList" class="mt-1 text-slate-500"></div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Requesting as</label>
+                        <div class="user-info-display">
+                            <div class="label">Name</div>
+                            <div class="value" id="modalUserDisplayName">Loading...</div>
+                            <div class="label mt-2">Email</div>
+                            <div class="value" id="modalUserDisplayEmail">Loading...</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-slate-700 mb-1.5">Borrow date <span class="text-rose-500">*</span></label>
+                        <div class="borrow-toggle-group" id="borrowToggleGroup">
+                            <button type="button" class="borrow-toggle-btn active" data-borrow-type="now">Borrow Now</button>
+                            <button type="button" class="borrow-toggle-btn" data-borrow-type="today">Borrow Today</button>
+                        </div>
+                        <div id="borrowTimeContainer" style="display:none;" class="mt-2">
+                            <label class="block text-xs font-medium text-slate-600 mb-1">Pick time</label>
+                            <input type="time" id="borrowTimePicker" value="09:00" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+                            <p class="text-[11px] text-slate-400 mt-1">Date will be set to today automatically.</p>
+                        </div>
+                        <input type="hidden" id="borrowDateHidden" value="" />
+                    </div>
+
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Reason (optional)</label>
+                            <textarea id="modalReason" rows="2" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="e.g., Office event..."></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Planned return date <span class="text-rose-500">*</span></label>
+                            <input type="datetime-local" id="modalPlannedReturn" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" />
+                        </div>
+                        <div class="flex items-start gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                            <input type="checkbox" id="consentCheckbox" class="consent-checkbox mt-0.5" />
+                            <label for="consentCheckbox" class="text-xs text-slate-600 leading-relaxed">I acknowledge that keys must be returned by the planned return date. I agree to be liable for a <strong>Key Replacement Fee of SGD 50</strong> if the key is lost or not returned.</label>
+                        </div>
+                    </div>
+                    <div id="modalError" class="mt-3 text-sm text-rose-600 hidden"></div>
+                    <div class="mt-5 flex gap-3 justify-end">
+                        <button id="cancelModalBtn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full text-sm font-medium transition">Cancel</button>
+                        <button id="confirmSubmitBtn" class="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full text-sm font-medium transition shadow-sm" disabled>Submit request</button>
+                    </div>
+                </div>
+            </div>
         </div>
-      </div>
+
+        <div id="returnModal" class="modal-overlay">
+            <div class="modal-container">
+                <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2"><span class="text-purple-600">↩️</span> Return Keys</h3>
+                    <button id="closeReturnModalBtn" class="close-btn">&times;</button>
+                </div>
+                <div id="returnStep1" class="p-5">
+                    <p class="text-sm text-slate-600 mb-3">Click the button below to load your active loans.</p>
+                    <button id="fetchLoansByEmailBtn" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 rounded-full transition shadow-sm">Load my active loans →</button>
+                </div>
+                <div id="returnStep2" style="display:none">
+                    <div class="px-5 pt-3 pb-2 border-b border-slate-100 flex justify-between items-center">
+                        <span class="text-sm font-medium text-slate-700">Select keys to return</span>
+                        <button id="selectAllReturnBtn" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-1 rounded-full transition">✓ Select all</button>
+                    </div>
+                    <div class="p-5">
+                        <div id="activeLoansListContainer" class="max-h-64 overflow-y-auto custom-scroll space-y-2 mb-4"></div>
+                        <div id="returnSelectionError" class="text-sm text-rose-600 hidden mb-2"></div>
+                        <button id="submitReturnConfirmBtn" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-medium py-2.5 rounded-full transition shadow-sm">Submit return request →</button>
+                    </div>
+                </div>
+                <div id="returnStep3" style="display:none" class="p-6 text-center">
+                    <div class="flex flex-col items-center">
+                        <div class="w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center text-3xl mb-4">✓</div>
+                        <h4 class="text-xl font-semibold text-slate-800">Return submitted</h4>
+                        <p class="text-slate-500 mt-2 text-sm">Please hand your keys to the Administrator for physical verification.</p>
+                        <button id="closeReturnSuccessBtn" class="mt-6 px-5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full transition text-sm font-medium">Close</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="reportLostModal" class="modal-overlay">
+            <div class="modal-container max-w-2xl">
+                <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <div>
+                        <h3 class="text-lg font-semibold text-slate-900">Report Lost Key</h3>
+                        <p class="text-xs text-slate-600 mt-0.5">Select the key you have lost. A Key Replacement Fee of 50 SGD will be levied.</p>
+                    </div>
+                    <button id="closeReportLostModalBtn" class="close-btn">&times;</button>
+                </div>
+                <div class="p-5">
+                    <div id="reportLostKeysListContainer" class="max-h-80 overflow-y-auto custom-scroll space-y-3 mt-4">
+                        <div class="text-center py-8 text-slate-400">Loading your borrowed keys...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="confirmLostModal" class="modal-overlay">
+            <div class="modal-container max-w-sm">
+                <div class="p-5 text-center">
+                    <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-rose-100 mb-4">
+                        <svg class="h-6 w-6 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    </div>
+                    <h3 class="text-lg font-semibold text-slate-800 mb-2">Confirm Lost Key</h3>
+                    <p class="text-sm text-slate-600 mb-4" id="confirmLostMessage">Are you sure you want to report this key as lost? A Key Replacement Fee of 50 SGD will be applied to your account.</p>
+                    <div class="flex gap-3 justify-center">
+                        <button id="cancelLostBtn" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-sm font-medium transition">Cancel</button>
+                        <button id="confirmLostBtn" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-sm font-medium transition">Yes, Report Lost</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="extensionModal" class="modal-overlay">
+            <div class="modal-container max-w-2xl">
+                <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-purple-50 to-indigo-50">
+                    <div>
+                        <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                            <i class="fas fa-calendar-plus text-purple-600"></i> Extension Request
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Select an active loan and set a new return date.</p>
+                    </div>
+                    <button id="closeExtensionModalBtn" class="close-btn">&times;</button>
+                </div>
+                <div class="p-5">
+                    <div id="extensionLoansContainer" class="max-h-64 overflow-y-auto custom-scroll space-y-2 mb-4">
+                        <div class="text-center py-8 text-slate-400 text-sm">Loading your active loans...</div>
+                    </div>
+                    <div id="extensionSelectionArea" style="display:none;" class="border-t border-slate-200 pt-4 mt-2">
+                        <div class="mb-3">
+                            <label class="block text-sm font-medium text-slate-700 mb-1">New return date <span class="text-rose-500">*</span></label>
+                            <input type="datetime-local" id="extensionNewReturnDate" class="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition" />
+                        </div>
+                        <div id="extensionError" class="text-sm text-rose-600 hidden mb-2"></div>
+                        <button id="submitExtensionBtn" class="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-semibold py-2.5 rounded-xl transition shadow-sm disabled:opacity-50">Submit extension request</button>
+                        <p class="text-[11px] text-slate-400 text-center mt-2">Extension requests require admin approval.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="notificationModal" class="modal-overlay">
+            <div class="modal-container max-w-sm">
+                <div class="p-6 text-center">
+                    <div class="notification-icon success" id="notificationIcon">
+                        <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+                    </div>
+                    <h4 class="text-lg font-semibold text-slate-800 mt-3" id="notificationTitle">Success</h4>
+                    <p class="text-slate-500 mt-1 text-sm" id="notificationMessage">Action completed.</p>
+                    <button id="closeNotificationBtn" class="mt-4 px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full transition text-sm font-medium">OK</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="profileModal" class="modal-overlay">
+            <div class="modal-container">
+                <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+                    <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
+                        <i class="fas fa-user-circle text-blue-600"></i> My Profile
+                    </h3>
+                    <button id="closeProfileModalBtn" class="close-btn">&times;</button>
+                </div>
+                <div class="p-5">
+                    <div id="profileError" class="profile-error"></div>
+                    <div id="profileSuccess" class="profile-success"></div>
+                    <div class="profile-field">
+                        <label for="profileName">Full Name</label>
+                        <input type="text" id="profileName" placeholder="Your full name" />
+                    </div>
+                    <div class="profile-field">
+                        <label for="profileEmail">Email Address</label>
+                        <input type="email" id="profileEmail" placeholder="your@email.com" />
+                        <div class="hint">Changing your email will update your login credentials.</div>
+                    </div>
+                    <div class="profile-field">
+                        <label for="profileCurrentPassword">Current Password</label>
+                        <input type="password" id="profileCurrentPassword" placeholder="Enter current password" />
+                    </div>
+                    <div class="profile-field">
+                        <label for="profileNewPassword">New Password</label>
+                        <input type="password" id="profileNewPassword" placeholder="Leave blank to keep current" />
+                        <div class="hint">Min 8 characters, with uppercase, lowercase, number, and special character.</div>
+                    </div>
+                    <div class="profile-actions">
+                        <button class="btn-secondary" id="cancelProfileBtn">Cancel</button>
+                        <button class="btn-primary" id="saveProfileBtn">Save Changes</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="toastRoot"></div>
+
+        <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="text-center text-xs text-slate-500 flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4">
+                    <span>&copy; 2026 Beauty One International Pte Ltd. All rights reserved.</span>
+                    <span class="hidden sm:inline text-slate-300">|</span>
+                    <a href="/privacy-policy" class="text-indigo-600 hover:text-indigo-700 hover:underline transition">Privacy Policy &amp; Terms of Service</a>
+                </div>
+            </div>
+        </footer>
     </div>
 
-    <!-- ============================================================
-    NOTIFICATION MODAL
-    ============================================================ -->
-    <div id="notificationModal" class="modal-overlay">
-      <div class="modal-container max-w-sm">
-        <div class="p-6 text-center">
-          <div class="notification-icon success" id="notificationIcon">
-            <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
-          </div>
-          <h4 class="text-lg font-semibold text-slate-800 mt-3" id="notificationTitle">Success</h4>
-          <p class="text-slate-500 mt-1 text-sm" id="notificationMessage">Action completed.</p>
-          <button id="closeNotificationBtn" class="mt-4 px-6 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-full transition text-sm font-medium">OK</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- ============================================================
-    PROFILE MODAL
-    ============================================================ -->
-    <div id="profileModal" class="modal-overlay">
-      <div class="modal-container">
-        <div class="p-5 border-b border-slate-100 flex justify-between items-center">
-          <h3 class="text-lg font-semibold text-slate-800 flex items-center gap-2">
-            <i class="fas fa-user-circle text-blue-600"></i> My Profile
-          </h3>
-          <button id="closeProfileModalBtn" class="close-btn">&times;</button>
-        </div>
-        <div class="p-5">
-          <div id="profileError" class="profile-error"></div>
-          <div id="profileSuccess" class="profile-success"></div>
-          <div class="profile-field">
-            <label for="profileName">Full Name</label>
-            <input type="text" id="profileName" placeholder="Your full name" />
-          </div>
-          <div class="profile-field">
-            <label for="profileEmail">Email Address</label>
-            <input type="email" id="profileEmail" placeholder="your@email.com" />
-            <div class="hint">Changing your email will update your login credentials.</div>
-          </div>
-          <div class="profile-field">
-            <label for="profileCurrentPassword">Current Password</label>
-            <input type="password" id="profileCurrentPassword" placeholder="Enter current password" />
-          </div>
-          <div class="profile-field">
-            <label for="profileNewPassword">New Password</label>
-            <input type="password" id="profileNewPassword" placeholder="Leave blank to keep current" />
-            <div class="hint">Min 8 characters, with uppercase, lowercase, number, and special character.</div>
-          </div>
-          <div class="profile-actions">
-            <button class="btn-secondary" id="cancelProfileBtn">Cancel</button>
-            <button class="btn-primary" id="saveProfileBtn">Save Changes</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- TOAST ROOT -->
-    <div id="toastRoot"></div>
-
-    <!-- FOOTER -->
-    <footer class="bg-white border-t border-slate-200 py-4 mt-8">
-      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div class="text-center text-xs text-slate-500 flex flex-col sm:flex-row justify-center items-center gap-2 sm:gap-4">
-          <span>&copy; 2026 Beauty One International Pte Ltd. All rights reserved.</span>
-          <span class="hidden sm:inline text-slate-300">|</span>
-          <a href="/privacy-policy" class="text-indigo-600 hover:text-indigo-700 hover:underline transition">Privacy Policy &amp; Terms of Service</a>
-        </div>
-      </div>
-    </footer>
-  </div>
-
-  <!-- SCRIPTS -->
-  <script src="/js/force-logout.js?v=d48646c8860ce954"></script>
-  <script src="/js/index.js?v=d48646c8860ce954"></script>
+    <script src="/js/csrf.js"></script>
+    <script src="/js/force-logout.js"></script>
+    <script src="/js/index.js"></script>
 </body>
 </html>

@@ -8,8 +8,6 @@
         return;
     }
 
-    var csrfToken = null;
-    var csrfFetchPromise = null;
     var refreshInterval = null;
     var isPageVisible = true;
 
@@ -39,43 +37,6 @@
             document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
         });
         window.location.href = '/login';
-    }
-
-    async function fetchCsrfToken() {
-        if (csrfFetchPromise) return csrfFetchPromise;
-        csrfFetchPromise = (async function() {
-            try {
-                var response = await fetch('/api/csrf-token', {
-                    credentials: 'include',
-                    headers: { 'Accept': 'application/json' }
-                });
-                if (response.ok) {
-                    var data = await response.json();
-                    csrfToken = data.csrfToken;
-                    var meta = document.querySelector('meta[name="csrf-token"]');
-                    if (meta) meta.setAttribute('content', csrfToken);
-                    return csrfToken;
-                }
-                console.error('Failed to fetch CSRF token:', response.status);
-                return null;
-            } catch (error) {
-                console.error('Error fetching CSRF token:', error);
-                return null;
-            } finally {
-                csrfFetchPromise = null;
-            }
-        })();
-        return csrfFetchPromise;
-    }
-
-    async function getCsrfToken() {
-        return csrfToken || await fetchCsrfToken();
-    }
-
-    async function refreshCsrfToken() {
-        csrfToken = null;
-        csrfFetchPromise = null;
-        return await fetchCsrfToken();
     }
 
     function getToken() {
@@ -1841,14 +1802,23 @@
             btn.addEventListener('click', async function() {
                 var id = this.dataset.id;
                 var code = this.dataset.code;
-                var ok = await showConfirm('Delete key ' + code + '? This action cannot be undone.', { title: 'Delete Key' });
+                
+                var ok = await showConfirm(
+                    'Delete key ' + code + '? This action will soft-delete the key (set status to inactive). The key record will be preserved for audit purposes.',
+                    { title: 'Delete Key' }
+                );
                 if (!ok) return;
 
                 try {
                     var res = await authenticatedFetch('/api/admin/keys/' + id, { method: 'DELETE' });
+                    
                     if (res.ok) {
-                        await logAuditEvent('delete_key', 'key', id, { key_code: code });
-                        showAlertModal('Key deleted successfully.', 'success');
+                        var data = await res.json();
+                        await logAuditEvent('delete_key', 'key', id, { 
+                            key_code: code,
+                            status: data.status || 'inactive'
+                        });
+                        showAlertModal('Key ' + code + ' has been deactivated successfully. The record is preserved for audit purposes.', 'success');
                         fetchManageKeys();
                         loadInventory();
                     } else {
@@ -3042,7 +3012,7 @@
                         + (user.status === 'locked' ? '<button class="menu-item" data-action="unlock"><i class="fas fa-unlock"></i> Unlock</button>' : '')
                         + '<button class="menu-item" data-action="send-welcome"><i class="fas fa-envelope"></i> Send Welcome Email</button>'
                         + '<div class="menu-divider"></div>'
-                        + '<button class="menu-item danger" data-action="delete"><i class="fas fa-trash"></i> Delete</button>';
+                        + '<button class="menu-item danger" data-action="delete"><i class="fas fa-trash"></i> Deactivate</button>';
 
                     openPortalMenu(this, menuHtml, function(menu) {
                         menu.querySelector('[data-action="edit"]') && menu.querySelector('[data-action="edit"]').addEventListener('click', function() {
@@ -3113,7 +3083,16 @@
                             menu.remove();
                             deleteUserId = user.id;
                             document.getElementById('acmDeleteUserMessage').innerHTML =
-                                'Are you sure you want to delete <strong>' + escapeHtml(user.name) + '</strong>? This action cannot be undone.';
+                                '⚠️ <strong>Deactivate User</strong><br><br>'
+                                + 'Are you sure you want to deactivate <strong>' + escapeHtml(user.name) + '</strong>?<br><br>'
+                                + '<span style="color:#64748b;font-size:0.9rem;">'
+                                + 'This will:<br>'
+                                + '• Set the user\'s status to "inactive"<br>'
+                                + '• Preserve all associated records (audit logs, notifications, etc.)<br>'
+                                + '• Maintain referential integrity with foreign keys<br>'
+                                + '• Allow reactivation if needed in the future<br>'
+                                + '</span><br><br>'
+                                + '<strong>This is a soft delete. The user record is preserved.</strong>';
                             deleteConfirmModal.classList.add('active');
                             deleteConfirmModal.style.zIndex = '1000001';
                         });
@@ -3225,21 +3204,34 @@
         async function confirmDelete() {
             if (!deleteUserId) return;
             confirmDeleteBtn.disabled = true;
-            confirmDeleteBtn.innerText = 'Deleting...';
+            confirmDeleteBtn.innerText = 'Deactivating...';
 
             try {
-                await authenticatedFetch('/api/admin/users/' + deleteUserId, { method: 'DELETE' });
-                await logAuditEvent('delete_user', 'user', deleteUserId, { user_id: deleteUserId });
-                showAlertModal('User deleted successfully.', 'success');
-                closeDeleteModal();
-                deleteUserId = null;
-                fetchUsersInline();
-                fetchManageUsers();
+                var res = await authenticatedFetch('/api/admin/users/' + deleteUserId + '/deactivate', { 
+                    method: 'PATCH' 
+                });
+                
+                if (res.ok) {
+                    var data = await res.json();
+                    await logAuditEvent('deactivate_user', 'user', deleteUserId, { 
+                        user_id: deleteUserId,
+                        status: 'inactive'
+                    });
+                    showAlertModal('User has been deactivated (soft delete). The record is preserved for audit and FK integrity.', 'success');
+                    closeDeleteModal();
+                    deleteUserId = null;
+                    fetchUsersInline();
+                    fetchManageUsers();
+                    loadPendingRegistrations();
+                } else {
+                    var data = await res.json();
+                    showAlertModal(data.error || 'Deactivation failed.', 'error');
+                }
             } catch (err) {
                 showAlertModal(err.message || 'Network error.', 'error');
             } finally {
                 confirmDeleteBtn.disabled = false;
-                confirmDeleteBtn.innerText = 'Delete';
+                confirmDeleteBtn.innerText = 'Deactivate';
             }
         }
 
@@ -4029,7 +4021,7 @@
         if (loadingContainer) loadingContainer.style.display = 'none';
         if (adminContentWrapper) adminContentWrapper.style.display = 'block';
 
-        fetchCsrfToken();
+        await ensureCsrfToken();
         initEventListeners();
         initUserManagement();
 

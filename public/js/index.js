@@ -8,8 +8,6 @@
         return;
     }
 
-    let csrfToken = null;
-    let csrfFetchPromise = null;
     let allKeys = [];
     let basket = [];
     let currentBrandFilter = 'all';
@@ -20,62 +18,15 @@
     let pendingLostTransaction = null;
 
     function redirectToLogin() {
-        if (isRedirecting) {
-            return;
-        }
+        if (isRedirecting) return;
         isRedirecting = true;
         localStorage.removeItem('kms_token');
         localStorage.removeItem('kms_user');
         sessionStorage.clear();
-        
         document.cookie.split(";").forEach(function(c) {
-            document.cookie = c.replace(/^ +/, "")
-                .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
         });
-        
         window.location.href = '/login?t=' + Date.now();
-    }
-
-    async function fetchCsrfToken() {
-        if (csrfFetchPromise) {
-            return csrfFetchPromise;
-        }
-
-        csrfFetchPromise = (async () => {
-            try {
-                const response = await fetch('/api/csrf-token', {
-                    credentials: 'include',
-                    headers: { 'Accept': 'application/json' }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    csrfToken = data.csrfToken;
-                    const meta = document.querySelector('meta[name="csrf-token"]');
-                    if (meta) meta.setAttribute('content', csrfToken);
-                    return csrfToken;
-                }
-                console.error('Failed to fetch CSRF token:', response.status);
-                return null;
-            } catch (error) {
-                console.error('Error fetching CSRF token:', error);
-                return null;
-            } finally {
-                csrfFetchPromise = null;
-            }
-        })();
-
-        return csrfFetchPromise;
-    }
-
-    async function getCsrfToken() {
-        if (csrfToken) return csrfToken;
-        return await fetchCsrfToken();
-    }
-
-    async function refreshCsrfToken() {
-        csrfToken = null;
-        csrfFetchPromise = null;
-        return await fetchCsrfToken();
     }
 
     function getToken() {
@@ -255,18 +206,15 @@
     async function authenticatedFetch(url, options = {}) {
         const token = getToken();
         if (!token) {
-            if (!isRedirecting) {
-                redirectToLogin();
-            }
+            if (!isRedirecting) redirectToLogin();
             throw new Error('No token');
         }
 
-        let csrf = await getCsrfToken();
-        if (!csrf) csrf = '';
+        const csrf = await getCsrfToken();
 
         const headers = {
             'Authorization': `Bearer ${token}`,
-            'X-CSRF-Token': csrf,
+            'X-CSRF-Token': csrf || '',
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json',
             'X-Request-Id': generateRequestId(),
@@ -276,20 +224,12 @@
         if (options.body && !(options.body instanceof FormData)) {
             headers['Content-Type'] = 'application/json';
         }
-
         if (options.body instanceof FormData) {
             delete headers['Content-Type'];
         }
 
-        const fetchOptions = {
-            ...options,
-            headers,
-            credentials: 'include'
-        };
-
-        if (options.method === 'GET') {
-            delete fetchOptions.body;
-        }
+        const fetchOptions = { ...options, headers, credentials: 'include' };
+        if (options.method === 'GET') delete fetchOptions.body;
 
         try {
             let response = await fetch(url, fetchOptions);
@@ -307,9 +247,7 @@
             }
 
             if (response.status === 401) {
-                if (!isRedirecting) {
-                    redirectToLogin();
-                }
+                if (!isRedirecting) redirectToLogin();
                 throw new Error('Session expired');
             }
 
@@ -326,9 +264,7 @@
         try {
             const token = getToken();
             if (!token) {
-                if (!isRedirecting) {
-                    redirectToLogin();
-                }
+                if (!isRedirecting) redirectToLogin();
                 return false;
             }
 
@@ -338,18 +274,13 @@
             });
 
             if (!response.ok) {
-                if (!isRedirecting) {
-                    redirectToLogin();
-                }
+                if (!isRedirecting) redirectToLogin();
                 return false;
             }
 
             const data = await response.json();
-
             if (!data.authenticated) {
-                if (!isRedirecting) {
-                    redirectToLogin();
-                }
+                if (!isRedirecting) redirectToLogin();
                 return false;
             }
 
@@ -357,9 +288,7 @@
             return true;
         } catch (error) {
             console.error('Auth check failed:', error);
-            if (!isRedirecting) {
-                redirectToLogin();
-            }
+            if (!isRedirecting) redirectToLogin();
             return false;
         }
     }
@@ -367,7 +296,6 @@
     async function handleLogout() {
         if (isRedirecting) return;
         isRedirecting = true;
-
         try {
             const token = getToken();
             if (token) {
@@ -388,9 +316,6 @@
         }
     }
 
-    // ============================================================
-    // FIX 1: BORROW TOGGLE BUTTONS - EVENT HANDLERS
-    // ============================================================
     function initBorrowToggle() {
         const toggleBtns = document.querySelectorAll('.borrow-toggle-btn');
         const timeContainer = document.getElementById('borrowTimeContainer');
@@ -398,16 +323,10 @@
         const timePicker = document.getElementById('borrowTimePicker');
         const plannedReturn = document.getElementById('modalPlannedReturn');
 
-        if (!toggleBtns.length) {
-            console.warn('Borrow toggle buttons not found');
-            return;
-        }
+        if (!toggleBtns.length) return;
 
-        // Set default date
         const now = new Date();
-        if (borrowDateHidden) {
-            borrowDateHidden.value = now.toISOString();
-        }
+        if (borrowDateHidden) borrowDateHidden.value = now.toISOString();
         if (plannedReturn) {
             const returnDate = new Date(now);
             returnDate.setDate(returnDate.getDate() + 7);
@@ -417,29 +336,21 @@
         toggleBtns.forEach(btn => {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
-                
                 toggleBtns.forEach(b => b.classList.remove('active'));
                 this.classList.add('active');
 
                 const borrowType = this.dataset.borrowType;
-                
                 if (borrowType === 'now') {
                     const now = new Date();
-                    if (borrowDateHidden) {
-                        borrowDateHidden.value = now.toISOString();
-                    }
-                    if (timeContainer) {
-                        timeContainer.style.display = 'none';
-                    }
+                    if (borrowDateHidden) borrowDateHidden.value = now.toISOString();
+                    if (timeContainer) timeContainer.style.display = 'none';
                     if (plannedReturn) {
                         const returnDate = new Date(now);
                         returnDate.setDate(returnDate.getDate() + 7);
                         plannedReturn.value = returnDate.toISOString().slice(0, 16);
                     }
                 } else if (borrowType === 'today') {
-                    if (timeContainer) {
-                        timeContainer.style.display = 'block';
-                    }
+                    if (timeContainer) timeContainer.style.display = 'block';
                     if (timePicker) {
                         const now = new Date();
                         const hours = String(now.getHours()).padStart(2, '0');
@@ -460,13 +371,11 @@
             const timePicker = document.getElementById('borrowTimePicker');
             const borrowDateHidden = document.getElementById('borrowDateHidden');
             const plannedReturn = document.getElementById('modalPlannedReturn');
-            
             if (timePicker && borrowDateHidden) {
                 const now = new Date();
                 const [hours, minutes] = timePicker.value.split(':').map(Number);
                 now.setHours(hours || 0, minutes || 0, 0, 0);
                 borrowDateHidden.value = now.toISOString();
-                
                 if (plannedReturn) {
                     const returnDate = new Date(now);
                     returnDate.setDate(returnDate.getDate() + 7);
@@ -477,11 +386,9 @@
     }
 
     function initEventListeners() {
-        // Logout
         document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
         document.getElementById('mobileLogoutBtn')?.addEventListener('click', handleLogout);
 
-        // Mobile menu
         const mobileMenuBtn = document.getElementById('mobileMenuBtn');
         const mobileMenu = document.getElementById('mobileMenu');
         if (mobileMenuBtn && mobileMenu) {
@@ -496,41 +403,13 @@
             });
         }
 
-        // Profile
         document.getElementById('mobileProfileBtn')?.addEventListener('click', function() {
             const mobileMenu = document.getElementById('mobileMenu');
             if (mobileMenu) mobileMenu.classList.remove('open');
-
-            const modal = document.getElementById('profileModal');
-            if (modal) {
-                const user = getUser();
-                if (user) {
-                    document.getElementById('profileName').value = user.name || '';
-                    document.getElementById('profileEmail').value = user.email || '';
-                }
-                document.getElementById('profileCurrentPassword').value = '';
-                document.getElementById('profileNewPassword').value = '';
-                document.getElementById('profileError').style.display = 'none';
-                document.getElementById('profileSuccess').style.display = 'none';
-                modal.style.display = 'flex';
-            }
+            openProfileModal();
         });
 
-        document.getElementById('myProfileBtn')?.addEventListener('click', function() {
-            const modal = document.getElementById('profileModal');
-            if (modal) {
-                const user = getUser();
-                if (user) {
-                    document.getElementById('profileName').value = user.name || '';
-                    document.getElementById('profileEmail').value = user.email || '';
-                }
-                document.getElementById('profileCurrentPassword').value = '';
-                document.getElementById('profileNewPassword').value = '';
-                document.getElementById('profileError').style.display = 'none';
-                document.getElementById('profileSuccess').style.display = 'none';
-                modal.style.display = 'flex';
-            }
-        });
+        document.getElementById('myProfileBtn')?.addEventListener('click', openProfileModal);
 
         document.getElementById('closeProfileModalBtn')?.addEventListener('click', () => {
             document.getElementById('profileModal').style.display = 'none';
@@ -592,12 +471,10 @@
                         user.email = email;
                         localStorage.setItem('kms_user', JSON.stringify(user));
                     }
-
                     successDiv.textContent = 'Profile updated successfully!';
                     successDiv.style.display = 'block';
                     document.getElementById('profileCurrentPassword').value = '';
                     document.getElementById('profileNewPassword').value = '';
-
                     setTimeout(() => {
                         document.getElementById('profileModal').style.display = 'none';
                     }, 2000);
@@ -614,7 +491,22 @@
             }
         });
 
-        // Notification
+        function openProfileModal() {
+            const modal = document.getElementById('profileModal');
+            if (modal) {
+                const user = getUser();
+                if (user) {
+                    document.getElementById('profileName').value = user.name || '';
+                    document.getElementById('profileEmail').value = user.email || '';
+                }
+                document.getElementById('profileCurrentPassword').value = '';
+                document.getElementById('profileNewPassword').value = '';
+                document.getElementById('profileError').style.display = 'none';
+                document.getElementById('profileSuccess').style.display = 'none';
+                modal.style.display = 'flex';
+            }
+        }
+
         document.getElementById('closeNotificationBtn')?.addEventListener('click', closeNotification);
         document.getElementById('notificationModal')?.addEventListener('click', (e) => {
             if (e.target === document.getElementById('notificationModal')) closeNotification();
@@ -626,7 +518,6 @@
             }
         });
 
-        // Basket
         document.getElementById('clearBasketBtn')?.addEventListener('click', () => {
             if (basket.length) {
                 basket = [];
@@ -635,7 +526,6 @@
             }
         });
 
-        // Request modal
         document.getElementById('submitRequestBtn')?.addEventListener('click', openRequestModal);
         document.getElementById('closeModalBtn')?.addEventListener('click', closeRequestModal);
         document.getElementById('cancelModalBtn')?.addEventListener('click', closeRequestModal);
@@ -647,11 +537,9 @@
             }
         });
 
-        // Search
         const searchInput = document.getElementById('globalSearch');
         searchInput?.addEventListener('input', filterKeysBySearch);
 
-        // Initialize borrow toggle buttons
         initBorrowToggle();
     }
 
@@ -690,9 +578,6 @@
         }
     }
 
-    // ============================================================
-    // FIX 2: REMOVED BORROW BUTTON FROM KEY CARDS
-    // ============================================================
     function renderFilteredGrid() {
         let filtered = [...allKeys];
         if (currentBrandFilter !== 'all') filtered = filtered.filter(k => k.brand === currentBrandFilter);
@@ -713,9 +598,7 @@
         let html = '';
         filtered.forEach(key => {
             const dotColor = getDotColour(key.colour);
-            let statusBadge = '',
-                isAvailable = false;
-            
+            let statusBadge = '';
             const keyStatus = key.status || (key.is_lost ? 'lost' : 'available');
 
             if (keyStatus === 'lost') {
@@ -728,7 +611,6 @@
                 statusBadge = `<span class="key-status" style="background:rgba(245,158,11,0.85);">Returning</span>`;
             } else if (key.available) {
                 statusBadge = `<span class="key-status" style="background:rgba(16,185,129,0.85);">Available</span>`;
-                isAvailable = true;
             } else {
                 statusBadge = `<span class="key-status" style="background:rgba(100,116,139,0.85);">On Loan</span>`;
             }
@@ -737,7 +619,6 @@
             const textColor = isLight ? '#0f172a' : '#ffffff';
             const shadow = isLight ? '0 1px 4px rgba(0,0,0,0.1)' : '0 1px 4px rgba(0,0,0,0.3)';
 
-            // FIX: Removed the borrow-btn - clicking the card handles adding to basket
             html += `
                 <div class="key-card" style="background-color:${dotColor}; color:${textColor}; text-shadow:${shadow};"
                      data-id="${key.id}" data-code="${escapeHtml(key.code)}" data-brand="${escapeHtml(key.brand)}"
@@ -755,40 +636,31 @@
             container.innerHTML = html;
         }
 
-        // FIX: Click on the entire card adds to basket
         document.querySelectorAll('.key-card').forEach(card => {
             card.addEventListener('click', function(e) {
-                // Don't trigger if clicking on a status badge or popover
-                if (e.target.closest('.key-status') || e.target.closest('.popover')) {
-                    return;
-                }
+                if (e.target.closest('.key-status') || e.target.closest('.popover')) return;
                 const keyId = parseInt(this.dataset.id);
                 const key = allKeys.find(k => k.id === keyId);
                 if (key && key.available && key.status !== 'lost' && key.status !== 'unavailable') {
                     addToBasket(key);
-                } else {
-                    // Show a toast explaining why it can't be borrowed
-                    if (key) {
-                        const status = key.status || (key.is_lost ? 'lost' : 'unavailable');
-                        if (status === 'lost') {
-                            showToast(`${key.code} is marked as lost`, 'warning');
-                        } else if (status === 'unavailable') {
-                            showToast(`${key.code} is unavailable`, 'warning');
-                        } else {
-                            showToast(`${key.code} is not available for borrowing`, 'warning');
-                        }
+                } else if (key) {
+                    const status = key.status || (key.is_lost ? 'lost' : 'unavailable');
+                    if (status === 'lost') {
+                        showToast(`${key.code} is marked as lost`, 'warning');
+                    } else if (status === 'unavailable') {
+                        showToast(`${key.code} is unavailable`, 'warning');
+                    } else {
+                        showToast(`${key.code} is not available for borrowing`, 'warning');
                     }
                 }
             });
         });
 
-        // Popover on status badge for loaned keys
         document.querySelectorAll('.key-card .key-status').forEach(badge => {
             const card = badge.closest('.key-card');
             if (!card) return;
             const isAvailable = card.getAttribute('data-available') === 'true';
             if (isAvailable) return;
-            
             badge.addEventListener('click', function(e) {
                 e.stopPropagation();
                 const borrowerName = card.getAttribute('data-borrower-name');
@@ -896,9 +768,6 @@
         });
     }
 
-    // ============================================================
-    // FIX 3: REQUEST MODAL - AUTO-POPULATE USER INFO
-    // ============================================================
     function openRequestModal() {
         if (!basket.length) {
             showNotification('Empty Basket', 'Please add at least one key to your basket before submitting a request.', 'warning');
@@ -910,21 +779,13 @@
             listContainer.innerHTML = '<ul class="list-disc list-inside">' + basket.map(i => `<li>${escapeHtml(i.code)} (${escapeHtml(i.brand)})</li>`).join('') + '</ul>';
         }
 
-        // FIX: Populate user info from logged-in user
         const user = getUser();
         const nameDisplay = document.getElementById('modalUserDisplayName');
         const emailDisplay = document.getElementById('modalUserDisplayEmail');
-        
-        if (nameDisplay) {
-            nameDisplay.textContent = user?.name || 'Not logged in';
-        }
-        if (emailDisplay) {
-            emailDisplay.textContent = user?.email || 'Not logged in';
-        }
+        if (nameDisplay) nameDisplay.textContent = user?.name || 'Not logged in';
+        if (emailDisplay) emailDisplay.textContent = user?.email || 'Not logged in';
 
         document.getElementById('modalReason').value = '';
-        
-        // Set default return date to 7 days from now
         const plannedReturn = document.getElementById('modalPlannedReturn');
         if (plannedReturn) {
             const now = new Date();
@@ -932,10 +793,8 @@
             returnDate.setDate(returnDate.getDate() + 7);
             plannedReturn.value = returnDate.toISOString().slice(0, 16);
         }
-        
         const errorDiv = document.getElementById('modalError');
         if (errorDiv) errorDiv.classList.add('hidden');
-        
         document.getElementById('consentCheckbox').checked = false;
         document.getElementById('confirmSubmitBtn').disabled = true;
         document.getElementById('requestModal').style.display = 'flex';
@@ -945,9 +804,6 @@
         document.getElementById('requestModal').style.display = 'none';
     }
 
-    // ============================================================
-    // FIX 4: SUBMIT REQUEST - USE LOGGED-IN USER INFO
-    // ============================================================
     async function submitRequest() {
         const user = getUser();
         const name = user?.name || '';
@@ -1078,9 +934,6 @@
         });
     }
 
-    // ============================================================
-    // FIX 5: RETURN MODAL - PROPER STEP MANAGEMENT
-    // ============================================================
     function initReturnModal() {
         const returnModal = document.getElementById('returnModal');
         const step1 = document.getElementById('returnStep1');
@@ -1105,12 +958,10 @@
             const chevron = document.getElementById('returnDropdownChevron');
             if (menu) menu.classList.add('hidden');
             if (chevron) chevron.style.transform = 'rotate(0deg)';
-            
             if (returnModal) returnModal.style.display = 'flex';
             if (step1) step1.style.display = 'none';
             if (step2) step2.style.display = 'block';
             if (step3) step3.style.display = 'none';
-            
             autoLoadUserLoans();
         });
 
@@ -1266,9 +1117,6 @@
         });
     }
 
-    // ============================================================
-    // FIX 6: REPORT LOST - PROPER SCOPE
-    // ============================================================
     function initReportLost() {
         const reportLostModal = document.getElementById('reportLostModal');
         const reportLostKeysContainer = document.getElementById('reportLostKeysListContainer');
@@ -1282,7 +1130,6 @@
             const chevron = document.getElementById('returnDropdownChevron');
             if (menu) menu.classList.add('hidden');
             if (chevron) chevron.style.transform = 'rotate(0deg)';
-            
             if (reportLostModal) reportLostModal.style.display = 'flex';
             if (window.autoLoadLostKeys) {
                 window.autoLoadLostKeys();
@@ -1415,10 +1262,8 @@
             const chevron = document.getElementById('returnDropdownChevron');
             if (menu) menu.classList.add('hidden');
             if (chevron) chevron.style.transform = 'rotate(0deg)';
-            
             const modal = document.getElementById('extensionModal');
             if (modal) modal.style.display = 'flex';
-            
             autoLoadExtensionLoans();
         });
 
@@ -1430,7 +1275,7 @@
         async function autoLoadExtensionLoans() {
             const email = getUserEmail();
             const container = document.getElementById('extensionLoansContainer');
-            
+
             if (!email) {
                 if (container) {
                     container.innerHTML = '<div class="text-center py-8 text-amber-600">No email found in your profile. Please update your profile.</div>';
@@ -1477,13 +1322,10 @@
                     item.addEventListener('click', function() {
                         document.querySelectorAll('.extension-item').forEach(el => el.classList.remove('selected', 'border-purple-400', 'bg-purple-50'));
                         this.classList.add('selected', 'border-purple-400', 'bg-purple-50');
-                        
                         const selectionArea = document.getElementById('extensionSelectionArea');
                         if (selectionArea) selectionArea.style.display = 'block';
-                        
                         const errorDiv = document.getElementById('extensionError');
                         if (errorDiv) errorDiv.classList.add('hidden');
-                        
                         const submitBtn = document.getElementById('submitExtensionBtn');
                         if (submitBtn) {
                             submitBtn.dataset.loanId = this.dataset.transactionId;
@@ -1568,14 +1410,10 @@
             const loadingContainer = document.getElementById('loadingContainer');
             const mainContentWrapper = document.getElementById('mainContentWrapper');
 
-            if (loadingContainer) {
-                loadingContainer.style.display = 'none';
-            }
-            if (mainContentWrapper) {
-                mainContentWrapper.style.display = 'block';
-            }
+            if (loadingContainer) loadingContainer.style.display = 'none';
+            if (mainContentWrapper) mainContentWrapper.style.display = 'block';
 
-            fetchCsrfToken();
+            await ensureCsrfToken();
             initEventListeners();
             initFilters();
             initReturnDropdown();

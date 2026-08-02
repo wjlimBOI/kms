@@ -1,61 +1,18 @@
 (function() {
     'use strict';
 
-    let csrfToken = null;
-    let csrfFetchPromise = null;
     let isRedirecting = false;
 
     function redirectToLogin() {
-        if (isRedirecting) {
-            return;
-        }
+        if (isRedirecting) return;
         isRedirecting = true;
         localStorage.removeItem('kms_token');
         localStorage.removeItem('kms_user');
         sessionStorage.clear();
-        
         document.cookie.split(";").forEach(function(c) {
-            document.cookie = c.replace(/^ +/, "")
-                .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
         });
-        
         window.location.href = '/login?t=' + Date.now();
-    }
-
-    async function fetchCsrfToken() {
-        if (csrfFetchPromise) {
-            return csrfFetchPromise;
-        }
-
-        csrfFetchPromise = (async () => {
-            try {
-                const response = await fetch('/api/csrf-token', {
-                    credentials: 'include',
-                    headers: { 'Accept': 'application/json' }
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    csrfToken = data.csrfToken;
-                    const meta = document.querySelector('meta[name="csrf-token"]');
-                    if (meta) meta.setAttribute('content', csrfToken);
-                    return csrfToken;
-                }
-                console.error('Failed to fetch CSRF token:', response.status);
-                return null;
-            } catch (error) {
-                console.error('Error fetching CSRF token:', error);
-                return null;
-            } finally {
-                csrfFetchPromise = null;
-            }
-        })();
-
-        return csrfFetchPromise;
-    }
-
-    async function getCsrfToken() {
-        if (csrfToken) return csrfToken;
-        return await fetchCsrfToken();
     }
 
     async function checkSessionAndRedirect() {
@@ -64,22 +21,12 @@
                 credentials: 'include',
                 headers: { 'Accept': 'application/json' }
             });
-
-            if (!response.ok) {
-                return false;
-            }
-
+            if (!response.ok) return false;
             const data = await response.json();
-
             if (data.authenticated && data.user) {
                 localStorage.setItem('kms_user', JSON.stringify(data.user));
                 isRedirecting = true;
-
-                if (data.user.role === 'admin') {
-                    window.location.href = '/admin';
-                } else {
-                    window.location.href = '/';
-                }
+                window.location.href = data.user.role === 'admin' ? '/admin' : '/';
                 return true;
             }
             return false;
@@ -92,18 +39,12 @@
     function showLoginForm() {
         const loadingContainer = document.getElementById('loadingContainer');
         const loginFormContainer = document.getElementById('loginFormContainer');
-
-        if (loadingContainer) {
-            loadingContainer.style.display = 'none';
-        }
-        if (loginFormContainer) {
-            loginFormContainer.style.display = 'block';
-        }
+        if (loadingContainer) loadingContainer.style.display = 'none';
+        if (loginFormContainer) loginFormContainer.style.display = 'block';
     }
 
     async function init() {
-        await fetchCsrfToken();
-
+        await ensureCsrfToken();
         const isRedirected = await checkSessionAndRedirect();
         if (!isRedirected && !isRedirecting) {
             showLoginForm();
@@ -126,8 +67,7 @@
         const lockoutWarningText = document.getElementById('lockoutWarningText');
         const toggleBtn = document.querySelector('.toggle-password');
         const toggleIcon = toggleBtn?.querySelector('i');
-        
-        // Registration Modal
+
         const registerModal = document.getElementById('registerModal');
         const openRegisterBtn = document.getElementById('openRegisterModalBtn');
         const closeRegisterBtn = document.getElementById('closeRegisterModalBtn');
@@ -139,8 +79,7 @@
         const regEmailError = document.getElementById('regEmailError');
         const registerAlert = document.getElementById('registerAlert');
         const registerBtn = document.getElementById('registerBtn');
-        
-        // Forgot Password Modal
+
         const forgotPasswordModal = document.getElementById('forgotPasswordModal');
         const forgotPasswordBtn = document.getElementById('forgotPasswordBtn');
         const closeForgotPasswordModalBtn = document.getElementById('closeForgotPasswordModalBtn');
@@ -182,9 +121,7 @@
         }
 
         function hideRegisterAlert() {
-            if (registerAlert) {
-                registerAlert.className = 'modal-alert';
-            }
+            if (registerAlert) registerAlert.className = 'modal-alert';
         }
 
         function showResetAlert(msg, type) {
@@ -195,9 +132,7 @@
         }
 
         function hideResetAlert() {
-            if (resetAlert) {
-                resetAlert.className = 'modal-alert';
-            }
+            if (resetAlert) resetAlert.className = 'modal-alert';
         }
 
         if (usernameInput) {
@@ -223,7 +158,6 @@
             });
         }
 
-        // Tooltip toggle
         if (infoTrigger && tooltipPopup) {
             infoTrigger.addEventListener('click', function(e) {
                 e.stopPropagation();
@@ -236,11 +170,9 @@
             });
         }
 
-        // ===== LOGIN FORM =====
         if (loginForm) {
             loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-
                 usernameError?.classList.remove('visible');
                 passwordError?.classList.remove('visible');
                 hideAllAlerts();
@@ -298,20 +230,13 @@
                     if (response.ok && data.token) {
                         failedAttempts = 0;
                         lockoutWarningDiv?.classList.remove('visible');
-
                         localStorage.setItem('kms_token', data.token);
-                        const user = data.user || {
-                            username: username,
-                            role: data.role || 'user',
-                            name: data.name || username
-                        };
+                        const user = data.user || { username, role: data.role || 'user', name: data.name || username };
                         localStorage.setItem('kms_user', JSON.stringify(user));
-
                         if (data.mustChangePassword) {
                             window.location.href = '/change-password';
                             return;
                         }
-
                         window.location.href = data.role === 'admin' ? '/admin' : '/';
                         return;
                     }
@@ -322,7 +247,6 @@
                     } else if (response.status === 401) {
                         failedAttempts++;
                         const remaining = 5 - failedAttempts;
-
                         if (remaining > 0 && remaining <= 3) {
                             if (lockoutWarningText) {
                                 lockoutWarningText.textContent =
@@ -332,7 +256,6 @@
                         } else {
                             lockoutWarningDiv?.classList.remove('visible');
                         }
-
                         if (remaining <= 0) {
                             lockoutWarningDiv?.classList.remove('visible');
                             showLockout('Account is temporarily locked due to too many failed attempts.');
@@ -354,7 +277,6 @@
             });
         }
 
-        // ===== REGISTRATION MODAL =====
         function openRegisterModal() {
             registerModal?.classList.add('active');
             if (regName) regName.value = '';
@@ -374,31 +296,20 @@
             tooltipPopup?.classList.remove('show');
         }
 
-        if (openRegisterBtn) {
-            openRegisterBtn.addEventListener('click', openRegisterModal);
-        }
-
-        if (closeRegisterBtn) {
-            closeRegisterBtn.addEventListener('click', closeRegisterModal);
-        }
-
-        if (cancelRegisterBtn) {
-            cancelRegisterBtn.addEventListener('click', closeRegisterModal);
-        }
-
+        if (openRegisterBtn) openRegisterBtn.addEventListener('click', openRegisterModal);
+        if (closeRegisterBtn) closeRegisterBtn.addEventListener('click', closeRegisterModal);
+        if (cancelRegisterBtn) cancelRegisterBtn.addEventListener('click', closeRegisterModal);
         if (registerModal) {
             registerModal.addEventListener('click', function(e) {
                 if (e.target === this) closeRegisterModal();
             });
         }
-
         if (regName) {
             regName.addEventListener('input', () => {
                 regNameError?.classList.remove('visible');
                 hideRegisterAlert();
             });
         }
-
         if (regEmail) {
             regEmail.addEventListener('input', () => {
                 regEmailError?.classList.remove('visible');
@@ -406,11 +317,9 @@
             });
         }
 
-        // ===== REGISTRATION FORM SUBMIT (UPDATED WITH STATUS CHECK) =====
         if (registerForm) {
             registerForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-
                 regNameError?.classList.remove('visible');
                 regEmailError?.classList.remove('visible');
                 hideRegisterAlert();
@@ -452,7 +361,6 @@
                         return;
                     }
 
-                    // First, check if there's already a pending request or registered user
                     const checkResponse = await fetch('/api/auth/check-registration-status', {
                         method: 'POST',
                         headers: {
@@ -485,10 +393,7 @@
                         }
                     }
 
-                    // If no pending request, submit the registration
-                    if (registerBtn) {
-                        registerBtn.innerHTML = '<div class="spinner"></div> Submitting...';
-                    }
+                    if (registerBtn) registerBtn.innerHTML = '<div class="spinner"></div> Submitting...';
 
                     const response = await fetch('/api/auth/register-request', {
                         method: 'POST',
@@ -505,9 +410,7 @@
 
                     if (response.ok) {
                         showRegisterAlert('✅ Request submitted! You will receive an email once approved.', 'success');
-                        if (registerBtn) {
-                            registerBtn.innerHTML = '✓ Done';
-                        }
+                        if (registerBtn) registerBtn.innerHTML = '✓ Done';
                         setTimeout(() => {
                             closeRegisterModal();
                             if (registerBtn) {
@@ -533,7 +436,6 @@
             });
         }
 
-        // ===== FORGOT PASSWORD MODAL =====
         function openForgotPasswordModal() {
             forgotPasswordModal?.classList.add('active');
             if (resetEmail) resetEmail.value = '';
@@ -549,24 +451,14 @@
             forgotPasswordModal?.classList.remove('active');
         }
 
-        if (forgotPasswordBtn) {
-            forgotPasswordBtn.addEventListener('click', openForgotPasswordModal);
-        }
-
-        if (closeForgotPasswordModalBtn) {
-            closeForgotPasswordModalBtn.addEventListener('click', closeForgotPasswordModal);
-        }
-
-        if (cancelResetBtn) {
-            cancelResetBtn.addEventListener('click', closeForgotPasswordModal);
-        }
-
+        if (forgotPasswordBtn) forgotPasswordBtn.addEventListener('click', openForgotPasswordModal);
+        if (closeForgotPasswordModalBtn) closeForgotPasswordModalBtn.addEventListener('click', closeForgotPasswordModal);
+        if (cancelResetBtn) cancelResetBtn.addEventListener('click', closeForgotPasswordModal);
         if (forgotPasswordModal) {
             forgotPasswordModal.addEventListener('click', function(e) {
                 if (e.target === this) closeForgotPasswordModal();
             });
         }
-
         if (resetEmail) {
             resetEmail.addEventListener('input', () => {
                 resetEmailError?.classList.remove('visible');
@@ -577,7 +469,6 @@
         if (forgotPasswordForm) {
             forgotPasswordForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-
                 resetEmailError?.classList.remove('visible');
                 hideResetAlert();
 
@@ -623,9 +514,7 @@
 
                     if (response.ok) {
                         showResetAlert('✅ Password reset link sent to your email.', 'success');
-                        if (resetBtn) {
-                            resetBtn.innerHTML = '✓ Sent';
-                        }
+                        if (resetBtn) resetBtn.innerHTML = '✓ Sent';
                         setTimeout(() => {
                             closeForgotPasswordModal();
                             if (resetBtn) {

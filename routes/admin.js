@@ -40,6 +40,10 @@ async function sendAdminNotification(db, subject, message) {
     }
 }
 
+// ============================================================
+// TRANSACTIONS
+// ============================================================
+
 router.get('/transactions', requireAuth, authorize('admin'), async (req, res) => {
     await setAuditContext(req);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -187,6 +191,10 @@ router.post('/force-return', requireAuth, authorize('admin'), blockIfReadOnly, a
     }
 });
 
+// ============================================================
+// KEY REQUESTS
+// ============================================================
+
 router.get('/requests/pending', requireAuth, authorize('admin'), async (req, res) => {
     await setAuditContext(req);
     const db = req.db;
@@ -230,15 +238,18 @@ router.post('/requests/approve', requireAuth, authorize('admin'), blockIfReadOnl
     await setAuditContext(req);
     const { request_id, admin_notes } = req.body;
     if (!request_id) return res.status(400).json({ error: 'request_id required' });
+    
     const db = req.db;
     const client = await db.connect();
     try {
         await client.query('BEGIN');
+        
         const reqResult = await client.query('SELECT * FROM key_requests WHERE id = $1 AND status = $2', [request_id, 'pending']);
         if (reqResult.rowCount === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ error: 'Request not found or already processed' });
         }
+        
         const request = reqResult.rows[0];
         const adminEmail = req.session?.userEmail || req.user?.email || 'admin@kms.com';
         let items = [];
@@ -257,6 +268,7 @@ router.post('/requests/approve', requireAuth, authorize('admin'), blockIfReadOnl
                     'Admin', request.requester_name, request.reason]
             );
         }
+        
         await client.query(
             `UPDATE key_requests SET status = 'approved', admin_notes = $1, approved_at = NOW() WHERE id = $2 RETURNING id`,
             [admin_notes || null, request_id]
@@ -277,15 +289,15 @@ router.post('/requests/approve', requireAuth, authorize('admin'), blockIfReadOnl
         
         try {
             await sendRequestApprovedEmail(request.requester_email, request.requester_name, items, request.planned_return);
-            console.log(`✅ Approval email sent to ${request.requester_email}`);
         } catch (emailErr) {
-            console.error('❌ Failed to send approval email:', emailErr.message);
+            console.error('Failed to send approval email:', emailErr.message);
         }
         
         await sendAdminNotification(client,
             `Key Request Approved: ${request.requester_name}`,
             `A key request from ${request.requester_name} (${request.requester_email}) has been approved for ${items.length} key(s).`
         );
+        
         res.json({ message: `Approved ${items.length} key(s).` });
     } catch (err) {
         await client.query('ROLLBACK');
@@ -312,7 +324,7 @@ router.post('/requests/deny', requireAuth, authorize('admin'), blockIfReadOnly, 
             return res.status(404).json({ error: 'Request not found or already processed' });
         }
         
-        const result = await client.query(
+        await client.query(
             `UPDATE key_requests SET status = 'denied', admin_notes = $1, denied_at = NOW() WHERE id = $2 AND status = 'pending' RETURNING id`,
             [admin_notes || null, request_id]
         );
@@ -339,6 +351,10 @@ router.post('/requests/deny', requireAuth, authorize('admin'), blockIfReadOnly, 
     }
 });
 
+// ============================================================
+// AUDIT
+// ============================================================
+
 router.get('/audit-health', requireAuth, authorize('admin'), async (req, res) => {
     try {
         const result = await req.db.query(
@@ -351,6 +367,10 @@ router.get('/audit-health', requireAuth, authorize('admin'), async (req, res) =>
         res.status(500).json({ error: 'Failed to fetch audit health: ' + err.message });
     }
 });
+
+// ============================================================
+// LOST KEYS
+// ============================================================
 
 router.get('/lost-keys', requireAuth, authorize('admin'), async (req, res) => {
     try {
@@ -478,14 +498,10 @@ router.post('/lost-keys/:id/update', requireAuth, authorize('admin'), blockIfRea
             return res.status(400).json({ error: 'No fields to update' });
         }
         params.push(id);
-        const result = await client.query(
+        await client.query(
             `UPDATE transactions SET ${updates.join(', ')} WHERE id = $${idx} AND status = 'lost' RETURNING id`,
             params
         );
-        if (result.rowCount === 0) {
-            await client.query('ROLLBACK');
-            return res.status(404).json({ error: 'Lost key transaction not found' });
-        }
         
         const newData = await client.query('SELECT * FROM transactions WHERE id = $1', [id]);
         await logUpdate({
@@ -525,7 +541,7 @@ router.post('/lost-keys/:id/close', requireAuth, authorize('admin'), blockIfRead
             return res.status(404).json({ error: 'Lost ticket not found or already resolved' });
         }
         
-        const result = await client.query(
+        await client.query(
             `UPDATE transactions SET resolved_at = NOW(), admin_notes = COALESCE(admin_notes, '') || $1
              WHERE id = $2 AND status = 'lost' AND resolved_at IS NULL
              RETURNING id`,
@@ -670,147 +686,6 @@ router.post('/lost-keys/:id/make-available', requireAuth, authorize('admin'), bl
     }
 });
 
-router.post('/fines/:fineId/:action', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
-    const { fineId, action } = req.params;
-    if (!['paid', 'waived'].includes(action)) {
-        return res.status(400).json({ error: 'Invalid action. Use "paid" or "waived".' });
-    }
-    
-    const db = req.db;
-    const client = await db.connect();
-    try {
-        await client.query('BEGIN');
-        
-        const oldData = await client.query('SELECT * FROM fines WHERE id = $1 AND status = $2', [fineId, 'pending']);
-        if (oldData.rowCount === 0) {
-            await client.query('ROLLBACK');
-            return res.status(404).json({ error: 'Fee not found or already processed' });
-        }
-        
-        if (action === 'paid') {
-            await client.query('UPDATE fines SET status = $1, paid_at = NOW() WHERE id = $2 AND status = $3', ['paid', fineId, 'pending']);
-        } else {
-            const userId = req.user?.userId || req.session?.userId;
-            await client.query('UPDATE fines SET status = $1, waived_at = NOW(), waived_by = $2 WHERE id = $3 AND status = $4', ['waived', userId, fineId, 'pending']);
-        }
-        
-        const newData = await client.query('SELECT * FROM fines WHERE id = $1', [fineId]);
-        await logUpdate({
-            targetType: 'fines',
-            targetId: fineId,
-            oldData: oldData.rows[0],
-            newData: newData.rows[0],
-            userId: req.user?.userId || req.session?.userId,
-            userEmail: req.user?.email || req.session?.username,
-            req,
-            extraDetails: { action: `fine_${action}` }
-        });
-        
-        await client.query('COMMIT');
-        res.json({ message: `Fee ${action} successfully.` });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        console.error(`[admin] /fines/${fineId}/${action} error:`, err);
-        res.status(500).json({ error: 'Failed to update fee status: ' + err.message });
-    } finally {
-        client.release();
-    }
-});
-
-router.post('/keys/:keyId/unavailable', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
-    const keyId = parseInt(req.params.keyId);
-    if (isNaN(keyId)) return res.status(400).json({ error: 'Invalid key ID' });
-    
-    const db = req.db;
-    const client = await db.connect();
-    try {
-        await client.query('BEGIN');
-        
-        const oldData = await client.query('SELECT * FROM keys WHERE id = $1', [keyId]);
-        if (oldData.rowCount === 0) {
-            await client.query('ROLLBACK');
-            return res.status(404).json({ error: 'Key not found' });
-        }
-        
-        const result = await client.query(
-            `UPDATE keys SET status = 'unavailable' WHERE id = $1 AND status != 'borrowed' RETURNING id, status`,
-            [keyId]
-        );
-        if (result.rowCount === 0) {
-            await client.query('ROLLBACK');
-            return res.status(409).json({ error: 'Key is currently borrowed and cannot be marked unavailable' });
-        }
-        
-        const newData = await client.query('SELECT * FROM keys WHERE id = $1', [keyId]);
-        await logUpdate({
-            targetType: 'keys',
-            targetId: keyId,
-            oldData: oldData.rows[0],
-            newData: newData.rows[0],
-            userId: req.user?.userId || req.session?.userId,
-            userEmail: req.user?.email || req.session?.username,
-            req,
-            extraDetails: { action: 'mark_unavailable' }
-        });
-        
-        await client.query('COMMIT');
-        res.json({ message: 'Key marked as unavailable.' });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        console.error('[admin] /keys/:keyId/unavailable error:', err);
-        res.status(500).json({ error: 'Failed to update key: ' + err.message });
-    } finally {
-        client.release();
-    }
-});
-
-router.post('/keys/:keyId/available', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
-    const keyId = parseInt(req.params.keyId);
-    if (isNaN(keyId)) return res.status(400).json({ error: 'Invalid key ID' });
-    
-    const db = req.db;
-    const client = await db.connect();
-    try {
-        await client.query('BEGIN');
-        
-        const oldData = await client.query('SELECT * FROM keys WHERE id = $1', [keyId]);
-        if (oldData.rowCount === 0) {
-            await client.query('ROLLBACK');
-            return res.status(404).json({ error: 'Key not found' });
-        }
-        
-        const result = await client.query(
-            `UPDATE keys SET status = 'available' WHERE id = $1 AND status != 'borrowed' RETURNING id, status`,
-            [keyId]
-        );
-        if (result.rowCount === 0) {
-            await client.query('ROLLBACK');
-            return res.status(409).json({ error: 'Key is currently borrowed' });
-        }
-        
-        const newData = await client.query('SELECT * FROM keys WHERE id = $1', [keyId]);
-        await logUpdate({
-            targetType: 'keys',
-            targetId: keyId,
-            oldData: oldData.rows[0],
-            newData: newData.rows[0],
-            userId: req.user?.userId || req.session?.userId,
-            userEmail: req.user?.email || req.session?.username,
-            req,
-            extraDetails: { action: 'mark_available' }
-        });
-        
-        await client.query('COMMIT');
-        res.json({ message: 'Key marked as available again.' });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        console.error('[admin] /keys/:keyId/available error:', err);
-        res.status(500).json({ error: 'Failed to update key: ' + err.message });
-    } finally {
-        client.release();
-    }
-});
-
 router.post('/lost-keys/:transactionId/create-fine', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const transactionId = parseInt(req.params.transactionId);
     if (isNaN(transactionId)) return res.status(400).json({ error: 'Invalid transaction ID' });
@@ -862,6 +737,57 @@ router.post('/lost-keys/:transactionId/create-fine', requireAuth, authorize('adm
         client.release();
     }
 });
+
+router.post('/fines/:fineId/:action', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
+    const { fineId, action } = req.params;
+    if (!['paid', 'waived'].includes(action)) {
+        return res.status(400).json({ error: 'Invalid action. Use "paid" or "waived".' });
+    }
+    
+    const db = req.db;
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const oldData = await client.query('SELECT * FROM fines WHERE id = $1 AND status = $2', [fineId, 'pending']);
+        if (oldData.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Fee not found or already processed' });
+        }
+        
+        if (action === 'paid') {
+            await client.query('UPDATE fines SET status = $1, paid_at = NOW() WHERE id = $2 AND status = $3', ['paid', fineId, 'pending']);
+        } else {
+            const userId = req.user?.userId || req.session?.userId;
+            await client.query('UPDATE fines SET status = $1, waived_at = NOW(), waived_by = $2 WHERE id = $3 AND status = $4', ['waived', userId, fineId, 'pending']);
+        }
+        
+        const newData = await client.query('SELECT * FROM fines WHERE id = $1', [fineId]);
+        await logUpdate({
+            targetType: 'fines',
+            targetId: fineId,
+            oldData: oldData.rows[0],
+            newData: newData.rows[0],
+            userId: req.user?.userId || req.session?.userId,
+            userEmail: req.user?.email || req.session?.username,
+            req,
+            extraDetails: { action: `fine_${action}` }
+        });
+        
+        await client.query('COMMIT');
+        res.json({ message: `Fee ${action} successfully.` });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error(`[admin] /fines/${fineId}/${action} error:`, err);
+        res.status(500).json({ error: 'Failed to update fee status: ' + err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ============================================================
+// KEY MANAGEMENT
+// ============================================================
 
 router.get('/keys', requireAuth, authorize('admin'), async (req, res) => {
     try {
@@ -1104,6 +1030,100 @@ router.put('/keys/:id', requireAuth, authorize('admin'), blockIfReadOnly, async 
     }
 });
 
+router.post('/keys/:keyId/unavailable', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
+    const keyId = parseInt(req.params.keyId);
+    if (isNaN(keyId)) return res.status(400).json({ error: 'Invalid key ID' });
+    
+    const db = req.db;
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const oldData = await client.query('SELECT * FROM keys WHERE id = $1', [keyId]);
+        if (oldData.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Key not found' });
+        }
+        
+        const result = await client.query(
+            `UPDATE keys SET status = 'unavailable' WHERE id = $1 AND status != 'borrowed' RETURNING id, status`,
+            [keyId]
+        );
+        if (result.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'Key is currently borrowed and cannot be marked unavailable' });
+        }
+        
+        const newData = await client.query('SELECT * FROM keys WHERE id = $1', [keyId]);
+        await logUpdate({
+            targetType: 'keys',
+            targetId: keyId,
+            oldData: oldData.rows[0],
+            newData: newData.rows[0],
+            userId: req.user?.userId || req.session?.userId,
+            userEmail: req.user?.email || req.session?.username,
+            req,
+            extraDetails: { action: 'mark_unavailable' }
+        });
+        
+        await client.query('COMMIT');
+        res.json({ message: 'Key marked as unavailable.' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('[admin] /keys/:keyId/unavailable error:', err);
+        res.status(500).json({ error: 'Failed to update key: ' + err.message });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/keys/:keyId/available', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
+    const keyId = parseInt(req.params.keyId);
+    if (isNaN(keyId)) return res.status(400).json({ error: 'Invalid key ID' });
+    
+    const db = req.db;
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+        
+        const oldData = await client.query('SELECT * FROM keys WHERE id = $1', [keyId]);
+        if (oldData.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Key not found' });
+        }
+        
+        const result = await client.query(
+            `UPDATE keys SET status = 'available' WHERE id = $1 AND status != 'borrowed' RETURNING id, status`,
+            [keyId]
+        );
+        if (result.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'Key is currently borrowed' });
+        }
+        
+        const newData = await client.query('SELECT * FROM keys WHERE id = $1', [keyId]);
+        await logUpdate({
+            targetType: 'keys',
+            targetId: keyId,
+            oldData: oldData.rows[0],
+            newData: newData.rows[0],
+            userId: req.user?.userId || req.session?.userId,
+            userEmail: req.user?.email || req.session?.username,
+            req,
+            extraDetails: { action: 'mark_available' }
+        });
+        
+        await client.query('COMMIT');
+        res.json({ message: 'Key marked as available again.' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('[admin] /keys/:keyId/available error:', err);
+        res.status(500).json({ error: 'Failed to update key: ' + err.message });
+    } finally {
+        client.release();
+    }
+});
+
 router.delete('/keys/:id', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { id } = req.params;
     const client = await req.db.connect();
@@ -1117,7 +1137,7 @@ router.delete('/keys/:id', requireAuth, authorize('admin'), blockIfReadOnly, asy
         }
         
         await client.query('DELETE FROM key_sets WHERE key_id = $1', [id]);
-        const result = await client.query('DELETE FROM keys WHERE id = $1 RETURNING id', [id]);
+        await client.query('DELETE FROM keys WHERE id = $1 RETURNING id', [id]);
         
         await logDelete({
             targetType: 'keys',
@@ -1139,6 +1159,10 @@ router.delete('/keys/:id', requireAuth, authorize('admin'), blockIfReadOnly, asy
         client.release();
     }
 });
+
+// ============================================================
+// USER MANAGEMENT (Read/Update Only - Creation moved to auth.js)
+// ============================================================
 
 router.get('/users', requireAuth, authorize('admin'), async (req, res) => {
     const { search, role, status, page = 1, limit = 10 } = req.query;
@@ -1193,59 +1217,6 @@ router.get('/users', requireAuth, authorize('admin'), async (req, res) => {
     }
 });
 
-router.post('/users', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
-    const { name, email, role, status } = req.body;
-    if (!name || !email || !role) {
-        return res.status(400).json({ error: 'Name, email, and role are required' });
-    }
-    const tempPassword = Math.random().toString(36).slice(-8);
-    
-    const db = req.db;
-    const client = await db.connect();
-    try {
-        await client.query('BEGIN');
-        
-        const bcrypt = require('bcrypt');
-        const hashed = await bcrypt.hash(tempPassword, 10);
-        const result = await client.query(
-            `INSERT INTO users (name, email, role, status, password_hash, created_at)
-             VALUES ($1, $2, $3, $4, $5, NOW())
-             RETURNING id, name, email, role, status`,
-            [name, email, role, status || 'active', hashed]
-        );
-        
-        await logInsert({
-            targetType: 'users',
-            targetId: result.rows[0].id,
-            newData: { name, email, role, status: status || 'active' },
-            userId: req.user?.userId || req.session?.userId,
-            userEmail: req.user?.email || req.session?.username,
-            req,
-            extraDetails: { action: 'create_user' }
-        });
-        
-        try {
-            const changePasswordLink = `${process.env.APP_URL || 'https://kms-staging.onrender.com'}/change-password`;
-            await sendWelcomeEmail(email, name, tempPassword, changePasswordLink);
-            console.log(`✅ Welcome email sent to ${email}`);
-        } catch (emailErr) {
-            console.error('❌ Failed to send welcome email:', emailErr.message);
-        }
-        
-        await client.query('COMMIT');
-        res.status(201).json(result.rows[0]);
-    } catch (err) {
-        await client.query('ROLLBACK');
-        console.error('[admin] /users POST error:', err);
-        if (err.code === '23505') {
-            return res.status(409).json({ error: 'Email already exists' });
-        }
-        res.status(500).json({ error: 'Failed to create user: ' + err.message });
-    } finally {
-        client.release();
-    }
-});
-
 router.put('/users/:id', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { id } = req.params;
     const { name, email, role, status } = req.body;
@@ -1293,47 +1264,6 @@ router.put('/users/:id', requireAuth, authorize('admin'), blockIfReadOnly, async
             return res.status(409).json({ error: 'Email already exists' });
         }
         res.status(500).json({ error: 'Failed to update user: ' + err.message });
-    } finally {
-        client.release();
-    }
-});
-
-router.delete('/users/:id', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
-    const { id } = req.params;
-    const userId = req.user?.userId || req.session?.userId;
-    if (parseInt(id) === parseInt(userId)) {
-        return res.status(400).json({ error: 'Cannot delete your own account' });
-    }
-    
-    const db = req.db;
-    const client = await db.connect();
-    try {
-        await client.query('BEGIN');
-        
-        const oldData = await client.query('SELECT * FROM users WHERE id = $1', [id]);
-        if (oldData.rowCount === 0) {
-            await client.query('ROLLBACK');
-            return res.status(404).json({ error: 'User not found' });
-        }
-        
-        const result = await client.query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
-        
-        await logDelete({
-            targetType: 'users',
-            targetId: id,
-            oldData: oldData.rows[0],
-            userId: req.user?.userId || req.session?.userId,
-            userEmail: req.user?.email || req.session?.username,
-            req,
-            extraDetails: { action: 'delete_user' }
-        });
-        
-        await client.query('COMMIT');
-        res.json({ message: 'User deleted successfully' });
-    } catch (err) {
-        await client.query('ROLLBACK');
-        console.error('[admin] /users/:id DELETE error:', err);
-        res.status(500).json({ error: 'Failed to delete user: ' + err.message });
     } finally {
         client.release();
     }
@@ -1448,7 +1378,7 @@ router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), bloc
             return res.status(400).json({ error: 'User is not active. Please activate the user first.' });
         }
         
-        const tempPassword = Math.random().toString(36).slice(-8);
+        const tempPassword = require('crypto').randomBytes(8).toString('hex');
         const bcrypt = require('bcrypt');
         const hashed = await bcrypt.hash(tempPassword, 10);
         
@@ -1475,36 +1405,9 @@ router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), bloc
     }
 });
 
-router.post('/users/:userId/reset-password', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
-    const { userId } = req.params;
-    const db = req.db;
-    
-    try {
-        const userResult = await db.query(
-            'SELECT id, name, email FROM users WHERE id = $1',
-            [userId]
-        );
-        
-        if (userResult.rowCount === 0) {
-            return res.status(404).json({ error: 'User not found' });
-        }
-        
-        const user = userResult.rows[0];
-        const tempPassword = Math.random().toString(36).slice(-8);
-        const bcrypt = require('bcrypt');
-        const hashed = await bcrypt.hash(tempPassword, 10);
-        
-        await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashed, userId]);
-        
-        res.json({ 
-            message: 'Password reset successfully',
-            temporary_password: tempPassword
-        });
-    } catch (err) {
-        console.error('[admin] /users/:userId/reset-password error:', err);
-        res.status(500).json({ error: 'Failed to reset password: ' + err.message });
-    }
-});
+// ============================================================
+// PERMISSIONS
+// ============================================================
 
 router.get('/permissions/roles', requireAuth, authorize('admin'), async (req, res) => {
     try {
@@ -1561,6 +1464,26 @@ router.get('/permissions', requireAuth, authorize('admin'), async (req, res) => 
         res.status(500).json({ error: 'Failed to fetch permissions: ' + err.message });
     }
 });
+
+router.get('/user/permissions', requireAuth, async (req, res) => {
+    try {
+        const result = await req.db.query(
+            `SELECT p.permission_code
+             FROM role_permissions rp
+             JOIN permissions p ON p.permission_id = rp.permission_id
+             WHERE rp.role_name = $1`,
+            [req.user.role]
+        );
+        res.json(result.rows.map(r => r.permission_code));
+    } catch (err) {
+        console.error('[admin] /user/permissions error:', err);
+        res.status(500).json({ error: 'Failed to fetch permissions: ' + err.message });
+    }
+});
+
+// ============================================================
+// ADMIN NOTIFICATION RECIPIENTS
+// ============================================================
 
 router.get('/admin-notification-recipients', requireAuth, requirePermission('manage_notification_settings'), async (req, res) => {
     try {
@@ -1622,6 +1545,10 @@ router.delete('/admin-notification-recipients/:userId', requireAuth, requirePerm
         res.status(500).json({ error: 'Failed to remove notification recipient: ' + err.message });
     }
 });
+
+// ============================================================
+// EMAIL TEMPLATES
+// ============================================================
 
 router.get('/email/templates', requireAuth, requirePermission('manage_email_templates'), async (req, res) => {
     try {
@@ -1695,6 +1622,10 @@ router.delete('/email/templates/:key', requireAuth, requirePermission('manage_em
     }
 });
 
+// ============================================================
+// EMAIL SETTINGS
+// ============================================================
+
 router.get('/email/settings', requireAuth, requirePermission('manage_notification_settings'), async (req, res) => {
     try {
         const result = await req.db.query(
@@ -1723,22 +1654,6 @@ router.put('/email/settings/:key', requireAuth, requirePermission('manage_notifi
     } catch (err) {
         console.error('[admin] /email/settings PUT error:', err);
         res.status(500).json({ error: 'Failed to update setting: ' + err.message });
-    }
-});
-
-router.get('/user/permissions', requireAuth, async (req, res) => {
-    try {
-        const result = await req.db.query(
-            `SELECT p.permission_code
-             FROM role_permissions rp
-             JOIN permissions p ON p.permission_id = rp.permission_id
-             WHERE rp.role_name = $1`,
-            [req.user.role]
-        );
-        res.json(result.rows.map(r => r.permission_code));
-    } catch (err) {
-        console.error('[admin] /user/permissions error:', err);
-        res.status(500).json({ error: 'Failed to fetch permissions: ' + err.message });
     }
 });
 

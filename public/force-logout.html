@@ -2,9 +2,6 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
     <meta http-equiv="refresh" content="0; url=/login?t={{timestamp}}&cleared=1">
     <title>Logging out...</title>
     <style>
@@ -58,25 +55,19 @@
         <h2>Logging you out...</h2>
         <p>Please wait while we clear your session.</p>
     </div>
+    
+    <script src="/js/csrf.js"></script>
     <script>
         (function() {
             'use strict';
-            
-            // Clear localStorage
             try { localStorage.clear(); } catch(e) {}
-            
-            // Clear sessionStorage
             try { sessionStorage.clear(); } catch(e) {}
-            
-            // Clear all cookies
             try {
                 document.cookie.split(";").forEach(function(c) {
                     var cookieName = c.replace(/^ +/, "").split("=")[0];
                     document.cookie = cookieName + "=;expires=" + new Date().toUTCString() + ";path=/";
                 });
             } catch(e) {}
-            
-            // Redirect immediately
             window.location.replace('/login?t=' + Date.now() + '&cleared=1');
         })();
     </script>

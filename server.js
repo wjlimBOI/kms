@@ -19,7 +19,6 @@ const requestsRoutes = require('./routes/requests');
 const adminRoutes = require('./routes/admin');
 const returnRoutes = require('./routes/returns');
 const userRoutes = require('./routes/user');
-const adminUsersRoutes = require('./routes/adminUsers');
 const auditRoutes = require('./routes/audit');
 const permissionsRoutes = require('./routes/permissions');
 const emailSettingsRoutes = require('./routes/emailSettings');
@@ -255,21 +254,19 @@ app.use((req, res, next) => {
 });
 
 app.use('/api', (req, res, next) => {
-    // Exclude token-based endpoints from CSRF protection
-    // These endpoints use their own token authentication (magic links, OTP)
     const csrfExcludedPaths = [
-        '/return/process',      // Magic link self-service return
-        '/handover/complete'    // OTP-based handover
+        '/return/process',
+        '/handover/complete'
     ];
-    
+
     if (csrfExcludedPaths.some(path => req.path === path)) {
         return next();
     }
-    
+
     if (['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
         return next();
     }
-    
+
     csrfProtection(req, res, next);
 });
 
@@ -298,14 +295,21 @@ if (IS_DEVELOPMENT) {
     });
 }
 
+// ============================================================
+// ROUTES
+// ============================================================
+
 app.use('/api/auth', authRoutes);
 app.use('/api/health', healthRoutes);
 app.use('/api/handover', handoverRoutes);
 
-app.use('/api/admin/users', requireAuth, adminUsersRoutes);
-app.use('/api/admin/email', requireAuth, emailSettingsRoutes);
+// Admin routes - all admin functionality in one place
 app.use('/api/admin', requireAuth, adminRoutes);
 
+// Email settings (admin only)
+app.use('/api/admin/email', requireAuth, emailSettingsRoutes);
+
+// Public and user routes
 app.use('/api/keys', keysRoutes);
 app.use('/api/requests', requestsRoutes);
 app.use('/api/requests/public', requestsPublic);
@@ -313,6 +317,10 @@ app.use('/api/return', returnRoutes);
 app.use('/api/user', userRoutes);
 app.use('/api/audit', requireAuth, auditRoutes);
 app.use('/api/permissions', requireAuth, permissionsRoutes);
+
+// ============================================================
+// HTML ROUTES
+// ============================================================
 
 const sendHtml = (res, filePath, extraHeaders = {}) => {
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');

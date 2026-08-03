@@ -48,24 +48,19 @@ router.get('/transactions', requireAuth, authorize('admin'), async (req, res) =>
     await setAuditContext(req);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
 
-    const {
-        giver, receiver, branch, action, status, from, to,
-        page = 1,
-        limit = 25
-    } = req.query;
-
+    const { giver, receiver, branch, action, status, from, to, page = 1, limit = 25 } = req.query;
     const db = req.db;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     let query = `
         SELECT
-          t.*,
-          k.code as key_code,
-          k.brand,
-          k.colour,
-          (SELECT planned_return FROM transactions t2
-           WHERE t2.key_id = t.key_id AND t2.action = 'borrow'
-           ORDER BY t2.borrowed_at DESC LIMIT 1) AS planned_return_at_borrow
+            t.*,
+            k.code as key_code,
+            k.brand,
+            k.colour,
+            (SELECT planned_return FROM transactions t2
+             WHERE t2.key_id = t.key_id AND t2.action = 'borrow'
+             ORDER BY t2.borrowed_at DESC LIMIT 1) AS planned_return_at_borrow
         FROM transactions t
         LEFT JOIN keys k ON t.key_id = k.id
         WHERE 1=1
@@ -80,7 +75,6 @@ router.get('/transactions', requireAuth, authorize('admin'), async (req, res) =>
 
     const params = [];
     let idx = 1;
-
     const filterConditions = [];
 
     if (giver) {
@@ -133,7 +127,6 @@ router.get('/transactions', requireAuth, authorize('admin'), async (req, res) =>
             db.query(query, params),
             db.query(countQuery, params.slice(0, params.length - 2))
         ]);
-
         const total = parseInt(countResult.rows[0]?.total || 0);
 
         res.json({
@@ -160,7 +153,6 @@ router.post('/force-return', requireAuth, authorize('admin'), blockIfReadOnly, a
     const client = await db.connect();
     try {
         await client.query('BEGIN');
-
         const oldTx = await client.query('SELECT * FROM transactions WHERE id = $1', [transaction_id]);
         if (oldTx.rowCount === 0) {
             await client.query('ROLLBACK');
@@ -360,6 +352,160 @@ router.post('/requests/deny', requireAuth, authorize('admin'), blockIfReadOnly, 
         await client.query('ROLLBACK');
         console.error('[admin] /requests/deny error:', err);
         res.status(500).json({ error: 'Denial failed: ' + err.message });
+    } finally {
+        client.release();
+    }
+});
+
+// ============================================================
+// USER REGISTRATION REQUESTS (Account Requests)
+// ============================================================
+
+router.get('/auth/admin/pending-requests', requireAuth, authorize('admin'), async (req, res) => {
+    try {
+        const result = await req.db.query(`
+            SELECT id, name, email, username, created_at, status
+            FROM registration_requests
+            WHERE status = 'pending'
+            ORDER BY created_at ASC
+        `);
+        res.json(result.rows);
+    } catch (err) {
+        console.error('[admin] /auth/admin/pending-requests error:', err);
+        res.status(500).json({ error: 'Failed to fetch pending registration requests: ' + err.message });
+    }
+});
+
+router.post('/auth/admin/pending-requests/:id/approve', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
+    const { id } = req.params;
+    const db = req.db;
+    const client = await db.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        const reqResult = await client.query(
+            'SELECT * FROM registration_requests WHERE id = $1 AND status = $2',
+            [id, 'pending']
+        );
+
+        if (reqResult.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Registration request not found or already processed' });
+        }
+
+        const request = reqResult.rows[0];
+        const crypto = require('crypto');
+        const bcrypt = require('bcrypt');
+        const tempPassword = crypto.randomBytes(8).toString('hex');
+        const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+        const userResult = await client.query(
+            `INSERT INTO users (name, email, username, password_hash, role, status, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, 'active', NOW(), NOW())
+             RETURNING id, name, email, username, role, status`,
+            [request.name, request.email, request.username || request.email, hashedPassword, 'user']
+        );
+
+        const newUser = userResult.rows[0];
+
+        await client.query(
+            `UPDATE registration_requests 
+             SET status = 'approved', approved_at = NOW(), approved_by = $1
+             WHERE id = $2`,
+            [req.user?.userId || req.session?.userId, id]
+        );
+
+        await logInsert({
+            targetType: 'users',
+            targetId: newUser.id,
+            newData: { name: newUser.name, email: newUser.email, role: newUser.role, status: newUser.status },
+            userId: req.user?.userId || req.session?.userId,
+            userEmail: req.user?.email || req.session?.username,
+            req,
+            extraDetails: { action: 'approve_registration', registration_request_id: id }
+        });
+
+        await client.query('COMMIT');
+
+        try {
+            const changePasswordLink = `${process.env.APP_URL || 'https://kms-staging.onrender.com'}/change-password`;
+            await sendWelcomeEmail(newUser.email, newUser.name, tempPassword, changePasswordLink);
+        } catch (emailErr) {
+            console.error('Failed to send welcome email:', emailErr.message);
+        }
+
+        await sendAdminNotification(client,
+            `New User Account Approved: ${request.name}`,
+            `A new user account has been approved:\n` +
+            `Name: ${request.name}\n` +
+            `Email: ${request.email}\n` +
+            `Approved by: ${req.user?.email || req.session?.username || 'Admin'}`
+        );
+
+        res.json({
+            message: 'User approved successfully. Welcome email sent.',
+            user: newUser
+        });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('[admin] /auth/admin/pending-requests/:id/approve error:', err);
+        if (err.code === '23505') {
+            return res.status(409).json({ error: 'User with this email or username already exists' });
+        }
+        res.status(500).json({ error: 'Failed to approve registration: ' + err.message });
+    } finally {
+        client.release();
+    }
+});
+
+router.post('/auth/admin/pending-requests/:id/reject', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
+    const { id } = req.params;
+    const { reason } = req.body;
+    const db = req.db;
+    const client = await db.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        const reqResult = await client.query(
+            'SELECT * FROM registration_requests WHERE id = $1 AND status = $2',
+            [id, 'pending']
+        );
+
+        if (reqResult.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'Registration request not found or already processed' });
+        }
+
+        const request = reqResult.rows[0];
+
+        await client.query(
+            `UPDATE registration_requests 
+             SET status = 'rejected', rejected_at = NOW(), rejected_by = $1, rejection_reason = $2
+             WHERE id = $3`,
+            [req.user?.userId || req.session?.userId, reason || null, id]
+        );
+
+        await logUpdate({
+            targetType: 'registration_requests',
+            targetId: id,
+            oldData: request,
+            newData: { ...request, status: 'rejected', rejection_reason: reason || null },
+            userId: req.user?.userId || req.session?.userId,
+            userEmail: req.user?.email || req.session?.username,
+            req,
+            extraDetails: { action: 'reject_registration', reason: reason || null }
+        });
+
+        await client.query('COMMIT');
+        res.json({ message: 'Registration request rejected.' });
+
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('[admin] /auth/admin/pending-requests/:id/reject error:', err);
+        res.status(500).json({ error: 'Failed to reject registration: ' + err.message });
     } finally {
         client.release();
     }
@@ -1251,7 +1397,7 @@ router.put('/users/:id', requireAuth, authorize('admin'), blockIfReadOnly, async
 
         const result = await client.query(
             `UPDATE users
-             SET name = $1, email = $2, role = $3, status = $4
+             SET name = $1, email = $2, role = $3, status = $4, updated_at = NOW()
              WHERE id = $5
              RETURNING id, name, email, role, status`,
             [name, email, role, status, id]
@@ -1299,7 +1445,7 @@ router.patch('/users/:id/suspend', requireAuth, authorize('admin'), blockIfReadO
 
         const newStatus = oldData.rows[0].status === 'suspended' ? 'active' : 'suspended';
         const result = await client.query(
-            `UPDATE users SET status = $1 WHERE id = $2 RETURNING status`,
+            `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING status`,
             [newStatus, id]
         );
 
@@ -1341,7 +1487,7 @@ router.post('/users/:id/unlock', requireAuth, authorize('admin'), blockIfReadOnl
         }
 
         const result = await client.query(
-            `UPDATE users SET status = 'active' WHERE id = $1 AND status = 'locked' RETURNING id`,
+            `UPDATE users SET status = 'active', updated_at = NOW() WHERE id = $1 AND status = 'locked' RETURNING id`,
             [id]
         );
         if (result.rowCount === 0) {
@@ -1372,6 +1518,52 @@ router.post('/users/:id/unlock', requireAuth, authorize('admin'), blockIfReadOnl
     }
 });
 
+router.post('/users/:id/deactivate', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
+    const { id } = req.params;
+
+    const db = req.db;
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+
+        const oldData = await client.query('SELECT * FROM users WHERE id = $1', [id]);
+        if (oldData.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        const result = await client.query(
+            `UPDATE users SET status = 'inactive', updated_at = NOW() WHERE id = $1 AND status != 'inactive' RETURNING id`,
+            [id]
+        );
+        if (result.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({ error: 'User is already inactive' });
+        }
+
+        const newData = await client.query('SELECT * FROM users WHERE id = $1', [id]);
+        await logUpdate({
+            targetType: 'users',
+            targetId: id,
+            oldData: oldData.rows[0],
+            newData: newData.rows[0],
+            userId: req.user?.userId || req.session?.userId,
+            userEmail: req.user?.email || req.session?.username,
+            req,
+            extraDetails: { action: 'deactivate_user' }
+        });
+
+        await client.query('COMMIT');
+        res.json({ message: 'User deactivated successfully' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('[admin] /users/:id/deactivate error:', err);
+        res.status(500).json({ error: 'Failed to deactivate user: ' + err.message });
+    } finally {
+        client.release();
+    }
+});
+
 router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { userId } = req.params;
     const db = req.db;
@@ -1396,7 +1588,7 @@ router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), bloc
         const bcrypt = require('bcrypt');
         const hashed = await bcrypt.hash(tempPassword, 10);
 
-        await db.query('UPDATE users SET password_hash = $1 WHERE id = $2', [hashed, userId]);
+        await db.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [hashed, userId]);
 
         const changePasswordLink = `${process.env.APP_URL || 'https://kms-staging.onrender.com'}/change-password`;
         await sendManualWelcomeEmail(user.email, user.name, tempPassword, changePasswordLink);

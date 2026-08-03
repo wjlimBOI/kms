@@ -57,11 +57,6 @@
         try { return JSON.parse(localStorage.getItem('kms_user')); } catch (e) { return null; }
     }
 
-    function getUserEmail() {
-        var user = getUser();
-        return user ? user.email : '';
-    }
-
     function escapeHtml(str) {
         if (!str) return '';
         var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '/': '&#x2F;' };
@@ -471,7 +466,7 @@
         return token;
     }
 
-    // ==================== AUDIT LOGS ====================
+    // ==================== AUDIT ====================
     async function loadAuditLogs(page, limit) {
         page = page || auditLogState.page;
         limit = limit || auditLogState.limit;
@@ -724,7 +719,6 @@
         });
     }
 
-    // ==================== AUDIT HEALTH ====================
     async function loadAuditHealth() {
         try {
             var res = await authenticatedFetch('/api/admin/audit-health');
@@ -863,7 +857,7 @@
         document.getElementById('reminderNextDue').innerText = next ? 'Next due: ' + formatDateShort(next.planned_return) : 'Next due: --';
     }
 
-    // ==================== PENDING REQUESTS ====================
+    // ==================== PENDING KEY REQUESTS ====================
     async function loadPendingRequests() {
         try {
             var res = await authenticatedFetch('/api/admin/requests/pending');
@@ -3184,7 +3178,7 @@
         }
     }
 
-    // ==================== INITIALIZATION ====================
+    // ==================== EVENT LISTENERS ====================
     function initEventListeners() {
         document.getElementById('alertOkBtn') && document.getElementById('alertOkBtn').addEventListener('click', closeAlertModal);
         document.getElementById('alertModal') && document.getElementById('alertModal').addEventListener('click', function(e) {
@@ -3907,6 +3901,7 @@
         });
     }
 
+    // ==================== REFRESH INTERVAL ====================
     function startRefreshInterval() {
         if (refreshInterval) clearInterval(refreshInterval);
         refreshInterval = setInterval(function() {
@@ -3920,6 +3915,7 @@
         }, 60000);
     }
 
+    // ==================== INIT ====================
     async function init() {
         var isAuthenticated = await checkAuth();
         if (!isAuthenticated) return;

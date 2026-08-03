@@ -1,6 +1,7 @@
 (function() {
     'use strict';
 
+    // ===== GLOBALS =====
     var isRedirecting = false;
     var refreshInterval = null;
     var isPageVisible = true;
@@ -33,12 +34,16 @@
     var securityLoaded = false;
     var currentAction = null;
     var currentRequestId = null;
+    var csrfToken = null;
+    var csrfFetchPromise = null;
 
+    // Redirect if no token
     if (!localStorage.getItem('kms_token') && !window.location.pathname.includes('/login')) {
         window.location.href = '/login';
         return;
     }
 
+    // ===== AUTH HELPERS =====
     function redirectToLogin() {
         if (isRedirecting) return;
         isRedirecting = true;
@@ -57,6 +62,7 @@
         try { return JSON.parse(localStorage.getItem('kms_user')); } catch (e) { return null; }
     }
 
+    // ===== UTILITY FUNCTIONS =====
     function escapeHtml(str) {
         if (!str) return '';
         var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '/': '&#x2F;' };
@@ -102,7 +108,8 @@
             available: ['returned', 'Available'],
             borrowed: ['borrowed', 'Borrowed'],
             lost: ['lost', 'Lost'],
-            unavailable: ['unavailable', 'Unavailable']
+            unavailable: ['unavailable', 'Unavailable'],
+            resolved: ['returned', 'Resolved']
         };
         var data = map[status] || ['pending', status || 'Unknown'];
         return '<span class="status-badge ' + data[0] + '">' + data[1] + '</span>';
@@ -113,6 +120,7 @@
         if (el) el.textContent = value;
     }
 
+    // ===== TOAST & ALERTS =====
     function showToast(message, type) {
         type = type || 'success';
         var root = document.getElementById('toastRoot');
@@ -176,6 +184,7 @@
         document.getElementById('detailModal').style.display = 'none';
     }
 
+    // ===== PORTAL MENU =====
     function openPortalMenu(triggerEl, menuHtml, onRender) {
         document.querySelectorAll('.portal-menu').forEach(function(m) { m.remove(); });
         var menu = document.createElement('div');
@@ -214,6 +223,7 @@
         return menu;
     }
 
+    // ===== CONFIRM / PROMPT MODALS =====
     function showConfirm(message, options) {
         options = options || {};
         var title = options.title || 'Please confirm';
@@ -307,6 +317,7 @@
         });
     }
 
+    // ===== PRINT =====
     function printSection(containerId) {
         var container = document.getElementById(containerId);
         if (!container) return;
@@ -333,7 +344,7 @@
         printWin.document.close();
     }
 
-    // ==================== AUTHENTICATED FETCH ====================
+    // ===== AUTHENTICATED FETCH =====
     async function authenticatedFetch(url, options) {
         options = options || {};
         var token = getToken();
@@ -420,10 +431,7 @@
         }
     }
 
-    // ==================== CSRF ====================
-    var csrfToken = null;
-    var csrfFetchPromise = null;
-
+    // ===== CSRF =====
     async function fetchCsrfToken() {
         if (csrfFetchPromise) return csrfFetchPromise;
         csrfFetchPromise = (async function() {
@@ -466,7 +474,7 @@
         return token;
     }
 
-    // ==================== AUDIT ====================
+    // ===== AUDIT =====
     async function loadAuditLogs(page, limit) {
         page = page || auditLogState.page;
         limit = limit || auditLogState.limit;
@@ -746,7 +754,7 @@
         }
     }
 
-    // ==================== TRANSACTIONS ====================
+    // ===== TRANSACTIONS =====
     async function loadTransactions() {
         var giver = document.getElementById('filterGiver') ? document.getElementById('filterGiver').value.trim() : '';
         var receiver = document.getElementById('filterReceiver') ? document.getElementById('filterReceiver').value.trim() : '';
@@ -857,7 +865,7 @@
         document.getElementById('reminderNextDue').innerText = next ? 'Next due: ' + formatDateShort(next.planned_return) : 'Next due: --';
     }
 
-    // ==================== PENDING KEY REQUESTS ====================
+    // ===== PENDING KEY REQUESTS =====
     async function loadPendingRequests() {
         try {
             var res = await authenticatedFetch('/api/admin/requests/pending');
@@ -924,7 +932,7 @@
         });
     }
 
-    // ==================== PENDING RETURNS ====================
+    // ===== PENDING RETURNS =====
     async function loadPendingReturns() {
         try {
             var res = await authenticatedFetch('/api/return/pending');
@@ -977,7 +985,7 @@
         });
     }
 
-    // ==================== LOST KEYS ====================
+    // ===== LOST KEYS =====
     async function loadLostKeys() {
         try {
             var res = await authenticatedFetch('/api/admin/lost-keys');
@@ -1314,7 +1322,7 @@
         showDetailModal('Return Reminders', summary + '<table class="table-clean"><thead><tr><th>Key</th><th>Borrower</th><th>Due Date</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table>');
     }
 
-    // ==================== INVENTORY ====================
+    // ===== INVENTORY =====
     async function loadInventory() {
         var container = document.getElementById('inventoryTableBody');
         container.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-400"><div class="skeleton h-8 w-full"></div></td></tr>';
@@ -1515,7 +1523,7 @@
         }
     }
 
-    // ==================== KEY MANAGEMENT ====================
+    // ===== KEY MANAGEMENT =====
     async function openKeyManageModal() {
         document.getElementById('keyManageModal').style.display = 'flex';
         await fetchManageKeys();
@@ -1675,7 +1683,7 @@
         modal.style.display = 'flex';
     }
 
-    // ==================== LOST KEYS MANAGEMENT ====================
+    // ===== LOST KEYS MANAGEMENT =====
     async function loadLostKeysManagement() {
         var container = document.getElementById('lostKeysManagementContainer');
         if (!container) return;
@@ -1889,7 +1897,7 @@
         }
     }
 
-    // ==================== EMAIL ====================
+    // ===== EMAIL =====
     async function checkEmailPermissions() {
         try {
             var res = await authenticatedFetch('/api/user/permissions');
@@ -2307,7 +2315,7 @@
         }
     }
 
-    // ==================== SECURITY ====================
+    // ===== SECURITY =====
     async function loadSecurityTab() {
         if (securityLoaded) return;
         securityLoaded = true;
@@ -2521,7 +2529,7 @@
         }
     }
 
-    // ==================== USER MANAGEMENT ====================
+    // ===== USER MANAGEMENT =====
     function initUserManagement() {
         var tbody = document.getElementById('acmUserTableBody');
         var searchInput = document.getElementById('acmSearchInput');
@@ -2956,7 +2964,7 @@
         });
     }
 
-    // ==================== PENDING REGISTRATIONS ====================
+    // ===== PENDING REGISTRATIONS =====
     async function loadPendingRegistrations() {
         var container = document.getElementById('pendingRequestsContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading requests...</div>';
@@ -3066,7 +3074,7 @@
         }
     }
 
-    // ==================== PROFILE ====================
+    // ===== PROFILE =====
     function openProfileModal() {
         var user = getUser();
         if (user) {
@@ -3088,7 +3096,7 @@
         if (mobileMenu) mobileMenu.classList.remove('open');
     }
 
-    // ==================== LOGOUT ====================
+    // ===== LOGOUT =====
     async function handleLogout() {
         if (isRedirecting) return;
         isRedirecting = true;
@@ -3113,7 +3121,7 @@
         }
     }
 
-    // ==================== AUTH ====================
+    // ===== AUTH CHECK =====
     async function checkAuth() {
         try {
             var token = getToken();
@@ -3178,7 +3186,7 @@
         }
     }
 
-    // ==================== EVENT LISTENERS ====================
+    // ===== EVENT LISTENERS =====
     function initEventListeners() {
         document.getElementById('alertOkBtn') && document.getElementById('alertOkBtn').addEventListener('click', closeAlertModal);
         document.getElementById('alertModal') && document.getElementById('alertModal').addEventListener('click', function(e) {
@@ -3901,7 +3909,7 @@
         });
     }
 
-    // ==================== REFRESH INTERVAL ====================
+    // ===== REFRESH INTERVAL =====
     function startRefreshInterval() {
         if (refreshInterval) clearInterval(refreshInterval);
         refreshInterval = setInterval(function() {
@@ -3915,7 +3923,7 @@
         }, 60000);
     }
 
-    // ==================== INIT ====================
+    // ===== INIT =====
     async function init() {
         var isAuthenticated = await checkAuth();
         if (!isAuthenticated) return;

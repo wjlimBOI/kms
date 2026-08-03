@@ -13,6 +13,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <style>
+        /* ===== Z-INDEX LAYERING ===== */
+        .modal-overlay { z-index: 10000; }
+        .modal-container { z-index: 10001; }
+        .portal-menu { z-index: 100000; }
+        #execConfirmModal, #execPromptModal, #alertModal { z-index: 1000000 !important; }
+        #toastRoot { z-index: 10000000; }
+
         /* ===== LOADING ===== */
         .loading-container {
             display: flex;
@@ -31,65 +38,19 @@
             border-top-color: #1E2A3E;
             animation: spin 0.8s linear infinite;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .loading-container p {
-            color: #64748B;
-            font-family: 'Inter', sans-serif;
-            font-size: 0.95rem;
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loading-container p { color: #64748B; font-family: 'Inter', sans-serif; font-size: 0.95rem; }
 
         /* ===== LAYOUT ===== */
-        .admin-content-wrapper {
-            display: none;
-            flex: 1 0 auto;
-            flex-direction: column;
-            min-height: 100dvh;
-        }
+        .admin-content-wrapper { display: none; flex: 1 0 auto; flex-direction: column; min-height: 100dvh; }
 
         /* ===== ACCESS DENIED ===== */
-        .access-denied {
-            display: none;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            text-align: center;
-            padding: 2rem;
-            background: #F0F4F8;
-        }
-        .access-denied i {
-            font-size: 4rem;
-            color: #DC2626;
-            margin-bottom: 1rem;
-        }
-        .access-denied h1 {
-            color: #1E2A3E;
-            font-family: 'Inter', sans-serif;
-            font-size: 2rem;
-            margin-bottom: 0.5rem;
-        }
-        .access-denied p {
-            color: #64748B;
-            font-family: 'Inter', sans-serif;
-            max-width: 400px;
-        }
-        .access-denied .btn-back {
-            margin-top: 1.5rem;
-            padding: 0.75rem 2rem;
-            background: #1E2A3E;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 1rem;
-            cursor: pointer;
-            font-family: 'Inter', sans-serif;
-            transition: background 0.2s;
-        }
-        .access-denied .btn-back:hover {
-            background: #0F1A2E;
-        }
+        .access-denied { display: none; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; text-align: center; padding: 2rem; background: #F0F4F8; }
+        .access-denied i { font-size: 4rem; color: #DC2626; margin-bottom: 1rem; }
+        .access-denied h1 { color: #1E2A3E; font-family: 'Inter', sans-serif; font-size: 2rem; margin-bottom: 0.5rem; }
+        .access-denied p { color: #64748B; font-family: 'Inter', sans-serif; max-width: 400px; }
+        .access-denied .btn-back { margin-top: 1.5rem; padding: 0.75rem 2rem; background: #1E2A3E; color: white; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.2s; }
+        .access-denied .btn-back:hover { background: #0F1A2E; }
 
         /* ===== STATUS BADGES ===== */
         .status-badge {
@@ -100,71 +61,19 @@
             display: inline-block;
             white-space: nowrap;
         }
-        .status-badge.borrowed {
-            background: #DBEAFE;
-            color: #1E40AF;
-        }
-        .status-badge.returned {
-            background: #D1FAE5;
-            color: #065F46;
-        }
-        .status-badge.lost {
-            background: #FEE2E2;
-            color: #991B1B;
-        }
-        .status-badge.overdue {
-            background: #FEF3C7;
-            color: #92400E;
-        }
-        .status-badge.pending {
-            background: #FEF3C7;
-            color: #92400E;
-        }
-        .status-badge.locked {
-            background: #FEF3C7;
-            color: #92400E;
-        }
+        .status-badge.borrowed { background: #DBEAFE; color: #1E40AF; }
+        .status-badge.returned { background: #D1FAE5; color: #065F46; }
+        .status-badge.lost { background: #FEE2E2; color: #991B1B; }
+        .status-badge.overdue { background: #FEF3C7; color: #92400E; }
+        .status-badge.pending { background: #FEF3C7; color: #92400E; }
+        .status-badge.locked { background: #FEF3C7; color: #92400E; }
+        .status-badge.active { background: #D1FAE5; color: #065F46; }
+        .status-badge.inactive { background: #FEE2E2; color: #991B1B; }
+        .status-badge.suspended { background: #FEF3C7; color: #92400E; }
+        .status-badge.unavailable { background: #E2E8F0; color: #64748B; }
+        .status-badge.resolved { background: #D1FAE5; color: #065F46; }
 
-        /* ===== ACTION BUTTONS - RESPONSIVE ===== */
-        .action-btn-group {
-            display: flex;
-            gap: 4px;
-            flex-wrap: wrap;
-            justify-content: flex-end;
-        }
-        .action-btn-group .btn-sm {
-            padding: 0.2rem 0.5rem;
-            font-size: 0.7rem;
-            white-space: nowrap;
-        }
-
-        .btn-make-available {
-            background: #10B981;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            padding: 0.2rem 0.6rem;
-            font-size: 0.7rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 3px;
-        }
-        .btn-make-available:hover {
-            background: #059669;
-            transform: translateY(-1px);
-        }
-        .btn-make-available:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-        }
-        .btn-make-available i {
-            font-size: 0.6rem;
-        }
-
-        /* ===== TOAST NOTIFICATIONS ===== */
+        /* ===== TOAST ===== */
         #toastRoot {
             position: fixed;
             bottom: 24px;
@@ -197,104 +106,104 @@
         .toast-error { background: #EF4444; }
         .toast-warning { background: #F59E0B; }
         .toast-info { background: #1E293B; }
-        .toast-icon {
-            font-size: 1.2rem;
-            font-weight: 600;
-        }
-        .toast-close {
-            background: none;
-            border: none;
-            color: rgba(255,255,255,0.8);
-            font-size: 1.2rem;
-            cursor: pointer;
-            padding: 0 4px;
-        }
-        .toast-close:hover {
-            color: white;
-        }
         @keyframes slideUp {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* ===== AUDIT TABLE ===== */
-        .audit-table-wrap {
+        /* ===== MODALS ===== */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+            backdrop-filter: blur(4px);
+        }
+        .modal-overlay.active { display: flex; }
+        .modal-container {
+            background: white;
+            border-radius: 16px;
+            max-width: 800px;
             width: 100%;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-        .audit-table {
-            width: 100%;
-            min-width: 600px;
-            border-collapse: collapse;
-            font-size: 0.85rem;
-        }
-        .audit-table thead {
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        .audit-table thead th {
-            background: #f1f5f9;
-            padding: 0.6rem 0.75rem;
-            text-align: left;
-            font-weight: 600;
-            color: #1e293b;
-            border-bottom: 2px solid #e2e8f0;
-            white-space: nowrap;
-        }
-        .audit-table tbody td {
-            padding: 0.5rem 0.75rem;
-            border-bottom: 1px solid #f1f5f9;
-            vertical-align: middle;
-            max-width: 200px;
+            max-height: 90vh;
             overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+            position: relative;
         }
-        .audit-table tbody tr {
-            cursor: pointer;
-            transition: background 0.15s;
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #e2e8f0;
+            flex-wrap: wrap;
+            gap: 0.5rem;
         }
-        .audit-table tbody tr:hover {
-            background: #f8fafc;
-        }
-        .audit-table .action-cell {
-            font-weight: 500;
-            color: #0f172a;
-        }
-        .audit-table .target-cell {
-            color: #475569;
-        }
-        .audit-table .user-cell {
-            color: #334155;
-        }
-        .audit-table .time-cell {
-            color: #64748b;
-            font-size: 0.8rem;
+        .modal-header h3 { margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 0.5rem; }
+        .modal-body { padding: 1.5rem; overflow-y: auto; max-height: calc(90vh - 140px); }
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.75rem;
+            padding: 1rem 1.5rem;
+            border-top: 1px solid #e2e8f0;
+            flex-wrap: wrap;
         }
 
-        /* ===== AUDIT FILTERS - RESPONSIVE ===== */
+        /* ===== PORTAL MENU ===== */
+        .portal-menu {
+            position: fixed;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            min-width: 200px;
+            padding: 0.5rem;
+            border: 1px solid #e2e8f0;
+        }
+        .portal-menu .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            width: 100%;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #1e293b;
+            border-radius: 6px;
+            transition: background 0.15s;
+            font-family: 'Inter', sans-serif;
+            text-align: left;
+        }
+        .portal-menu .menu-item:hover { background: #f1f5f9; }
+        .portal-menu .menu-item.danger { color: #dc2626; }
+        .portal-menu .menu-item.danger:hover { background: #fee2e2; }
+        .portal-menu .menu-item.disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+        .portal-menu .menu-divider { height: 1px; background: #e2e8f0; margin: 0.25rem 0; }
+
+        /* ===== AUDIT ===== */
+        .audit-table-wrap { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        .audit-table { width: 100%; min-width: 600px; border-collapse: collapse; font-size: 0.85rem; }
+        .audit-table thead { position: sticky; top: 0; z-index: 10; }
+        .audit-table thead th { background: #f1f5f9; padding: 0.6rem 0.75rem; text-align: left; font-weight: 600; color: #1e293b; border-bottom: 2px solid #e2e8f0; white-space: nowrap; }
+        .audit-table tbody td { padding: 0.5rem 0.75rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .audit-table tbody tr { cursor: pointer; transition: background 0.15s; }
+        .audit-table tbody tr:hover { background: #f8fafc; }
+
+        /* ===== AUDIT FILTERS ===== */
         .audit-filters {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
             gap: 0.75rem;
             margin-bottom: 1rem;
         }
-        .audit-filters .filter-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.25rem;
-        }
-        .audit-filters label {
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: #64748b;
-        }
-        .audit-filters input,
-        .audit-filters select {
+        .audit-filters .filter-group { display: flex; flex-direction: column; gap: 0.25rem; }
+        .audit-filters label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; }
+        .audit-filters input, .audit-filters select {
             padding: 0.4rem 0.6rem;
             border: 1.5px solid #e2e8f0;
             border-radius: 6px;
@@ -303,11 +212,7 @@
             transition: border-color 0.15s;
             width: 100%;
         }
-        .audit-filters input:focus,
-        .audit-filters select:focus {
-            outline: none;
-            border-color: #1e293b;
-        }
+        .audit-filters input:focus, .audit-filters select:focus { outline: none; border-color: #1e293b; }
 
         /* ===== AUDIT ACTIONS ===== */
         .audit-actions {
@@ -329,21 +234,10 @@
             align-items: center;
             gap: 0.4rem;
         }
-        .audit-actions .btn-primary {
-            background: #1e293b;
-            color: white;
-            border-color: #1e293b;
-        }
-        .audit-actions .btn-primary:hover {
-            background: #0f172a;
-        }
-        .audit-actions .btn-secondary {
-            background: white;
-            color: #475569;
-        }
-        .audit-actions .btn-secondary:hover {
-            background: #f1f5f9;
-        }
+        .audit-actions .btn-primary { background: #1e293b; color: white; border-color: #1e293b; }
+        .audit-actions .btn-primary:hover { background: #0f172a; }
+        .audit-actions .btn-secondary { background: white; color: #475569; }
+        .audit-actions .btn-secondary:hover { background: #f1f5f9; }
 
         /* ===== AUDIT PAGINATION ===== */
         .audit-pagination {
@@ -356,476 +250,155 @@
             border-top: 1px solid #e2e8f0;
             margin-top: 1rem;
         }
-        .audit-pagination .pagination-info {
-            font-size: 0.8rem;
-            color: #64748b;
-        }
-        .audit-pagination .pagination-controls {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-        .audit-pagination .pagination-controls select {
-            padding: 0.3rem 0.5rem;
-            border: 1.5px solid #e2e8f0;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            font-family: inherit;
-        }
-        .audit-pagination .pagination-controls button {
-            padding: 0.3rem 0.8rem;
-            border: 1.5px solid #e2e8f0;
-            border-radius: 6px;
-            background: white;
-            cursor: pointer;
-            font-size: 0.8rem;
-            transition: all 0.15s;
-        }
-        .audit-pagination .pagination-controls button:hover:not(:disabled) {
-            background: #f1f5f9;
-        }
-        .audit-pagination .pagination-controls button:disabled {
-            opacity: 0.4;
-            cursor: not-allowed;
-        }
-
-        /* ===== AUDIT DETAIL ===== */
-        .audit-detail-content {
-            max-height: 60vh;
-            overflow-y: auto;
-        }
-        .audit-detail-content .detail-row {
-            display: flex;
-            padding: 0.5rem 0;
-            border-bottom: 1px solid #f1f5f9;
-        }
-        .audit-detail-content .detail-label {
-            font-weight: 600;
-            min-width: 100px;
-            color: #475569;
-            font-size: 0.85rem;
-        }
-        .audit-detail-content .detail-value {
-            flex: 1;
-            color: #0f172a;
-            font-size: 0.85rem;
-            word-break: break-word;
-        }
-        .audit-detail-content .detail-value pre {
-            background: #f1f5f9;
-            padding: 0.5rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            overflow-x: auto;
-            max-height: 200px;
-            margin: 0.25rem 0;
-            white-space: pre-wrap;
-            word-break: break-all;
-        }
+        .audit-pagination .pagination-info { font-size: 0.8rem; color: #64748b; }
+        .audit-pagination .pagination-controls { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+        .audit-pagination .pagination-controls select { padding: 0.3rem 0.5rem; border: 1.5px solid #e2e8f0; border-radius: 6px; font-size: 0.8rem; font-family: inherit; }
+        .audit-pagination .pagination-controls button { padding: 0.3rem 0.8rem; border: 1.5px solid #e2e8f0; border-radius: 6px; background: white; cursor: pointer; font-size: 0.8rem; transition: all 0.15s; }
+        .audit-pagination .pagination-controls button:hover:not(:disabled) { background: #f1f5f9; }
+        .audit-pagination .pagination-controls button:disabled { opacity: 0.4; cursor: not-allowed; }
 
         /* ===== FOOTER ===== */
-        .app-footer {
-            background: #1e293b;
-            border-top: 3px solid #d4a843;
-            padding: 1rem 1.5rem;
-            flex-shrink: 0;
-            width: 100%;
-            margin-top: auto;
-            position: relative;
-            bottom: 0;
-        }
-        .app-footer-inner {
-            max-width: 1440px;
-            margin: 0 auto;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: center;
-            gap: 0.75rem;
-            font-size: 0.8rem;
-            color: #ffffff;
-        }
-        .app-footer-inner a {
-            color: #ffffff;
-            text-decoration: underline;
-            text-decoration-color: rgba(255,255,255,0.3);
-            text-underline-offset: 2px;
-            transition: color 0.15s;
-        }
-        .app-footer-inner a:hover {
-            color: #d4a843;
-            text-decoration-color: #d4a843;
-        }
-        .footer-divider {
-            color: rgba(255,255,255,0.3);
-        }
+        .app-footer { background: #1e293b; border-top: 3px solid #d4a843; padding: 1rem 1.5rem; flex-shrink: 0; width: 100%; margin-top: auto; }
+        .app-footer-inner { max-width: 1440px; margin: 0 auto; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 0.75rem; font-size: 0.8rem; color: #ffffff; }
+        .app-footer-inner a { color: #ffffff; text-decoration: underline; text-decoration-color: rgba(255,255,255,0.3); text-underline-offset: 2px; transition: color 0.15s; }
+        .app-footer-inner a:hover { color: #d4a843; text-decoration-color: #d4a843; }
+        .footer-divider { color: rgba(255,255,255,0.3); }
 
-        /* ===== RESPONSIVE: TABLES WITH ACTION COLUMNS ===== */
+        /* ===== GLOBAL RESPONSIVE ===== */
         @media (max-width: 1024px) {
-            .table-clean {
-                font-size: 0.8rem;
-            }
-            .table-clean th,
-            .table-clean td {
-                padding: 0.4rem 0.5rem;
-            }
+            .table-clean { font-size: 0.8rem; }
+            .table-clean th, .table-clean td { padding: 0.4rem 0.5rem; }
         }
 
         @media (max-width: 768px) {
-            .audit-filters {
-                grid-template-columns: 1fr 1fr;
-            }
-            .audit-pagination {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 0.5rem;
-            }
-            .audit-pagination .pagination-controls {
-                justify-content: center;
-            }
-            .app-footer-inner {
-                flex-direction: column;
-                text-align: center;
-            }
-            .footer-divider {
-                display: none;
-            }
+            .audit-filters { grid-template-columns: 1fr 1fr; }
+            .audit-pagination { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+            .audit-pagination .pagination-controls { justify-content: center; }
+            .app-footer-inner { flex-direction: column; text-align: center; }
+            .footer-divider { display: none; }
 
-            /* Table responsive - horizontal scroll with visible actions */
-            .table-responsive-wrap {
-                overflow-x: auto;
-                -webkit-overflow-scrolling: touch;
-                margin: 0 -0.5rem;
-                padding: 0 0.5rem;
-            }
-            .table-responsive-wrap table {
-                min-width: 700px;
-                font-size: 0.75rem;
-            }
-            .table-responsive-wrap table th,
-            .table-responsive-wrap table td {
-                padding: 0.3rem 0.4rem;
-                white-space: nowrap;
-            }
-            /* Ensure action buttons are visible */
-            .table-responsive-wrap .action-buttons {
-                display: flex;
-                gap: 3px;
-                flex-wrap: nowrap;
-                justify-content: flex-end;
-                min-width: 80px;
-            }
-            .table-responsive-wrap .action-buttons .btn-sm {
-                font-size: 0.6rem;
-                padding: 0.15rem 0.35rem;
-                white-space: nowrap;
-            }
+            .table-responsive-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 0 -0.5rem; padding: 0 0.5rem; }
+            .table-responsive-wrap table { min-width: 700px; font-size: 0.75rem; }
+            .table-responsive-wrap table th, .table-responsive-wrap table td { padding: 0.3rem 0.4rem; white-space: nowrap; }
+            .table-responsive-wrap .action-buttons { display: flex; gap: 3px; flex-wrap: nowrap; justify-content: flex-end; min-width: 80px; }
+            .table-responsive-wrap .action-buttons .btn-sm { font-size: 0.6rem; padding: 0.15rem 0.35rem; white-space: nowrap; }
 
-            /* Bento cards responsive */
-            .bento-grid {
-                grid-template-columns: repeat(2, 1fr) !important;
-                gap: 0.75rem;
-            }
-            .bento-card .card-header h3 {
-                font-size: 0.8rem;
-            }
-            .bento-card .big-number {
-                font-size: 1.5rem !important;
-            }
+            .bento-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 0.75rem; }
+            .bento-card .card-header h3 { font-size: 0.8rem; }
+            .bento-card .big-number { font-size: 1.5rem !important; }
+
+            .modal-container { max-width: 95% !important; margin: 0.5rem !important; max-height: 95vh !important; }
+            .modal-body { padding: 1rem !important; }
+            .modal-header { padding: 0.75rem 1rem !important; }
+            .modal-footer { padding: 0.75rem 1rem !important; flex-wrap: wrap; justify-content: center; }
+        }
+
+        @media (max-width: 640px) {
+            .bento-grid { grid-template-columns: 1fr 1fr !important; gap: 0.5rem; }
+            .bento-card { padding: 0.75rem; }
+            .bento-card .big-number { font-size: 1.25rem !important; }
+            .bento-card .label { font-size: 0.6rem; }
+
+            .tab-bar { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; padding: 0.5rem 0.25rem; gap: 0.25rem; }
+            .tab-bar .tab-button { padding: 0.4rem 0.6rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0; }
+
+            .sub-tab-bar { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; gap: 0.25rem; }
+            .sub-tab-bar .sub-tab-button { padding: 0.35rem 0.6rem; font-size: 0.7rem; white-space: nowrap; flex-shrink: 0; }
+
+            .card-header { flex-wrap: wrap; gap: 0.5rem; }
+            .card-header .header-actions { flex-wrap: wrap; gap: 0.25rem; width: 100%; }
+            .card-header .header-actions .search-input-sm { width: 100%; min-width: 120px; }
+            .card-header .header-actions .btn-sm { font-size: 0.6rem; padding: 0.2rem 0.4rem; }
+
+            .top-nav .brand-text { font-size: 0.8rem; }
+            .top-nav .brand-badge { font-size: 0.5rem; padding: 0.1rem 0.3rem; }
+
+            .search-bar { flex-direction: column; gap: 0.5rem; }
+            .search-bar .search-input { width: 100%; }
+            .search-bar .filter-select, .search-bar .filter-select-sm { width: 100%; }
+
+            .grid-cols-2 { grid-template-columns: 1fr !important; }
+            .grid-cols-5 { grid-template-columns: 1fr 1fr !important; }
+            .grid-cols-1.sm\:grid-cols-2.md\:grid-cols-5 { grid-template-columns: 1fr 1fr !important; }
+
+            .action-buttons { flex-wrap: wrap; justify-content: center; }
+            .action-buttons .btn-sm { font-size: 0.6rem; padding: 0.15rem 0.35rem; }
+
+            .pagination-bar { flex-direction: column; gap: 0.5rem; align-items: stretch; }
+            .pagination-bar .pagination-left { flex-direction: column; gap: 0.25rem; align-items: stretch; }
+            .pagination-bar .pagination-buttons { justify-content: center; }
         }
 
         @media (max-width: 480px) {
-            .audit-filters {
-                grid-template-columns: 1fr;
-            }
-            .audit-table {
-                font-size: 0.75rem;
-                min-width: 500px;
-            }
-            .audit-table thead th,
-            .audit-table tbody td {
-                padding: 0.4rem 0.5rem;
-            }
+            .audit-filters { grid-template-columns: 1fr; }
+            .audit-table { font-size: 0.75rem; min-width: 500px; }
+            .audit-table thead th, .audit-table tbody td { padding: 0.4rem 0.5rem; }
 
-            .bento-grid {
-                grid-template-columns: 1fr 1fr !important;
-                gap: 0.5rem;
-            }
-            .bento-card {
-                padding: 0.75rem;
-            }
-            .bento-card .big-number {
-                font-size: 1.25rem !important;
-            }
-            .bento-card .label {
-                font-size: 0.6rem;
-            }
+            .bento-grid { grid-template-columns: 1fr 1fr !important; gap: 0.4rem; }
+            .bento-card { padding: 0.5rem; }
+            .bento-card .big-number { font-size: 1rem !important; }
+            .bento-card .label { font-size: 0.55rem; }
+            .bento-card .card-header h3 { font-size: 0.7rem; }
 
-            /* Tab bar responsive */
-            .tab-bar {
-                overflow-x: auto;
-                flex-wrap: nowrap;
-                -webkit-overflow-scrolling: touch;
-                padding: 0.5rem 0.25rem;
-                gap: 0.25rem;
-            }
-            .tab-bar .tab-button {
-                padding: 0.4rem 0.6rem;
-                font-size: 0.7rem;
-                white-space: nowrap;
-                flex-shrink: 0;
-            }
+            .tab-bar .tab-button { font-size: 0.6rem; padding: 0.3rem 0.4rem; }
+            .table-responsive-wrap table { min-width: 600px; font-size: 0.65rem; }
+            .table-responsive-wrap table th, .table-responsive-wrap table td { padding: 0.2rem 0.3rem; }
 
-            /* Sub tab bar responsive */
-            .sub-tab-bar {
-                overflow-x: auto;
-                flex-wrap: nowrap;
-                -webkit-overflow-scrolling: touch;
-                gap: 0.25rem;
-            }
-            .sub-tab-bar .sub-tab-button {
-                padding: 0.35rem 0.6rem;
-                font-size: 0.7rem;
-                white-space: nowrap;
-                flex-shrink: 0;
-            }
-
-            /* Card headers responsive */
-            .card-header {
-                flex-wrap: wrap;
-                gap: 0.5rem;
-            }
-            .card-header .header-actions {
-                flex-wrap: wrap;
-                gap: 0.25rem;
-                width: 100%;
-            }
-            .card-header .header-actions .search-input-sm {
-                width: 100%;
-                min-width: 120px;
-            }
-            .card-header .header-actions .btn-sm {
-                font-size: 0.6rem;
-                padding: 0.2rem 0.4rem;
-            }
-
-            /* Top nav responsive */
-            .top-nav .brand-text {
-                font-size: 0.8rem;
-            }
-            .top-nav .brand-badge {
-                font-size: 0.5rem;
-                padding: 0.1rem 0.3rem;
-            }
-
-            /* Search bars */
-            .search-bar {
-                flex-direction: column;
-                gap: 0.5rem;
-            }
-            .search-bar .search-input {
-                width: 100%;
-            }
-            .search-bar .filter-select,
-            .search-bar .filter-select-sm {
-                width: 100%;
-            }
-
-            /* Grid layouts */
-            .grid-cols-2 {
-                grid-template-columns: 1fr !important;
-            }
-            .grid-cols-5 {
-                grid-template-columns: 1fr 1fr !important;
-            }
-
-            /* Modal responsive */
-            .modal-container {
-                max-width: 95% !important;
-                margin: 0.5rem !important;
-                max-height: 95vh !important;
-            }
-            .modal-body {
-                padding: 1rem !important;
-            }
-
-            /* Transaction filter grid */
-            .grid-cols-1.sm\:grid-cols-2.md\:grid-cols-5 {
-                grid-template-columns: 1fr 1fr !important;
-            }
-
-            .action-buttons {
-                flex-wrap: wrap;
-                justify-content: center;
-            }
-            .action-buttons .btn-sm {
-                font-size: 0.6rem;
-                padding: 0.15rem 0.35rem;
-            }
+            .modal-container { max-width: 98% !important; margin: 0.25rem !important; max-height: 98vh !important; }
+            .modal-body { padding: 0.75rem !important; max-height: calc(98vh - 120px) !important; }
         }
 
         @media (max-width: 380px) {
-            .bento-grid {
-                grid-template-columns: 1fr 1fr !important;
-                gap: 0.4rem;
-            }
-            .bento-card {
-                padding: 0.5rem;
-            }
-            .bento-card .big-number {
-                font-size: 1rem !important;
-            }
-            .bento-card .label {
-                font-size: 0.55rem;
-            }
-            .bento-card .card-header h3 {
-                font-size: 0.7rem;
-            }
+            .bento-grid { grid-template-columns: 1fr 1fr !important; gap: 0.3rem; }
+            .bento-card { padding: 0.4rem; }
+            .bento-card .big-number { font-size: 0.9rem !important; }
+            .bento-card .label { font-size: 0.5rem; }
+            .bento-card .card-header h3 { font-size: 0.65rem; }
 
-            .tab-bar .tab-button {
-                font-size: 0.6rem;
-                padding: 0.3rem 0.4rem;
-            }
+            .tab-bar .tab-button { font-size: 0.55rem; padding: 0.25rem 0.3rem; }
+            .sub-tab-bar .sub-tab-button { font-size: 0.6rem; padding: 0.25rem 0.4rem; }
 
-            .table-responsive-wrap table {
-                min-width: 600px;
-                font-size: 0.65rem;
-            }
-            .table-responsive-wrap table th,
-            .table-responsive-wrap table td {
-                padding: 0.2rem 0.3rem;
-            }
+            .table-responsive-wrap table { min-width: 500px; font-size: 0.6rem; }
+            .table-responsive-wrap table th, .table-responsive-wrap table td { padding: 0.15rem 0.2rem; }
+
+            .modal-container { max-width: 100% !important; margin: 0 !important; border-radius: 0 !important; max-height: 100vh !important; }
+            .modal-body { padding: 0.5rem !important; }
+            .modal-header h3 { font-size: 0.9rem; }
+            .modal-footer .btn { font-size: 0.7rem; padding: 0.3rem 0.6rem; }
         }
 
         /* ===== FOCUS STYLES ===== */
-        *:focus,
-        *:focus-visible,
-        *:focus-within {
-            outline: none !important;
-            outline-color: transparent !important;
-            outline-offset: 0 !important;
+        *:focus, *:focus-visible, *:focus-within { outline: none !important; outline-color: transparent !important; outline-offset: 0 !important; }
+        button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"],
+        a.btn, .btn, .filter-pill, .brand-pill, .mobile-menu-btn, .mobile-menu-item,
+        .borrow-toggle-btn, .remove-item, .extension-item, #returnDropdownBtn,
+        .close-btn, .profile-actions button, .key-card .borrow-btn,
+        .modal-container .close-btn, #clearBasketBtn, .remove-btn, .basket-item .remove-btn {
+            outline: none !important; outline-color: transparent !important; outline-offset: 0 !important; border-color: transparent !important;
         }
-        button,
-        [role="button"],
-        input[type="button"],
-        input[type="submit"],
-        input[type="reset"],
-        a.btn,
-        .btn,
-        .filter-pill,
-        .brand-pill,
-        .mobile-menu-btn,
-        .mobile-menu-item,
-        .borrow-toggle-btn,
-        .remove-item,
-        .extension-item,
-        #returnDropdownBtn,
-        .close-btn,
-        .profile-actions button,
-        .key-card .borrow-btn,
-        .modal-container .close-btn,
-        #clearBasketBtn,
-        .remove-btn,
-        .basket-item .remove-btn {
-            outline: none !important;
-            outline-color: transparent !important;
-            outline-offset: 0 !important;
-            border-color: transparent !important;
-        }
-        #clearBasketBtn,
-        .remove-btn,
-        .basket-item .remove-btn,
-        .close-btn,
-        .modal-container .close-btn,
-        button.close-btn {
-            border: none !important;
-            outline: none !important;
-            box-shadow: none !important;
+        #clearBasketBtn, .remove-btn, .basket-item .remove-btn, .close-btn, .modal-container .close-btn, button.close-btn {
+            border: none !important; outline: none !important; box-shadow: none !important;
         }
         *:focus-visible:not(.no-focus-ring) {
-            outline: none !important;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
-            border-radius: 4px;
+            outline: none !important; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important; border-radius: 4px;
         }
-        .close-btn:focus-visible,
-        .modal-container .close-btn:focus-visible,
-        #clearBasketBtn:focus-visible,
-        .remove-btn:focus-visible,
-        .basket-item .remove-btn:focus-visible {
-            outline: none !important;
-            box-shadow: none !important;
-            border: none !important;
+        .close-btn:focus-visible, .modal-container .close-btn:focus-visible,
+        #clearBasketBtn:focus-visible, .remove-btn:focus-visible, .basket-item .remove-btn:focus-visible {
+            outline: none !important; box-shadow: none !important; border: none !important;
         }
-        #clearBasketBtn {
-            background: transparent !important;
-            border: none !important;
-            outline: none !important;
-            box-shadow: none !important;
+        #clearBasketBtn { background: transparent !important; border: none !important; outline: none !important; box-shadow: none !important; }
+        #clearBasketBtn:focus, #clearBasketBtn:focus-visible, #clearBasketBtn:active {
+            outline: none !important; box-shadow: none !important; border: none !important;
         }
-        #clearBasketBtn:focus,
-        #clearBasketBtn:focus-visible,
-        #clearBasketBtn:active {
-            outline: none !important;
-            box-shadow: none !important;
-            border: none !important;
+        input:focus, input:focus-visible, select:focus, select:focus-visible, textarea:focus, textarea:focus-visible {
+            outline: none !important; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15) !important; border-color: #3B82F6 !important;
         }
-        #returnDropdownBtn:focus,
-        #returnDropdownBtn:focus-visible {
-            outline: none !important;
-            box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.3) !important;
-        }
-        .remove-item:focus,
-        .remove-item:focus-visible {
-            outline: none !important;
-            box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.2) !important;
-            border: none !important;
-        }
-        input:focus,
-        input:focus-visible,
-        select:focus,
-        select:focus-visible,
-        textarea:focus,
-        textarea:focus-visible {
-            outline: none !important;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15) !important;
-            border-color: #3B82F6 !important;
-        }
-        .modal-container .close-btn {
-            background: none !important;
-            border: none !important;
-            color: #94a3b8 !important;
-            font-size: 1.5rem !important;
-            line-height: 1 !important;
-            padding: 4px 8px !important;
-            cursor: pointer !important;
-            transition: color 0.15s !important;
-        }
-        .modal-container .close-btn:hover {
-            color: #0f172a !important;
-        }
-        .modal-container .close-btn:focus,
-        .modal-container .close-btn:focus-visible {
-            outline: none !important;
-            box-shadow: none !important;
-            border: none !important;
-        }
-        .btn,
-        .btn-sm,
-        .btn-primary,
-        .btn-secondary,
-        .profile-actions button {
-            border: none !important;
-            outline: none !important;
-        }
-        .btn:focus,
-        .btn:focus-visible,
-        .btn-sm:focus,
-        .btn-sm:focus-visible,
-        .profile-actions button:focus,
-        .profile-actions button:focus-visible {
-            outline: none !important;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
+        .modal-container .close-btn { background: none !important; border: none !important; color: #94a3b8 !important; font-size: 1.5rem !important; line-height: 1 !important; padding: 4px 8px !important; cursor: pointer !important; transition: color 0.15s !important; }
+        .modal-container .close-btn:hover { color: #0f172a !important; }
+        .modal-container .close-btn:focus, .modal-container .close-btn:focus-visible { outline: none !important; box-shadow: none !important; border: none !important; }
+        .btn, .btn-sm, .btn-primary, .btn-secondary, .profile-actions button { border: none !important; outline: none !important; }
+        .btn:focus, .btn:focus-visible, .btn-sm:focus, .btn-sm:focus-visible, .profile-actions button:focus, .profile-actions button:focus-visible {
+            outline: none !important; box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.3) !important;
         }
     </style>
 </head>
@@ -844,6 +417,7 @@
 
     <div id="adminContentWrapper" class="admin-content-wrapper">
         <div class="dashboard-container">
+            <!-- ===== TOP NAV ===== -->
             <nav class="top-nav">
                 <div class="top-nav-inner">
                     <div class="brand">
@@ -869,6 +443,7 @@
                 </div>
             </nav>
 
+            <!-- ===== TAB BAR ===== -->
             <div class="tab-bar">
                 <button class="tab-button active" data-tab="dashboard">Dashboard</button>
                 <button class="tab-button" data-tab="requests">Account Requests</button>
@@ -878,6 +453,7 @@
                 <button class="tab-button" data-tab="email">Email Settings</button>
             </div>
 
+            <!-- ===== DASHBOARD TAB ===== -->
             <div id="tab-dashboard" class="tab-panel active">
                 <div class="bento-grid">
                     <div class="bento-card" id="pendingRequestsCard">
@@ -926,7 +502,7 @@
                             <input type="text" id="filterGiver" placeholder="Giver" />
                             <input type="text" id="filterReceiver" placeholder="Receiver" />
                             <input type="text" id="filterBranch" placeholder="Branch" />
-                            <input type="text" id="filterAction" placeholder="Action (borrow/return)" />
+                            <input type="text" id="filterAction" placeholder="Action" />
                             <select id="filterStatus">
                                 <option value="">All status</option>
                                 <option value="borrowed">Borrowed</option>
@@ -972,12 +548,13 @@
                 </div>
             </div>
 
+            <!-- ===== ACCOUNT REQUESTS TAB ===== -->
             <div id="tab-requests" class="tab-panel">
                 <div class="bento-card" id="requestsCard">
                     <div class="card-header">
                         <h3><i class="fas fa-user-plus"></i> Pending Account Requests</h3>
                         <div class="header-actions">
-                            <input type="text" id="requestsSearch" placeholder="Search by name or email..." class="search-input-sm" />
+                            <input type="text" id="requestsSearch" placeholder="Search..." class="search-input-sm" />
                             <button class="btn btn-print btn-sm" data-section="requests"><i class="fas fa-print"></i> Print</button>
                             <button id="refreshRequestsBtn" class="btn btn-refresh btn-sm"><i class="fas fa-sync-alt"></i> Refresh</button>
                         </div>
@@ -988,6 +565,7 @@
                 </div>
             </div>
 
+            <!-- ===== INVENTORY TAB ===== -->
             <div id="tab-inventory" class="tab-panel">
                 <div class="bento-card" id="inventoryCard">
                     <div class="card-header">
@@ -1002,23 +580,13 @@
                         <div class="search-bar mb-4">
                             <div class="search-input relative">
                                 <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                                <input type="text" id="inventorySearchInput" placeholder="Search by code, brand, owner, or remarks..." class="pl-9 pr-4" style="padding-left: 2.25rem !important;" />
+                                <input type="text" id="inventorySearchInput" placeholder="Search by code, brand, owner..." class="pl-9 pr-4" style="padding-left: 2.25rem !important;" />
                             </div>
                             <button id="inventoryResetFiltersBtn" class="btn btn-refresh btn-sm"><i class="fas fa-times"></i> Reset</button>
                         </div>
                         <div class="table-responsive-wrap">
                             <table class="table-clean inventory-table">
-                                <thead>
-                                    <tr>
-                                        <th>Code</th>
-                                        <th>Brand</th>
-                                        <th>Status</th>
-                                        <th>Owner(s)</th>
-                                        <th>Total Qty</th>
-                                        <th>Remarks</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
+                                <thead><tr><th>Code</th><th>Brand</th><th>Status</th><th>Owner(s)</th><th>Total Qty</th><th>Remarks</th><th>Actions</th></tr></thead>
                                 <tbody id="inventoryTableBody"><tr><td colspan="7" class="text-center py-8 text-slate-400">Loading keys...</td></tr></tbody>
                             </table>
                         </div>
@@ -1041,6 +609,7 @@
                 </div>
             </div>
 
+            <!-- ===== LOST KEYS TAB ===== -->
             <div id="tab-lost" class="tab-panel">
                 <div class="bento-card" id="lostKeysManagementCard">
                     <div class="card-header">
@@ -1057,6 +626,7 @@
                 </div>
             </div>
 
+            <!-- ===== SECURITY TAB ===== -->
             <div id="tab-security" class="tab-panel">
                 <div class="sub-tab-bar">
                     <button class="sub-tab-button active" data-subtab="permissions">Permissions</button>
@@ -1106,14 +676,7 @@
                             </div>
                             <div class="table-responsive-wrap">
                                 <table class="table-clean user-table">
-                                    <thead>
-                                        <tr>
-                                            <th style="text-align:center;width:35%;">User</th>
-                                            <th style="text-align:center;width:15%;">Role</th>
-                                            <th style="text-align:center;width:15%;">Status</th>
-                                            <th style="text-align:center;width:35%;">Last Active</th>
-                                        </tr>
-                                    </thead>
+                                    <thead><tr><th style="text-align:center;">User</th><th style="text-align:center;">Role</th><th style="text-align:center;">Status</th><th style="text-align:center;">Last Active</th></tr></thead>
                                     <tbody id="acmUserTableBody"><tr><td colspan="4" class="text-center py-8 text-slate-400">Loading users...</td></tr></tbody>
                                 </table>
                             </div>
@@ -1158,52 +721,23 @@
                         </div>
                         <div class="card-body">
                             <div class="audit-filters">
-                                <div class="filter-group">
-                                    <label for="auditFilterAction">Action</label>
-                                    <input type="text" id="auditFilterAction" placeholder="e.g., login, update..." />
-                                </div>
-                                <div class="filter-group">
-                                    <label for="auditFilterUser">User</label>
-                                    <input type="text" id="auditFilterUser" placeholder="Search by name or email..." />
-                                </div>
-                                <div class="filter-group">
-                                    <label for="auditFilterTarget">Target</label>
-                                    <input type="text" id="auditFilterTarget" placeholder="e.g., key, user..." />
-                                </div>
-                                <div class="filter-group">
-                                    <label for="auditFilterFrom">From Date</label>
-                                    <input type="date" id="auditFilterFrom" />
-                                </div>
-                                <div class="filter-group">
-                                    <label for="auditFilterTo">To Date</label>
-                                    <input type="date" id="auditFilterTo" />
-                                </div>
+                                <div class="filter-group"><label for="auditFilterAction">Action</label><input type="text" id="auditFilterAction" placeholder="e.g., login..." /></div>
+                                <div class="filter-group"><label for="auditFilterUser">User</label><input type="text" id="auditFilterUser" placeholder="Search by name..." /></div>
+                                <div class="filter-group"><label for="auditFilterTarget">Target</label><input type="text" id="auditFilterTarget" placeholder="e.g., key, user..." /></div>
+                                <div class="filter-group"><label for="auditFilterFrom">From Date</label><input type="date" id="auditFilterFrom" /></div>
+                                <div class="filter-group"><label for="auditFilterTo">To Date</label><input type="date" id="auditFilterTo" /></div>
                             </div>
-
                             <div class="audit-actions">
                                 <button id="auditSearchBtn" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
                                 <button id="auditResetBtn" class="btn btn-secondary"><i class="fas fa-times"></i> Reset</button>
                                 <span class="audit-total-count" id="auditTotalCount">Total: 0 entries</span>
                             </div>
-
                             <div class="audit-table-wrap" style="margin-top:1rem;">
                                 <table class="audit-table">
-                                    <thead>
-                                        <tr>
-                                            <th style="width:20%;">Action</th>
-                                            <th style="width:20%;">Target</th>
-                                            <th style="width:25%;">User</th>
-                                            <th style="width:35%;">Timestamp</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="auditLogContainer">
-                                        <tr>
-                                            <td colspan="4" class="text-center py-8 text-slate-400">Loading audit logs...</td>
-                                        </tr>
-                                    </tbody>
+                                    <thead><tr><th style="width:20%;">Action</th><th style="width:20%;">Target</th><th style="width:25%;">User</th><th style="width:35%;">Timestamp</th></tr></thead>
+                                    <tbody id="auditLogContainer"><tr><td colspan="4" class="text-center py-8 text-slate-400">Loading audit logs...</td></tr></tbody>
                                 </table>
                             </div>
-
                             <div class="audit-pagination">
                                 <div class="pagination-info" id="auditPaginationInfo">Showing 0 of 0 entries</div>
                                 <div class="pagination-controls">
@@ -1223,6 +757,7 @@
                 </div>
             </div>
 
+            <!-- ===== EMAIL TAB ===== -->
             <div id="tab-email" class="tab-panel">
                 <div class="sub-tab-bar">
                     <button class="sub-tab-button active" data-subtab="templates">Message Templates</button>
@@ -1235,9 +770,9 @@
                         <div class="card-header">
                             <h3><i class="fas fa-envelope"></i> Email Templates</h3>
                             <div class="header-actions">
-                                <input type="text" id="templatesSearch" placeholder="Search by key or subject..." class="search-input-sm" />
+                                <input type="text" id="templatesSearch" placeholder="Search..." class="search-input-sm" />
                                 <button class="btn btn-print btn-sm" data-section="templates"><i class="fas fa-print"></i> Print</button>
-                                <button id="manageTemplatesBtn" class="btn btn-secondary btn-sm"><i class="fas fa-cog"></i> Manage Templates</button>
+                                <button id="manageTemplatesBtn" class="btn btn-secondary btn-sm"><i class="fas fa-cog"></i> Manage</button>
                             </div>
                         </div>
                         <div class="card-body" id="templatesContainer"><div class="text-center py-8 text-slate-400">Loading templates...</div></div>
@@ -1360,9 +895,7 @@
                 <div class="modal-body space-y-4">
                     <div><label class="block text-sm font-medium text-slate-700 mb-1">Full name</label><input type="text" id="acmFullName" placeholder="e.g., John Doe" /></div>
                     <div><label class="block text-sm font-medium text-slate-700 mb-1">Email address</label><input type="email" id="acmEmail" placeholder="john@example.com" /></div>
-                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Role</label>
-                        <select id="acmRole"><option value="">Select role...</option></select>
-                    </div>
+                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Role</label><select id="acmRole"><option value="">Select role...</option></select></div>
                     <div><label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
                         <select id="acmStatus">
                             <option value="active">Active</option>
@@ -1395,37 +928,18 @@
 
         <div id="lostKeyEditModal" class="modal-overlay">
             <div class="modal-container" style="max-width:600px;">
-                <div class="modal-header">
-                    <h3 id="lostKeyEditTitle">Edit Lost Key</h3>
-                    <button id="closeLostKeyEditModalBtn" class="close-btn">&times;</button>
-                </div>
+                <div class="modal-header"><h3 id="lostKeyEditTitle">Edit Lost Key</h3><button id="closeLostKeyEditModalBtn" class="close-btn">&times;</button></div>
                 <div class="modal-body space-y-4">
                     <input type="hidden" id="editLostTransactionId" />
                     <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Key Code</label>
-                            <input type="text" id="editLostKeyCode" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-100" disabled />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Brand</label>
-                            <input type="text" id="editLostBrand" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-100" disabled />
-                        </div>
+                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Key Code</label><input type="text" id="editLostKeyCode" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-100" disabled /></div>
+                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Brand</label><input type="text" id="editLostBrand" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-100" disabled /></div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Borrower</label>
-                        <input type="text" id="editLostBorrower" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-100" disabled />
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Reason for Loss *</label>
-                        <textarea id="editLostReason" rows="3" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Describe why the key was lost..."></textarea>
-                    </div>
+                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Borrower</label><input type="text" id="editLostBorrower" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-100" disabled /></div>
+                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Reason for Loss *</label><textarea id="editLostReason" rows="3" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Describe why the key was lost..."></textarea></div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Lost Date</label>
-                            <input type="datetime-local" id="editLostDate" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Lost Date</label><input type="datetime-local" id="editLostDate" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" /></div>
+                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
                             <select id="editLostStatus" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
                                 <option value="lost">Lost</option>
                                 <option value="resolved">Resolved</option>
@@ -1442,42 +956,15 @@
 
         <div id="lostKeyDetailModal" class="modal-overlay">
             <div class="modal-container" style="max-width:780px;">
-                <div class="modal-header">
-                    <h3 id="lostKeyDetailTitle">Lost Key Details</h3>
-                    <button id="closeLostKeyDetailModalBtn" class="close-btn">&times;</button>
-                </div>
-                <div class="modal-body" id="lostKeyDetailContent">
-                    <div class="text-center py-8 text-slate-400">Loading...</div>
-                </div>
-                <div class="modal-footer">
-                    <button id="closeLostKeyDetailFooterBtn" class="btn btn-secondary">Close</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="reportLostModal" class="modal-overlay">
-            <div class="modal-container max-w-2xl">
-                <div class="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <div>
-                        <h3 class="text-lg font-semibold text-slate-900">Report Lost Key</h3>
-                        <p class="text-xs text-slate-600 mt-0.5">Select the key you have lost. A Key Replacement Fee of 50 SGD will be levied.</p>
-                    </div>
-                    <button id="closeReportLostModalBtn" class="close-btn">&times;</button>
-                </div>
-                <div class="p-5">
-                    <div id="reportLostKeysListContainer" class="max-h-80 overflow-y-auto custom-scroll space-y-3 mt-4">
-                        <div class="text-center py-8 text-slate-400">Loading your borrowed keys...</div>
-                    </div>
-                </div>
+                <div class="modal-header"><h3 id="lostKeyDetailTitle">Lost Key Details</h3><button id="closeLostKeyDetailModalBtn" class="close-btn">&times;</button></div>
+                <div class="modal-body" id="lostKeyDetailContent"><div class="text-center py-8 text-slate-400">Loading...</div></div>
+                <div class="modal-footer"><button id="closeLostKeyDetailFooterBtn" class="btn btn-secondary">Close</button></div>
             </div>
         </div>
 
         <div id="profileModal" class="modal-overlay">
             <div class="modal-container" style="max-width:480px;">
-                <div class="modal-header">
-                    <h3>Edit Profile</h3>
-                    <button id="closeProfileModalBtn" class="close-btn">&times;</button>
-                </div>
+                <div class="modal-header"><h3>Edit Profile</h3><button id="closeProfileModalBtn" class="close-btn">&times;</button></div>
                 <div class="modal-body space-y-4">
                     <div><label class="block text-sm font-medium text-slate-700 mb-1">Full Name</label><input type="text" id="profileName" placeholder="Your name" /></div>
                     <div><label class="block text-sm font-medium text-slate-700 mb-1">Email Address</label><input type="email" id="profileEmail" placeholder="you@example.com" /></div>
@@ -1522,9 +1009,7 @@
                     </div>
                     <div class="table-responsive-wrap">
                         <table class="table-clean user-table">
-                            <thead>
-                                <tr><th style="text-align:center;">User</th><th style="text-align:center;">Role</th><th style="text-align:center;">Status</th><th style="text-align:center;">Last Active</th><th style="text-align:center;">Actions</th></tr>
-                            </thead>
+                            <thead><tr><th style="text-align:center;">User</th><th style="text-align:center;">Role</th><th style="text-align:center;">Status</th><th style="text-align:center;">Last Active</th><th style="text-align:center;">Actions</th></tr></thead>
                             <tbody id="manageUserTableBody"><tr><td colspan="5" class="text-center py-8 text-slate-400">Loading users...</td></tr></tbody>
                         </table>
                     </div>
@@ -1548,21 +1033,14 @@
                         <button id="closeTemplateManageModalBtn" class="close-btn">&times;</button>
                     </div>
                 </div>
-                <div class="modal-body">
-                    <div id="templateManageContainer"><div class="text-center py-8 text-slate-400">Loading templates...</div></div>
-                </div>
-                <div class="modal-footer">
-                    <button id="closeTemplateManageFooterBtn" class="btn btn-secondary">Close</button>
-                </div>
+                <div class="modal-body"><div id="templateManageContainer"><div class="text-center py-8 text-slate-400">Loading templates...</div></div></div>
+                <div class="modal-footer"><button id="closeTemplateManageFooterBtn" class="btn btn-secondary">Close</button></div>
             </div>
         </div>
 
         <div id="templateEditModal" class="modal-overlay">
             <div class="modal-container" style="max-width:760px;">
-                <div class="modal-header">
-                    <h3 id="templateEditModalTitle">Edit Template</h3>
-                    <button id="closeTemplateEditModalBtn" class="close-btn">&times;</button>
-                </div>
+                <div class="modal-header"><h3 id="templateEditModalTitle">Edit Template</h3><button id="closeTemplateEditModalBtn" class="close-btn">&times;</button></div>
                 <div class="modal-body">
                     <input type="hidden" id="editTemplateKey" />
                     <div class="input-group">
@@ -1570,15 +1048,8 @@
                         <input type="text" id="editTemplateKeyDisplay" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-slate-100" disabled />
                         <p class="text-xs text-slate-500 mt-1">Template key is used in code – it cannot be changed after creation.</p>
                     </div>
-                    <div class="input-group">
-                        <label for="editTemplateSubject" class="block text-sm font-medium text-slate-700 mb-1">Subject</label>
-                        <input type="text" id="editTemplateSubject" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                    </div>
-                    <div class="input-group">
-                        <label for="editTemplateBody" class="block text-sm font-medium text-slate-700 mb-1">Body (HTML)</label>
-                        <textarea id="editTemplateBody" rows="8" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono"></textarea>
-                        <p class="text-xs text-slate-500 mt-1">Use <code>{{variable}}</code> placeholders.</p>
-                    </div>
+                    <div class="input-group"><label for="editTemplateSubject" class="block text-sm font-medium text-slate-700 mb-1">Subject</label><input type="text" id="editTemplateSubject" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" /></div>
+                    <div class="input-group"><label for="editTemplateBody" class="block text-sm font-medium text-slate-700 mb-1">Body (HTML)</label><textarea id="editTemplateBody" rows="8" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono"></textarea><p class="text-xs text-slate-500 mt-1">Use <code>{{variable}}</code> placeholders.</p></div>
                     <div class="input-group flex items-center gap-3">
                         <input type="checkbox" id="editTemplateActive" class="w-4 h-4 accent-gold-500" />
                         <label for="editTemplateActive" class="text-sm text-slate-700">Active</label>
@@ -1593,43 +1064,20 @@
 
         <div id="keyEditModal" class="modal-overlay">
             <div class="modal-container" style="max-width:600px;">
-                <div class="modal-header">
-                    <h3 id="keyEditModalTitle">Add New Key</h3>
-                    <button id="closeKeyEditModalBtn" class="close-btn">&times;</button>
-                </div>
+                <div class="modal-header"><h3 id="keyEditModalTitle">Add New Key</h3><button id="closeKeyEditModalBtn" class="close-btn">&times;</button></div>
                 <div class="modal-body space-y-4">
                     <input type="hidden" id="editKeyId" />
                     <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Code *</label>
-                            <input type="text" id="editKeyCode" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="e.g., K-001" />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Brand *</label>
-                            <input type="text" id="editKeyBrand" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="e.g., Yale" />
-                        </div>
+                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Code *</label><input type="text" id="editKeyCode" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="e.g., K-001" /></div>
+                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Brand *</label><input type="text" id="editKeyBrand" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="e.g., Yale" /></div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Owner(s)</label>
-                        <input type="text" id="editKeyOwner" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="e.g., John Doe" />
-                        <p class="text-xs text-slate-500 mt-1">For multiple owners, separate with commas</p>
-                    </div>
+                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Owner(s)</label><input type="text" id="editKeyOwner" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="e.g., John Doe" /><p class="text-xs text-slate-500 mt-1">For multiple owners, separate with commas</p></div>
                     <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Quantity</label>
-                            <input type="number" id="editKeySets" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="1" min="0" step="1" />
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Date Owned</label>
-                            <input type="date" id="editKeyDateOwned" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                        </div>
+                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Quantity</label><input type="number" id="editKeySets" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="1" min="0" step="1" /></div>
+                        <div><label class="block text-sm font-medium text-slate-700 mb-1">Date Owned</label><input type="date" id="editKeyDateOwned" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" /></div>
                     </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Remarks</label>
-                        <textarea id="editKeyRemarks" rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Any additional notes"></textarea>
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Remarks</label><textarea id="editKeyRemarks" rows="2" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Any additional notes"></textarea></div>
+                    <div><label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
                         <select id="editKeyStatus" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
                             <option value="available">Available</option>
                             <option value="unavailable">Unavailable</option>
@@ -1647,16 +1095,9 @@
 
         <div id="keyDetailModal" class="modal-overlay">
             <div class="modal-container" style="max-width:780px;">
-                <div class="modal-header">
-                    <h3 id="keyDetailModalTitle">Key Details</h3>
-                    <button id="closeKeyDetailModalBtn" class="close-btn">&times;</button>
-                </div>
-                <div class="modal-body" id="keyDetailModalContent">
-                    <div class="text-center py-8 text-slate-400">Loading...</div>
-                </div>
-                <div class="modal-footer">
-                    <button id="closeKeyDetailFooterBtn" class="btn btn-secondary">Close</button>
-                </div>
+                <div class="modal-header"><h3 id="keyDetailModalTitle">Key Details</h3><button id="closeKeyDetailModalBtn" class="close-btn">&times;</button></div>
+                <div class="modal-body" id="keyDetailModalContent"><div class="text-center py-8 text-slate-400">Loading...</div></div>
+                <div class="modal-footer"><button id="closeKeyDetailFooterBtn" class="btn btn-secondary">Close</button></div>
             </div>
         </div>
 
@@ -1679,15 +1120,7 @@
                     </div>
                     <div class="table-responsive-wrap">
                         <table class="table-clean">
-                            <thead>
-                                <tr>
-                                    <th class="text-left">Code</th>
-                                    <th class="text-left">Brand</th>
-                                    <th class="text-left">Status</th>
-                                    <th class="text-left">Owner(s)</th>
-                                    <th class="text-right">Actions</th>
-                                </tr>
-                            </thead>
+                            <thead><tr><th class="text-left">Code</th><th class="text-left">Brand</th><th class="text-left">Status</th><th class="text-left">Owner(s)</th><th class="text-right">Actions</th></tr></thead>
                             <tbody id="manageKeyTableBody"><tr><td colspan="5" class="text-center py-8 text-slate-400">Loading keys...</td></tr></tbody>
                         </table>
                     </div>
@@ -1699,24 +1132,17 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button id="closeKeyManageFooterBtn" class="btn btn-secondary">Close</button>
-                </div>
+                <div class="modal-footer"><button id="closeKeyManageFooterBtn" class="btn btn-secondary">Close</button></div>
             </div>
         </div>
 
         <div id="addAdminRecipientModal" class="modal-overlay">
             <div class="modal-container" style="max-width:460px;">
-                <div class="modal-header">
-                    <h3><i class="fas fa-user-plus"></i> Add Admin Recipient</h3>
-                    <button id="closeAddAdminRecipientModalBtn" class="close-btn">&times;</button>
-                </div>
+                <div class="modal-header"><h3><i class="fas fa-user-plus"></i> Add Admin Recipient</h3><button id="closeAddAdminRecipientModalBtn" class="close-btn">&times;</button></div>
                 <div class="modal-body">
                     <div class="input-group">
                         <label for="adminRecipientSelect" class="block text-sm font-medium text-slate-700 mb-1">Select Admin User</label>
-                        <select id="adminRecipientSelect" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                            <option value="">Loading...</option>
-                        </select>
+                        <select id="adminRecipientSelect" class="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"><option value="">Loading...</option></select>
                         <p class="text-xs text-slate-500 mt-1">Only active admin users are shown.</p>
                     </div>
                 </div>

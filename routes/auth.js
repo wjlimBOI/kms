@@ -1049,6 +1049,59 @@ router.post('/logout', async (req, res) => {
     });
 });
 
+// ============================================================
+// FORGOT PASSWORD
+// ============================================================
+
+router.post('/forgot-password', async (req, res) => {
+    const { email } = req.body;
+    const db = req.db;
+
+    if (!email) {
+        return res.status(400).json({ error: 'Email is required' });
+    }
+
+    try {
+        const userResult = await db.query(
+            'SELECT id, email FROM users WHERE email = $1',
+            [email.toLowerCase()]
+        );
+
+        if (userResult.rowCount === 0) {
+            // Don't reveal if user exists
+            return res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
+        }
+
+        const user = userResult.rows[0];
+        const token = crypto.randomBytes(32).toString('hex');
+
+        await db.query(
+            `INSERT INTO password_reset_tokens (user_id, token, expires_at)
+             VALUES ($1, $2, NOW() + INTERVAL '1 hour')
+             ON CONFLICT (user_id) DO UPDATE SET token = EXCLUDED.token, expires_at = EXCLUDED.expires_at`,
+            [user.id, token]
+        );
+
+        const resetLink = `${APP_URL}/reset-password?token=${token}`;
+
+        // Send reset email
+        try {
+            const { sendPasswordResetEmail } = require('../services/emailService');
+            await sendPasswordResetEmail(email, resetLink);
+            logger.info(`Password reset email sent to ${email}`);
+        } catch (emailErr) {
+            logger.error('Failed to send password reset email:', emailErr);
+            // Still return success to avoid email enumeration
+        }
+
+        res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
+
+    } catch (err) {
+        logger.error('Forgot password error:', err);
+        res.status(500).json({ error: 'Failed to process request.' });
+    }
+});
+
 module.exports = {
     router,
     validateSession,

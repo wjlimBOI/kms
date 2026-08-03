@@ -213,21 +213,9 @@ router.get('/requests/pending', requireAuth, authorize('admin'), async (req, res
                     FROM jsonb_array_elements(kr.items) AS ki
                     JOIN keys k ON k.id = (ki->>'key_id')::int
                     ),
-                    CASE
-                        WHEN kr.key_id IS NOT NULL THEN
-                            json_build_array(
-                                json_build_object(
-                                    'key_id', kr.key_id,
-                                    'code', k2.code,
-                                    'brand', k2.brand,
-                                    'quantity', kr.quantity
-                                )
-                            )
-                        ELSE '[]'::json
-                    END
+                    '[]'::json
                 ) AS key_details
             FROM key_requests kr
-            LEFT JOIN keys k2 ON k2.id = kr.key_id
             WHERE kr.status = 'pending'
             ORDER BY kr.created_at ASC
         `);
@@ -260,7 +248,7 @@ router.post('/requests/approve', requireAuth, authorize('admin'), blockIfReadOnl
         try {
             items = typeof request.items === 'string' ? JSON.parse(request.items) : (request.items || []);
         } catch (e) {
-            items = [{ key_id: request.key_id, quantity: request.quantity || 1 }];
+            items = [];
         }
 
         for (const item of items) {
@@ -352,160 +340,6 @@ router.post('/requests/deny', requireAuth, authorize('admin'), blockIfReadOnly, 
         await client.query('ROLLBACK');
         console.error('[admin] /requests/deny error:', err);
         res.status(500).json({ error: 'Denial failed: ' + err.message });
-    } finally {
-        client.release();
-    }
-});
-
-// ============================================================
-// USER REGISTRATION REQUESTS (Account Requests)
-// ============================================================
-
-router.get('/auth/admin/pending-requests', requireAuth, authorize('admin'), async (req, res) => {
-    try {
-        const result = await req.db.query(`
-            SELECT id, name, email, username, created_at, status
-            FROM registration_requests
-            WHERE status = 'pending'
-            ORDER BY created_at ASC
-        `);
-        res.json(result.rows);
-    } catch (err) {
-        console.error('[admin] /auth/admin/pending-requests error:', err);
-        res.status(500).json({ error: 'Failed to fetch pending registration requests: ' + err.message });
-    }
-});
-
-router.post('/auth/admin/pending-requests/:id/approve', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
-    const { id } = req.params;
-    const db = req.db;
-    const client = await db.connect();
-
-    try {
-        await client.query('BEGIN');
-
-        const reqResult = await client.query(
-            'SELECT * FROM registration_requests WHERE id = $1 AND status = $2',
-            [id, 'pending']
-        );
-
-        if (reqResult.rowCount === 0) {
-            await client.query('ROLLBACK');
-            return res.status(404).json({ error: 'Registration request not found or already processed' });
-        }
-
-        const request = reqResult.rows[0];
-        const crypto = require('crypto');
-        const bcrypt = require('bcrypt');
-        const tempPassword = crypto.randomBytes(8).toString('hex');
-        const hashedPassword = await bcrypt.hash(tempPassword, 10);
-
-        const userResult = await client.query(
-            `INSERT INTO users (name, email, username, password_hash, role, status, created_at, updated_at)
-             VALUES ($1, $2, $3, $4, $5, 'active', NOW(), NOW())
-             RETURNING id, name, email, username, role, status`,
-            [request.name, request.email, request.username || request.email, hashedPassword, 'user']
-        );
-
-        const newUser = userResult.rows[0];
-
-        await client.query(
-            `UPDATE registration_requests 
-             SET status = 'approved', approved_at = NOW(), approved_by = $1
-             WHERE id = $2`,
-            [req.user?.userId || req.session?.userId, id]
-        );
-
-        await logInsert({
-            targetType: 'users',
-            targetId: newUser.id,
-            newData: { name: newUser.name, email: newUser.email, role: newUser.role, status: newUser.status },
-            userId: req.user?.userId || req.session?.userId,
-            userEmail: req.user?.email || req.session?.username,
-            req,
-            extraDetails: { action: 'approve_registration', registration_request_id: id }
-        });
-
-        await client.query('COMMIT');
-
-        try {
-            const changePasswordLink = `${process.env.APP_URL || 'https://kms-staging.onrender.com'}/change-password`;
-            await sendWelcomeEmail(newUser.email, newUser.name, tempPassword, changePasswordLink);
-        } catch (emailErr) {
-            console.error('Failed to send welcome email:', emailErr.message);
-        }
-
-        await sendAdminNotification(client,
-            `New User Account Approved: ${request.name}`,
-            `A new user account has been approved:\n` +
-            `Name: ${request.name}\n` +
-            `Email: ${request.email}\n` +
-            `Approved by: ${req.user?.email || req.session?.username || 'Admin'}`
-        );
-
-        res.json({
-            message: 'User approved successfully. Welcome email sent.',
-            user: newUser
-        });
-
-    } catch (err) {
-        await client.query('ROLLBACK');
-        console.error('[admin] /auth/admin/pending-requests/:id/approve error:', err);
-        if (err.code === '23505') {
-            return res.status(409).json({ error: 'User with this email or username already exists' });
-        }
-        res.status(500).json({ error: 'Failed to approve registration: ' + err.message });
-    } finally {
-        client.release();
-    }
-});
-
-router.post('/auth/admin/pending-requests/:id/reject', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
-    const { id } = req.params;
-    const { reason } = req.body;
-    const db = req.db;
-    const client = await db.connect();
-
-    try {
-        await client.query('BEGIN');
-
-        const reqResult = await client.query(
-            'SELECT * FROM registration_requests WHERE id = $1 AND status = $2',
-            [id, 'pending']
-        );
-
-        if (reqResult.rowCount === 0) {
-            await client.query('ROLLBACK');
-            return res.status(404).json({ error: 'Registration request not found or already processed' });
-        }
-
-        const request = reqResult.rows[0];
-
-        await client.query(
-            `UPDATE registration_requests 
-             SET status = 'rejected', rejected_at = NOW(), rejected_by = $1, rejection_reason = $2
-             WHERE id = $3`,
-            [req.user?.userId || req.session?.userId, reason || null, id]
-        );
-
-        await logUpdate({
-            targetType: 'registration_requests',
-            targetId: id,
-            oldData: request,
-            newData: { ...request, status: 'rejected', rejection_reason: reason || null },
-            userId: req.user?.userId || req.session?.userId,
-            userEmail: req.user?.email || req.session?.username,
-            req,
-            extraDetails: { action: 'reject_registration', reason: reason || null }
-        });
-
-        await client.query('COMMIT');
-        res.json({ message: 'Registration request rejected.' });
-
-    } catch (err) {
-        await client.query('ROLLBACK');
-        console.error('[admin] /auth/admin/pending-requests/:id/reject error:', err);
-        res.status(500).json({ error: 'Failed to reject registration: ' + err.message });
     } finally {
         client.release();
     }
@@ -1140,12 +974,14 @@ router.put('/keys/:id', requireAuth, authorize('admin'), blockIfReadOnly, async 
             [code, brand, finalStatus, userId, id]
         );
         await client.query('DELETE FROM key_sets WHERE key_id = $1', [id]);
-        for (const set of sets) {
-            await client.query(
-                `INSERT INTO key_sets (key_id, owner_name, quantity, remarks, created_at, updated_at)
-                 VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-                [id, set.owner_name || 'Unknown', set.quantity || 1, set.remarks || null]
-            );
+        if (sets && Array.isArray(sets) && sets.length) {
+            for (const set of sets) {
+                await client.query(
+                    `INSERT INTO key_sets (key_id, owner_name, quantity, remarks, created_at, updated_at)
+                     VALUES ($1, $2, $3, $4, NOW(), NOW())`,
+                    [id, set.owner_name || 'Unknown', set.quantity || 1, set.remarks || null]
+                );
+            }
         }
         await client.query('COMMIT');
 
@@ -1321,7 +1157,7 @@ router.delete('/keys/:id', requireAuth, authorize('admin'), blockIfReadOnly, asy
 });
 
 // ============================================================
-// USER MANAGEMENT
+// USER MANAGEMENT (Read/Update Only - Creation moved to auth.js)
 // ============================================================
 
 router.get('/users', requireAuth, authorize('admin'), async (req, res) => {
@@ -1380,6 +1216,7 @@ router.get('/users', requireAuth, authorize('admin'), async (req, res) => {
 router.put('/users/:id', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { id } = req.params;
     const { name, email, role, status } = req.body;
+
     if (!name || !email || !role) {
         return res.status(400).json({ error: 'Name, email, and role are required' });
     }
@@ -1860,6 +1697,28 @@ router.put('/email/settings/:key', requireAuth, requirePermission('manage_notifi
     } catch (err) {
         console.error('[admin] /email/settings PUT error:', err);
         res.status(500).json({ error: 'Failed to update setting: ' + err.message });
+    }
+});
+
+// ============================================================
+// TEST EMAIL ENDPOINT
+// ============================================================
+
+router.post('/test-email', requireAuth, authorize('admin'), async (req, res) => {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email address required' });
+
+    try {
+        const { sendConfirmationEmail } = require('../services/emailService');
+        await sendConfirmationEmail(
+            email,
+            'Test Email from KMS',
+            '<h1>Test Email</h1><p>If you received this, your email configuration is working correctly.</p>'
+        );
+        res.json({ message: 'Test email sent successfully' });
+    } catch (err) {
+        console.error('Test email error:', err);
+        res.status(500).json({ error: 'Failed to send test email: ' + err.message });
     }
 });
 

@@ -173,6 +173,7 @@ class ReminderService {
                     continue;
                 }
 
+                // Send reminder directly - sendReminderEmail handles HTML wrapping
                 await sendEmailWithRetry(
                     sendReminderEmail,
                     tx.receiver_email,
@@ -270,6 +271,7 @@ class ReminderService {
 
             const groupedItems = Array.from(grouped.values());
 
+            // sendAdminReturnReminder handles its own HTML wrapping
             await sendAdminReturnReminder(this.adminEmail, groupedItems);
             this.logger.info(`Admin summary sent to ${this.adminEmail}`);
 

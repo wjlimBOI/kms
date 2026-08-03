@@ -5,20 +5,17 @@ const { Pool } = require('pg');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
-// Template cache for better performance
 const templateCache = {};
-const TEMPLATE_CACHE_TTL = 60000; // 1 minute cache
+const TEMPLATE_CACHE_TTL = 60000;
 
-// Email queue for non-blocking sends
 let emailQueue = [];
 let isProcessingQueue = false;
 const MAX_QUEUE_SIZE = 1000;
 const BATCH_SIZE = 10;
-const BATCH_DELAY = 100; // ms between batches
+const BATCH_DELAY = 100;
 
 let cachedLogoBase64 = null;
 
-// Brevo configuration
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || process.env.EMAIL_USER;
 const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || 'BOI Key Management';
@@ -29,12 +26,10 @@ const APP_URL = process.env.APP_URL ||
                     ? 'https://kms-staging.onrender.com' 
                     : 'http://localhost:3000');
 
-// Log status on startup
 console.log(`📧 Brevo API Key: ${BREVO_API_KEY ? '✓ Set' : '✗ Not Set'}`);
 console.log(`📧 Sender Email: ${BREVO_SENDER_EMAIL || '✗ Not Set'}`);
 console.log(`📧 App URL: ${APP_URL}`);
 console.log(`📧 Email Enabled: ${ENABLE_EMAIL ? '✓ Yes' : '✗ No'}`);
-console.log(`📧 Using REST API (Port 443) - bypasses Render SMTP block`);
 
 if (!ENABLE_EMAIL) {
     console.log('⚠️ Email notifications disabled. Check BREVO_API_KEY and BREVO_SENDER_EMAIL in .env');
@@ -60,7 +55,10 @@ function getLogoBase64() {
     return cachedLogoBase64;
 }
 
-function getEmailHtml(content, subject) {
+// ============================================================
+// FIX: EMAIL WRAPPER - Only wraps content, no duplicate headers
+// ============================================================
+function wrapEmailContent(contentHtml, subject) {
     const logoBase64 = getLogoBase64();
     const cleanBase = APP_URL.replace(/\/$/, '');
     const currentYear = new Date().getFullYear();
@@ -91,7 +89,7 @@ function getEmailHtml(content, subject) {
       </tr>
       <tr>
         <td style="padding:30px 28px;" class="responsive-padding">
-          ${content}
+          ${contentHtml}
         </td>
       </tr>
       <tr>
@@ -114,7 +112,7 @@ function getEmailHtml(content, subject) {
 }
 
 // ============================================================
-//  BREVO EMAIL SENDER - Using fetch() (native, no axios dependency)
+// BREVO EMAIL SENDER
 // ============================================================
 
 async function sendEmailViaBrevo(toEmail, subject, htmlContent) {
@@ -141,7 +139,6 @@ async function sendEmailViaBrevo(toEmail, subject, htmlContent) {
             htmlContent: htmlContent
         };
 
-        // Use AbortController for timeout
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 30000);
 
@@ -178,7 +175,7 @@ async function sendEmailViaBrevo(toEmail, subject, htmlContent) {
 }
 
 // ============================================================
-//  EMAIL QUEUE SYSTEM
+// EMAIL QUEUE SYSTEM
 // ============================================================
 
 async function processEmailQueue() {
@@ -251,7 +248,7 @@ function queueEmail(sendFn) {
 }
 
 // ============================================================
-//  TEMPLATE MANAGEMENT WITH CACHING
+// TEMPLATE MANAGEMENT
 // ============================================================
 
 async function loadTemplate(templateKey, data = {}) {
@@ -327,7 +324,7 @@ async function isNotificationEnabled(settingKey) {
         return result.rows[0].enabled;
     } catch (err) {
         console.warn(`⚠️ Failed to check notification setting ${settingKey}:`, err.message);
-        return true; // Default to enabled
+        return true;
     }
 }
 
@@ -346,14 +343,19 @@ async function getNotificationConfig(settingKey) {
 }
 
 // ============================================================
-//  EMAIL SENDING FUNCTIONS (with queue support)
+// EMAIL SENDING FUNCTIONS
 // ============================================================
+
+function buildEmailHtml(bodyHtml, subject) {
+    // bodyHtml from templates should be the content only (no <html>, <body>, etc.)
+    return wrapEmailContent(bodyHtml, subject);
+}
 
 async function sendOtpEmail(toEmail, otp) {
     if (!(await isNotificationEnabled('send_otp'))) return;
     return queueEmail(async () => {
         const { subject, body_html } = await loadTemplate('otp', { otp });
-        const html = getEmailHtml(body_html, subject);
+        const html = buildEmailHtml(body_html, subject);
         return sendEmailViaBrevo(toEmail, subject, html);
     });
 }
@@ -379,7 +381,7 @@ async function sendPasswordResetEmail(toEmail, resetLink, name = 'User') {
                     app_url: APP_URL
                 });
             }
-            const html = getEmailHtml(template.body_html, template.subject);
+            const html = buildEmailHtml(template.body_html, template.subject);
             return sendEmailViaBrevo(toEmail, template.subject, html);
         } catch (err) {
             console.error('❌ Failed to send password reset email:', err);
@@ -399,7 +401,7 @@ async function sendWelcomeEmail(toEmail, username, plainPassword, changePassword
                 change_password_link: changePasswordLink || `${APP_URL}/change-password`,
                 app_url: APP_URL
             });
-            const html = getEmailHtml(body_html, subject);
+            const html = buildEmailHtml(body_html, subject);
             return sendEmailViaBrevo(toEmail, subject, html);
         } catch (err) {
             console.error('❌ Failed to send welcome email:', err);
@@ -418,7 +420,7 @@ async function sendRequestSubmittedEmail(toEmail, requesterName, items, plannedR
             planned_return: plannedReturn,
             app_url: APP_URL
         });
-        const html = getEmailHtml(body_html, subject);
+        const html = buildEmailHtml(body_html, subject);
         return sendEmailViaBrevo(toEmail, subject, html);
     });
 }
@@ -433,14 +435,14 @@ async function sendRequestApprovedEmail(toEmail, requesterName, items, plannedRe
             planned_return: plannedReturn,
             app_url: APP_URL
         });
-        const html = getEmailHtml(body_html, subject);
+        const html = buildEmailHtml(body_html, subject);
         return sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
 async function sendReminderEmail(toEmail, subject, body) {
     return queueEmail(async () => {
-        const html = getEmailHtml(body, subject);
+        const html = buildEmailHtml(body, subject);
         return sendEmailViaBrevo(toEmail, subject, html);
     });
 }
@@ -455,7 +457,7 @@ async function sendAdminRegistrationAlert(adminEmail, userDetails) {
             username: username || '—',
             app_url: APP_URL
         });
-        const html = getEmailHtml(body_html, subject);
+        const html = buildEmailHtml(body_html, subject);
         return sendEmailViaBrevo(adminEmail, subject, html);
     });
 }
@@ -473,7 +475,7 @@ async function sendAdminNewRequestAlert(adminEmail, requestDetails) {
             created_at,
             app_url: APP_URL
         });
-        const html = getEmailHtml(body_html, subject);
+        const html = buildEmailHtml(body_html, subject);
         return sendEmailViaBrevo(adminEmail, subject, html);
     });
 }
@@ -501,7 +503,7 @@ async function sendAdminReturnReminder(adminEmail, dueTransactions) {
         `;
         const { subject, body_html } = await loadTemplate('admin_daily_summary', { summary: summaryBody });
         const finalBody = body_html.replace('{{summary}}', summaryBody);
-        const html = getEmailHtml(finalBody, subject);
+        const html = buildEmailHtml(finalBody, subject);
         return sendEmailViaBrevo(adminEmail, subject, html);
     });
 }
@@ -528,7 +530,7 @@ async function sendAccountLockedEmail(toEmail, username, attempts, resetLink) {
                     app_url: APP_URL
                 });
             }
-            const html = getEmailHtml(template.body_html, template.subject);
+            const html = buildEmailHtml(template.body_html, template.subject);
             return sendEmailViaBrevo(toEmail, template.subject, html);
         } catch (err) {
             console.error('❌ Failed to send account locked email:', err);
@@ -546,7 +548,7 @@ async function sendFineCreatedEmail(toEmail, username, keyCode, amount) {
             amount: amount,
             app_url: APP_URL
         });
-        const html = getEmailHtml(body_html, subject);
+        const html = buildEmailHtml(body_html, subject);
         return sendEmailViaBrevo(toEmail, subject, html);
     });
 }
@@ -560,14 +562,14 @@ async function sendFinePaidEmail(toEmail, username, keyCode, amount) {
             amount: amount,
             app_url: APP_URL
         });
-        const html = getEmailHtml(body_html, subject);
+        const html = buildEmailHtml(body_html, subject);
         return sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
 async function sendConfirmationEmail(toEmail, subject, body) {
     return queueEmail(async () => {
-        const html = getEmailHtml(body, subject);
+        const html = buildEmailHtml(body, subject);
         return sendEmailViaBrevo(toEmail, subject, html);
     });
 }
@@ -575,10 +577,6 @@ async function sendConfirmationEmail(toEmail, subject, body) {
 function generateOtp() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
-
-// ============================================================
-//  ADMIN FUNCTIONS - Manual Welcome Email
-// ============================================================
 
 async function sendManualWelcomeEmail(toEmail, username, plainPassword, changePasswordLink) {
     return queueEmail(async () => {
@@ -590,7 +588,7 @@ async function sendManualWelcomeEmail(toEmail, username, plainPassword, changePa
                 change_password_link: changePasswordLink || `${APP_URL}/change-password`,
                 app_url: APP_URL
             });
-            const html = getEmailHtml(body_html, subject);
+            const html = buildEmailHtml(body_html, subject);
             return sendEmailViaBrevo(toEmail, subject, html);
         } catch (err) {
             console.error('❌ Failed to send manual welcome email:', err);
@@ -599,9 +597,6 @@ async function sendManualWelcomeEmail(toEmail, username, plainPassword, changePa
     });
 }
 
-// ============================================================
-//  EXPORTS
-// ============================================================
 module.exports = {
     sendOtpEmail,
     sendPasswordResetEmail,

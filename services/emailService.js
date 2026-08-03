@@ -2,7 +2,6 @@
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
-const axios = require('axios');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -22,10 +21,9 @@ let cachedLogoBase64 = null;
 // Brevo configuration
 const BREVO_API_KEY = process.env.BREVO_API_KEY;
 const BREVO_SENDER_EMAIL = process.env.BREVO_SENDER_EMAIL || process.env.EMAIL_USER;
-const BREVO_SENDER_NAME = 'BOI Key Management';
+const BREVO_SENDER_NAME = process.env.BREVO_SENDER_NAME || 'BOI Key Management';
 const ENABLE_EMAIL = process.env.ENABLE_EMAIL_NOTIFICATIONS === 'true' && BREVO_API_KEY && BREVO_SENDER_EMAIL;
 
-// ===== FIX: APP_URL with fallback and environment detection =====
 const APP_URL = process.env.APP_URL || 
                 (process.env.NODE_ENV === 'staging' 
                     ? 'https://kms-staging.onrender.com' 
@@ -36,6 +34,7 @@ console.log(`📧 Brevo API Key: ${BREVO_API_KEY ? '✓ Set' : '✗ Not Set'}`);
 console.log(`📧 Sender Email: ${BREVO_SENDER_EMAIL || '✗ Not Set'}`);
 console.log(`📧 App URL: ${APP_URL}`);
 console.log(`📧 Email Enabled: ${ENABLE_EMAIL ? '✓ Yes' : '✗ No'}`);
+console.log(`📧 Using REST API (Port 443) - bypasses Render SMTP block`);
 
 if (!ENABLE_EMAIL) {
     console.log('⚠️ Email notifications disabled. Check BREVO_API_KEY and BREVO_SENDER_EMAIL in .env');
@@ -85,7 +84,7 @@ function getEmailHtml(content, subject) {
     <table align="center" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;margin:20px auto;border:1px solid #e0e7ef;border-radius:24px;overflow:hidden;">
       <tr>
         <td bgcolor="#0f2b3d" style="background-color:#0f2b3d;padding:30px 24px;text-align:center;">
-          <img src="${logoBase64}" alt="Beauty One International" width="180" style="display:block;max-width:180px;width:100%;height:auto;margin:0 auto 16px auto;border:0;" />
+          ${logoBase64 ? `<img src="${logoBase64}" alt="Beauty One International" width="180" style="display:block;max-width:180px;width:100%;height:auto;margin:0 auto 16px auto;border:0;" />` : ''}
           <h1 style="color:#ffffff;font-size:26px;font-weight:600;margin:0;">Key Management System</h1>
           <p style="color:#e2e8f0;font-size:15px;margin:8px 0 0;">Beauty One International</p>
         </td>
@@ -115,41 +114,66 @@ function getEmailHtml(content, subject) {
 }
 
 // ============================================================
-//  BREVO EMAIL SENDER (Using axios)
+//  BREVO EMAIL SENDER - Using fetch() (native, no axios dependency)
 // ============================================================
 
 async function sendEmailViaBrevo(toEmail, subject, htmlContent) {
     if (!ENABLE_EMAIL) {
         console.log(`📧 Email not sent (disabled): ${subject} -> ${toEmail}`);
-        return;
+        return { message: 'Email disabled' };
     }
 
+    if (!toEmail) {
+        console.error('❌ No recipient email provided');
+        throw new Error('No recipient email provided');
+    }
+
+    console.log(`📧 Sending email to ${toEmail}: ${subject}`);
+
     try {
-        const response = await axios.post(
-            'https://api.brevo.com/v3/smtp/email',
-            {
-                sender: {
-                    email: BREVO_SENDER_EMAIL,
-                    name: BREVO_SENDER_NAME
-                },
-                to: [{ email: toEmail }],
-                subject: subject,
-                htmlContent: htmlContent
+        const payload = {
+            sender: {
+                name: BREVO_SENDER_NAME,
+                email: BREVO_SENDER_EMAIL
             },
-            {
-                headers: {
-                    'api-key': BREVO_API_KEY,
-                    'Content-Type': 'application/json'
-                },
-                timeout: 30000 // 30 second timeout
-            }
-        );
+            to: [{ email: toEmail }],
+            subject: subject,
+            htmlContent: htmlContent
+        };
+
+        // Use AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+        const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'api-key': BREVO_API_KEY
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            console.error('❌ Brevo API error:', result);
+            const errorMsg = result.message || JSON.stringify(result) || 'Unknown error';
+            throw new Error(`Brevo API Error (${response.status}): ${errorMsg}`);
+        }
+
         console.log(`✅ Email sent to ${toEmail}: ${subject}`);
-        return response.data;
+        return result;
     } catch (err) {
-        const errorData = err.response?.data;
-        console.error('❌ Brevo API error:', errorData || err.message);
-        throw new Error(errorData?.message || err.message);
+        if (err.name === 'AbortError') {
+            console.error('❌ Email send timeout:', subject, '->', toEmail);
+            throw new Error('Email send timeout after 30 seconds');
+        }
+        console.error('❌ Brevo API request failed:', err.message);
+        throw new Error(`Email send failed: ${err.message}`);
     }
 }
 
@@ -168,7 +192,6 @@ async function processEmailQueue() {
         let failed = 0;
 
         while (emailQueue.length > 0) {
-            // Process in batches
             const batch = emailQueue.splice(0, BATCH_SIZE);
 
             const batchPromises = batch.map(async (emailJob) => {
@@ -181,19 +204,19 @@ async function processEmailQueue() {
                 }
             });
 
-            await Promise.all(batchPromises);
+            await Promise.allSettled(batchPromises);
 
-            // Add delay between batches
             if (emailQueue.length > 0) {
                 await new Promise(resolve => setTimeout(resolve, BATCH_DELAY));
             }
         }
 
         console.log(`📧 Queue processed: ${processed} sent, ${failed} failed`);
+    } catch (err) {
+        console.error('❌ Queue processing error:', err.message);
     } finally {
         isProcessingQueue = false;
 
-        // If more emails were added while processing, continue
         if (emailQueue.length > 0) {
             processEmailQueue();
         }
@@ -202,11 +225,10 @@ async function processEmailQueue() {
 
 function queueEmail(sendFn) {
     if (!ENABLE_EMAIL) {
-        return Promise.resolve();
+        return Promise.resolve({ message: 'Email disabled' });
     }
 
     return new Promise((resolve, reject) => {
-        // Limit queue size to prevent memory issues
         if (emailQueue.length >= MAX_QUEUE_SIZE) {
             console.warn('⚠️ Email queue full, dropping email');
             reject(new Error('Email queue is full'));
@@ -215,14 +237,13 @@ function queueEmail(sendFn) {
 
         emailQueue.push(async () => {
             try {
-                await sendFn();
-                resolve();
+                const result = await sendFn();
+                resolve(result);
             } catch (err) {
                 reject(err);
             }
         });
 
-        // Start processing if not already running
         if (!isProcessingQueue) {
             processEmailQueue();
         }
@@ -234,7 +255,6 @@ function queueEmail(sendFn) {
 // ============================================================
 
 async function loadTemplate(templateKey, data = {}) {
-    // Check cache first
     const cacheKey = templateKey;
     const cached = templateCache[cacheKey];
     if (cached && (Date.now() - cached.timestamp) < TEMPLATE_CACHE_TTL) {
@@ -247,7 +267,6 @@ async function loadTemplate(templateKey, data = {}) {
         return { subject, body_html };
     }
 
-    // Fetch from database
     const result = await pool.query(
         'SELECT subject, body_html, updated_at FROM email_templates WHERE template_key = $1 AND is_active = true',
         [templateKey]
@@ -257,14 +276,12 @@ async function loadTemplate(templateKey, data = {}) {
     }
     let { subject, body_html } = result.rows[0];
 
-    // Update cache
     templateCache[cacheKey] = {
         template: { subject, body_html },
         timestamp: Date.now(),
         version: result.rows[0].updated_at
     };
 
-    // Replace placeholders
     for (const [key, value] of Object.entries(data)) {
         const regex = new RegExp(`{{${key}}}`, 'g');
         subject = subject.replace(regex, String(value));
@@ -301,21 +318,31 @@ async function updateTemplate(templateKey, subject, body_html, is_active = true)
 }
 
 async function isNotificationEnabled(settingKey) {
-    const result = await pool.query(
-        'SELECT enabled FROM notification_settings WHERE setting_key = $1',
-        [settingKey]
-    );
-    if (result.rowCount === 0) return true;
-    return result.rows[0].enabled;
+    try {
+        const result = await pool.query(
+            'SELECT enabled FROM notification_settings WHERE setting_key = $1',
+            [settingKey]
+        );
+        if (result.rowCount === 0) return true;
+        return result.rows[0].enabled;
+    } catch (err) {
+        console.warn(`⚠️ Failed to check notification setting ${settingKey}:`, err.message);
+        return true; // Default to enabled
+    }
 }
 
 async function getNotificationConfig(settingKey) {
-    const result = await pool.query(
-        'SELECT config FROM notification_settings WHERE setting_key = $1',
-        [settingKey]
-    );
-    if (result.rowCount === 0) return {};
-    return result.rows[0].config || {};
+    try {
+        const result = await pool.query(
+            'SELECT config FROM notification_settings WHERE setting_key = $1',
+            [settingKey]
+        );
+        if (result.rowCount === 0) return {};
+        return result.rows[0].config || {};
+    } catch (err) {
+        console.warn(`⚠️ Failed to get notification config ${settingKey}:`, err.message);
+        return {};
+    }
 }
 
 // ============================================================
@@ -327,7 +354,7 @@ async function sendOtpEmail(toEmail, otp) {
     return queueEmail(async () => {
         const { subject, body_html } = await loadTemplate('otp', { otp });
         const html = getEmailHtml(body_html, subject);
-        await sendEmailViaBrevo(toEmail, subject, html);
+        return sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
@@ -335,7 +362,6 @@ async function sendPasswordResetEmail(toEmail, resetLink, name = 'User') {
     if (!(await isNotificationEnabled('send_password_reset'))) return;
     return queueEmail(async () => {
         try {
-            // ===== FIX: Try IMDA template first, fallback to regular =====
             let templateKey = 'password_reset_imda';
             let template;
             try {
@@ -354,7 +380,7 @@ async function sendPasswordResetEmail(toEmail, resetLink, name = 'User') {
                 });
             }
             const html = getEmailHtml(template.body_html, template.subject);
-            await sendEmailViaBrevo(toEmail, template.subject, html);
+            return sendEmailViaBrevo(toEmail, template.subject, html);
         } catch (err) {
             console.error('❌ Failed to send password reset email:', err);
             throw err;
@@ -374,7 +400,7 @@ async function sendWelcomeEmail(toEmail, username, plainPassword, changePassword
                 app_url: APP_URL
             });
             const html = getEmailHtml(body_html, subject);
-            await sendEmailViaBrevo(toEmail, subject, html);
+            return sendEmailViaBrevo(toEmail, subject, html);
         } catch (err) {
             console.error('❌ Failed to send welcome email:', err);
             throw err;
@@ -393,7 +419,7 @@ async function sendRequestSubmittedEmail(toEmail, requesterName, items, plannedR
             app_url: APP_URL
         });
         const html = getEmailHtml(body_html, subject);
-        await sendEmailViaBrevo(toEmail, subject, html);
+        return sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
@@ -408,14 +434,14 @@ async function sendRequestApprovedEmail(toEmail, requesterName, items, plannedRe
             app_url: APP_URL
         });
         const html = getEmailHtml(body_html, subject);
-        await sendEmailViaBrevo(toEmail, subject, html);
+        return sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
 async function sendReminderEmail(toEmail, subject, body) {
     return queueEmail(async () => {
         const html = getEmailHtml(body, subject);
-        await sendEmailViaBrevo(toEmail, subject, html);
+        return sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
@@ -430,7 +456,7 @@ async function sendAdminRegistrationAlert(adminEmail, userDetails) {
             app_url: APP_URL
         });
         const html = getEmailHtml(body_html, subject);
-        await sendEmailViaBrevo(adminEmail, subject, html);
+        return sendEmailViaBrevo(adminEmail, subject, html);
     });
 }
 
@@ -448,7 +474,7 @@ async function sendAdminNewRequestAlert(adminEmail, requestDetails) {
             app_url: APP_URL
         });
         const html = getEmailHtml(body_html, subject);
-        await sendEmailViaBrevo(adminEmail, subject, html);
+        return sendEmailViaBrevo(adminEmail, subject, html);
     });
 }
 
@@ -476,7 +502,7 @@ async function sendAdminReturnReminder(adminEmail, dueTransactions) {
         const { subject, body_html } = await loadTemplate('admin_daily_summary', { summary: summaryBody });
         const finalBody = body_html.replace('{{summary}}', summaryBody);
         const html = getEmailHtml(finalBody, subject);
-        await sendEmailViaBrevo(adminEmail, subject, html);
+        return sendEmailViaBrevo(adminEmail, subject, html);
     });
 }
 
@@ -484,7 +510,6 @@ async function sendAccountLockedEmail(toEmail, username, attempts, resetLink) {
     if (!(await isNotificationEnabled('send_account_locked'))) return;
     return queueEmail(async () => {
         try {
-            // ===== FIX: Try IMDA template first, fallback to regular =====
             let templateKey = 'account_locked_imda';
             let template;
             try {
@@ -504,7 +529,7 @@ async function sendAccountLockedEmail(toEmail, username, attempts, resetLink) {
                 });
             }
             const html = getEmailHtml(template.body_html, template.subject);
-            await sendEmailViaBrevo(toEmail, template.subject, html);
+            return sendEmailViaBrevo(toEmail, template.subject, html);
         } catch (err) {
             console.error('❌ Failed to send account locked email:', err);
             throw err;
@@ -522,7 +547,7 @@ async function sendFineCreatedEmail(toEmail, username, keyCode, amount) {
             app_url: APP_URL
         });
         const html = getEmailHtml(body_html, subject);
-        await sendEmailViaBrevo(toEmail, subject, html);
+        return sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
@@ -536,14 +561,14 @@ async function sendFinePaidEmail(toEmail, username, keyCode, amount) {
             app_url: APP_URL
         });
         const html = getEmailHtml(body_html, subject);
-        await sendEmailViaBrevo(toEmail, subject, html);
+        return sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
 async function sendConfirmationEmail(toEmail, subject, body) {
     return queueEmail(async () => {
         const html = getEmailHtml(body, subject);
-        await sendEmailViaBrevo(toEmail, subject, html);
+        return sendEmailViaBrevo(toEmail, subject, html);
     });
 }
 
@@ -556,8 +581,6 @@ function generateOtp() {
 // ============================================================
 
 async function sendManualWelcomeEmail(toEmail, username, plainPassword, changePasswordLink) {
-    // This is the same as sendWelcomeEmail but without the notification setting check
-    // so admins can force-send it
     return queueEmail(async () => {
         try {
             const { subject, body_html } = await loadTemplate('welcome', {
@@ -568,7 +591,7 @@ async function sendManualWelcomeEmail(toEmail, username, plainPassword, changePa
                 app_url: APP_URL
             });
             const html = getEmailHtml(body_html, subject);
-            await sendEmailViaBrevo(toEmail, subject, html);
+            return sendEmailViaBrevo(toEmail, subject, html);
         } catch (err) {
             console.error('❌ Failed to send manual welcome email:', err);
             throw err;

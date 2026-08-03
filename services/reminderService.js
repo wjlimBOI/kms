@@ -1,34 +1,29 @@
 // services/reminderService.js
 const { sendReminderEmail, sendAdminReturnReminder, isNotificationEnabled, getNotificationConfig } = require('./emailService');
 
-/**
- * Get Singapore time (UTC+8) for date comparisons
- */
 function getSingaporeDate() {
     const now = new Date();
     return new Date(now.getTime() + 8 * 60 * 60 * 1000);
 }
 
-/**
- * Format a date to Singapore time string
- */
 function formatSingaporeDateTime(isoString) {
     if (!isoString) return 'Not specified';
-    const d = new Date(isoString);
-    return d.toLocaleString('en-SG', {
-        timeZone: 'Asia/Singapore',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-    }) + ' (GMT+8)';
+    try {
+        const d = new Date(isoString);
+        return d.toLocaleString('en-SG', {
+            timeZone: 'Asia/Singapore',
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: true
+        }) + ' (GMT+8)';
+    } catch (err) {
+        return isoString || 'Not specified';
+    }
 }
 
-/**
- * Email sending with retry (exponential backoff)
- */
 async function sendEmailWithRetry(emailFn, to, subject, body, maxRetries = 3, baseDelay = 1000) {
     let lastError;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -42,7 +37,7 @@ async function sendEmailWithRetry(emailFn, to, subject, body, maxRetries = 3, ba
             await new Promise(resolve => setTimeout(resolve, delay));
         }
     }
-    throw lastError;
+    throw lastError || new Error('Email send failed after retries');
 }
 
 class ReminderService {
@@ -52,65 +47,69 @@ class ReminderService {
         this.retryAttempts = options.retryAttempts || 3;
         this.retryDelayMs = options.retryDelayMs || 1000;
         this.adminEmail = process.env.ADMIN_EMAIL;
+        this.isRunning = false;
     }
 
-    /**
-     * Main entry point – run all reminder processing
-     */
     async processReminders() {
-        // Check if reminders are globally enabled
-        if (!(await isNotificationEnabled('send_reminders'))) {
-            this.logger.info('Reminders disabled by settings');
-            return { disabled: true };
+        if (this.isRunning) {
+            this.logger.warn('Reminder processing already running, skipping');
+            return { alreadyRunning: true };
         }
 
-        const start = Date.now();
-        this.logger.info('Starting reminder processing');
+        try {
+            this.isRunning = true;
 
-        // Load config
-        const config = await getNotificationConfig('send_reminders');
-        const daysBefore = config.reminder_days_before || [1, 0];
-        const sendOverdue = config.send_overdue_reminders !== false;
+            const enabled = await isNotificationEnabled('send_reminders');
+            if (!enabled) {
+                this.logger.info('Reminders disabled by settings');
+                return { disabled: true };
+            }
 
-        // 1. Fetch all borrowed transactions with planned_return
-        const transactions = await this.fetchDueBorrows();
+            const start = Date.now();
+            this.logger.info('Starting reminder processing');
 
-        // 2. Send individual reminders (with deduplication and retry)
-        const sentStats = await this.sendReminders(transactions, daysBefore, sendOverdue);
+            const config = await getNotificationConfig('send_reminders');
+            const daysBefore = config.reminder_days_before || [1, 0];
+            const sendOverdue = config.send_overdue_reminders !== false;
 
-        // 3. Update overdue status for transactions past their due date
-        await this.updateOverdueStatus(transactions);
+            const transactions = await this.fetchDueBorrows();
+            const sentStats = await this.sendReminders(transactions, daysBefore, sendOverdue);
+            await this.updateOverdueStatus(transactions);
 
-        // 4. Send admin summary if enabled
-        if (config.admin_summary_enabled !== false) {
-            await this.sendAdminSummary(transactions);
+            if (config.admin_summary_enabled !== false) {
+                await this.sendAdminSummary(transactions);
+            }
+
+            const duration = Date.now() - start;
+            this.logger.info('Reminder processing completed', { duration, sentStats });
+
+            return { ...sentStats, duration };
+        } catch (err) {
+            this.logger.error('Reminder processing failed:', err);
+            throw err;
+        } finally {
+            this.isRunning = false;
         }
-
-        const duration = Date.now() - start;
-        this.logger.info('Reminder processing completed', { duration, sentStats });
-
-        return { ...sentStats, duration };
     }
 
-    /**
-     * Fetch all transactions that are borrowed and have a planned_return
-     */
     async fetchDueBorrows() {
-        const query = `
-            SELECT t.id, t.receiver_email, t.quantity, t.planned_return,
-                   k.code, k.brand
-            FROM transactions t
-            JOIN keys k ON t.key_id = k.id
-            WHERE t.status IN ('borrowed', 'overdue')
-              AND t.planned_return IS NOT NULL
-        `;
-        const result = await this.db.query(query);
-        return result.rows;
+        try {
+            const query = `
+                SELECT t.id, t.receiver_email, t.quantity, t.planned_return, t.status,
+                       k.code, k.brand
+                FROM transactions t
+                JOIN keys k ON t.key_id = k.id
+                WHERE t.status IN ('borrowed', 'overdue')
+                  AND t.planned_return IS NOT NULL
+            `;
+            const result = await this.db.query(query);
+            return result.rows;
+        } catch (err) {
+            this.logger.error('Failed to fetch due borrows:', err);
+            throw err;
+        }
     }
 
-    /**
-     * Send reminders for each transaction (deduplicated per day per type)
-     */
     async sendReminders(transactions, daysBefore, sendOverdue) {
         const nowSG = getSingaporeDate();
         const todayStr = nowSG.toISOString().slice(0, 10);
@@ -121,61 +120,59 @@ class ReminderService {
         let stats = { dueToday: 0, dueTomorrow: 0, overdue: 0, errors: 0 };
 
         for (const tx of transactions) {
-            const plannedUTC = new Date(tx.planned_return);
-            const plannedSG = new Date(plannedUTC.getTime() + 8 * 60 * 60 * 1000);
-            const dueDateStr = plannedSG.toISOString().slice(0, 10);
-
-            let diffDays;
-            if (dueDateStr === todayStr) diffDays = 0;
-            else if (dueDateStr === tomorrowStr) diffDays = 1;
-            else if (dueDateStr < todayStr) diffDays = -1;
-            else diffDays = 2; // more than a day away
-
-            // Determine if we should send a reminder for this diffDays
-            let shouldSend = false;
-            let reminderType = null;
-            if (diffDays === -1 && sendOverdue) {
-                shouldSend = true;
-                reminderType = 'overdue';
-            } else if (daysBefore.includes(diffDays)) {
-                shouldSend = true;
-                if (diffDays === 0) reminderType = 'due_today';
-                else if (diffDays === 1) reminderType = 'due_tomorrow';
-                else reminderType = `due_in_${diffDays}_days`;
-            }
-
-            if (!shouldSend) continue;
-
-            // Deduplicate: check if we already sent this reminder type today
-            const logCheck = await this.db.query(
-                `SELECT 1 FROM reminders_log
-                 WHERE transaction_id = $1 AND reminder_type = $2
-                   AND sent_at::date = CURRENT_DATE`,
-                [tx.id, reminderType]
-            );
-            if (logCheck.rowCount > 0) {
-                continue; // already sent today
-            }
-
-            // Build email content
-            let subject, body;
-            if (reminderType === 'due_today') {
-                subject = 'Key Return Reminder (Due Today)';
-                const formattedDueTime = formatSingaporeDateTime(tx.planned_return);
-                body = `FINAL REMINDER: Your ${tx.quantity} × ${tx.code} (${tx.brand}) is due today. Please return it by ${formattedDueTime}.`;
-            } else if (reminderType === 'due_tomorrow') {
-                subject = 'Key Return Reminder (Tomorrow)';
-                body = `Reminder: You borrowed ${tx.quantity} × ${tx.code} (${tx.brand}). Please return it by tomorrow (${dueDateStr}).`;
-            } else if (reminderType === 'overdue') {
-                subject = 'OVERDUE Key Return';
-                const formattedDueDateTime = formatSingaporeDateTime(tx.planned_return);
-                body = `OVERDUE: You borrowed ${tx.quantity} × ${tx.code} (${tx.brand}) which was due on ${formattedDueDateTime}. Please return it immediately.`;
-            } else {
-                continue; // unknown
-            }
-
-            // Send with retry
             try {
+                const plannedUTC = new Date(tx.planned_return);
+                const plannedSG = new Date(plannedUTC.getTime() + 8 * 60 * 60 * 1000);
+                const dueDateStr = plannedSG.toISOString().slice(0, 10);
+
+                let diffDays;
+                if (dueDateStr === todayStr) diffDays = 0;
+                else if (dueDateStr === tomorrowStr) diffDays = 1;
+                else if (dueDateStr < todayStr) diffDays = -1;
+                else diffDays = 2;
+
+                let shouldSend = false;
+                let reminderType = null;
+
+                if (diffDays === -1 && sendOverdue) {
+                    shouldSend = true;
+                    reminderType = 'overdue';
+                } else if (daysBefore.includes(diffDays)) {
+                    shouldSend = true;
+                    if (diffDays === 0) reminderType = 'due_today';
+                    else if (diffDays === 1) reminderType = 'due_tomorrow';
+                    else reminderType = `due_in_${diffDays}_days`;
+                }
+
+                if (!shouldSend) continue;
+
+                const logCheck = await this.db.query(
+                    `SELECT 1 FROM reminders_log
+                     WHERE transaction_id = $1 AND reminder_type = $2
+                       AND sent_at::date = CURRENT_DATE`,
+                    [tx.id, reminderType]
+                );
+                if (logCheck.rowCount > 0) continue;
+
+                let subject, body;
+                const formattedDueTime = formatSingaporeDateTime(tx.planned_return);
+                const displayBrand = tx.brand || 'Unknown';
+                const displayCode = tx.code || 'Unknown';
+                const quantity = tx.quantity || 1;
+
+                if (reminderType === 'due_today') {
+                    subject = 'Key Return Reminder (Due Today)';
+                    body = `FINAL REMINDER: Your ${quantity} × ${displayCode} (${displayBrand}) is due today. Please return it by ${formattedDueTime}.`;
+                } else if (reminderType === 'due_tomorrow') {
+                    subject = 'Key Return Reminder (Tomorrow)';
+                    body = `Reminder: You borrowed ${quantity} × ${displayCode} (${displayBrand}). Please return it by tomorrow (${formattedDueTime}).`;
+                } else if (reminderType === 'overdue') {
+                    subject = 'OVERDUE Key Return';
+                    body = `OVERDUE: You borrowed ${quantity} × ${displayCode} (${displayBrand}) which was due on ${formattedDueTime}. Please return it immediately.`;
+                } else {
+                    continue;
+                }
+
                 await sendEmailWithRetry(
                     sendReminderEmail,
                     tx.receiver_email,
@@ -184,16 +181,19 @@ class ReminderService {
                     this.retryAttempts,
                     this.retryDelayMs
                 );
-                // Log success
+
                 await this.db.query(
-                    `INSERT INTO reminders_log (transaction_id, reminder_type) VALUES ($1, $2)`,
+                    `INSERT INTO reminders_log (transaction_id, reminder_type)
+                     VALUES ($1, $2)`,
                     [tx.id, reminderType]
                 );
+
                 if (reminderType === 'due_today') stats.dueToday++;
                 else if (reminderType === 'due_tomorrow') stats.dueTomorrow++;
                 else if (reminderType === 'overdue') stats.overdue++;
+
             } catch (err) {
-                this.logger.error(`Failed to send reminder for tx ${tx.id}:`, err);
+                this.logger.error(`Failed to send reminder for tx ${tx.id}:`, err.message);
                 stats.errors++;
             }
         }
@@ -201,72 +201,106 @@ class ReminderService {
         return stats;
     }
 
-    /**
-     * Update transaction status to 'overdue' if past due date
-     */
     async updateOverdueStatus(transactions) {
         const nowSG = getSingaporeDate();
         const todayStr = nowSG.toISOString().slice(0, 10);
+        let updated = 0;
 
         for (const tx of transactions) {
             if (tx.status === 'overdue') continue;
 
-            const plannedUTC = new Date(tx.planned_return);
-            const plannedSG = new Date(plannedUTC.getTime() + 8 * 60 * 60 * 1000);
-            const dueDateStr = plannedSG.toISOString().slice(0, 10);
+            try {
+                const plannedUTC = new Date(tx.planned_return);
+                const plannedSG = new Date(plannedUTC.getTime() + 8 * 60 * 60 * 1000);
+                const dueDateStr = plannedSG.toISOString().slice(0, 10);
 
-            if (dueDateStr < todayStr) {
-                await this.db.query(
-                    `UPDATE transactions SET status = 'overdue' WHERE id = $1`,
-                    [tx.id]
-                );
-                this.logger.info(`Marked transaction ${tx.id} as overdue`);
+                if (dueDateStr < todayStr) {
+                    await this.db.query(
+                        `UPDATE transactions SET status = 'overdue' WHERE id = $1`,
+                        [tx.id]
+                    );
+                    updated++;
+                    this.logger.info(`Marked transaction ${tx.id} as overdue`);
+                }
+            } catch (err) {
+                this.logger.error(`Failed to update status for tx ${tx.id}:`, err.message);
             }
         }
+
+        return updated;
     }
 
-    /**
-     * Send a summary email to admin with all due/overdue items
-     */
     async sendAdminSummary(transactions) {
         if (!this.adminEmail) {
             this.logger.warn('No ADMIN_EMAIL set – skipping admin summary');
             return;
         }
 
-        const nowSG = getSingaporeDate();
-        const todayStr = nowSG.toISOString().slice(0, 10);
-
-        const dueItems = transactions.filter(tx => {
-            const plannedUTC = new Date(tx.planned_return);
-            const plannedSG = new Date(plannedUTC.getTime() + 8 * 60 * 60 * 1000);
-            const dueDateStr = plannedSG.toISOString().slice(0, 10);
-            return dueDateStr <= todayStr;
-        });
-
-        if (dueItems.length === 0) return;
-
-        // Group by receiver_email
-        const grouped = new Map();
-        for (const item of dueItems) {
-            const email = item.receiver_email;
-            if (!grouped.has(email)) {
-                grouped.set(email, {
-                    receiver_email: email,
-                    key_names: [],
-                    planned_return: formatSingaporeDateTime(item.planned_return)
-                });
-            }
-            grouped.get(email).key_names.push(`${item.brand} (${item.code})`);
-        }
-
-        const groupedItems = Array.from(grouped.values());
-
         try {
+            const nowSG = getSingaporeDate();
+            const todayStr = nowSG.toISOString().slice(0, 10);
+
+            const dueItems = transactions.filter(tx => {
+                try {
+                    const plannedUTC = new Date(tx.planned_return);
+                    const plannedSG = new Date(plannedUTC.getTime() + 8 * 60 * 60 * 1000);
+                    const dueDateStr = plannedSG.toISOString().slice(0, 10);
+                    return dueDateStr <= todayStr;
+                } catch (err) {
+                    return false;
+                }
+            });
+
+            if (dueItems.length === 0) return;
+
+            const grouped = new Map();
+            for (const item of dueItems) {
+                const email = item.receiver_email;
+                if (!grouped.has(email)) {
+                    grouped.set(email, {
+                        receiver_email: email,
+                        key_names: [],
+                        planned_return: formatSingaporeDateTime(item.planned_return)
+                    });
+                }
+                const displayBrand = item.brand || 'Unknown';
+                const displayCode = item.code || 'Unknown';
+                grouped.get(email).key_names.push(`${displayBrand} (${displayCode})`);
+            }
+
+            const groupedItems = Array.from(grouped.values());
+
             await sendAdminReturnReminder(this.adminEmail, groupedItems);
             this.logger.info(`Admin summary sent to ${this.adminEmail}`);
+
         } catch (err) {
-            this.logger.error('Failed to send admin summary:', err);
+            this.logger.error('Failed to send admin summary:', err.message);
+        }
+    }
+
+    async getStats() {
+        try {
+            const today = new Date();
+            const todayStr = today.toISOString().slice(0, 10);
+
+            const result = await this.db.query(
+                `SELECT reminder_type, COUNT(*) as count
+                 FROM reminders_log
+                 WHERE sent_at::date = $1
+                 GROUP BY reminder_type`,
+                [todayStr]
+            );
+
+            const stats = { today: todayStr, total: 0, byType: {} };
+            for (const row of result.rows) {
+                stats.byType[row.reminder_type] = parseInt(row.count);
+                stats.total += parseInt(row.count);
+            }
+
+            return stats;
+        } catch (err) {
+            this.logger.error('Failed to get reminder stats:', err.message);
+            return { error: err.message };
         }
     }
 }

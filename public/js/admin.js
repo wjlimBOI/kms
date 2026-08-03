@@ -2,30 +2,42 @@
     'use strict';
 
     var isRedirecting = false;
-
-    if (!localStorage.getItem('kms_token') && !window.location.pathname.includes('/login')) {
-        window.location.href = '/login';
-        return;
-    }
-
     var refreshInterval = null;
     var isPageVisible = true;
+    var auditSearchTimeout = null;
+    var searchTimeout = null;
 
     var auditLogState = {
         page: 1,
         limit: 25,
         total: 0,
         data: [],
-        filters: {
-            action: '',
-            user: '',
-            target: '',
-            from: '',
-            to: ''
-        }
+        filters: { action: '', user: '', target: '', from: '', to: '' }
     };
 
-    var auditSearchTimeout = null;
+    var allTransactions = [];
+    var filteredTransactions = [];
+    var txPage = 1, txRows = 10, txTotal = 0;
+
+    var inventoryData = [];
+    var filteredInventory = [];
+    var invPage = 1, invRows = 10, invTotal = 0;
+
+    var manageKeyData = [];
+    var manageKeyFiltered = [];
+    var manageKeyPage = 1, manageKeyRows = 8, manageKeyTotal = 0;
+
+    var permissionsData = { roles: [], permissions: [], roleMappings: {} };
+    var allRolesList = [];
+    var emailTabLoaded = false;
+    var securityLoaded = false;
+    var currentAction = null;
+    var currentRequestId = null;
+
+    if (!localStorage.getItem('kms_token') && !window.location.pathname.includes('/login')) {
+        window.location.href = '/login';
+        return;
+    }
 
     function redirectToLogin() {
         if (isRedirecting) return;
@@ -39,9 +51,7 @@
         window.location.href = '/login';
     }
 
-    function getToken() {
-        return localStorage.getItem('kms_token');
-    }
+    function getToken() { return localStorage.getItem('kms_token'); }
 
     function getUser() {
         try { return JSON.parse(localStorage.getItem('kms_user')); } catch (e) { return null; }
@@ -54,15 +64,121 @@
 
     function escapeHtml(str) {
         if (!str) return '';
-        var map = {
-            '&': '&amp;',
-            '<': '&lt;',
-            '>': '&gt;',
-            '"': '&quot;',
-            "'": '&#x27;',
-            '/': '&#x2F;'
-        };
+        var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '/': '&#x2F;' };
         return String(str).replace(/[&<>"'/]/g, function(m) { return map[m]; });
+    }
+
+    function formatDate(iso) {
+        if (!iso) return '—';
+        return new Date(iso).toLocaleString('en-SG', {
+            year: 'numeric', month: 'short', day: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
+    }
+
+    function formatDateShort(iso) {
+        if (!iso) return '—';
+        return new Date(iso).toLocaleDateString('en-SG', {
+            year: 'numeric', month: 'short', day: 'numeric'
+        });
+    }
+
+    function formatLastActive(iso) {
+        if (!iso) return 'Never';
+        return new Date(iso).toLocaleDateString('en-US', {
+            month: 'short', day: 'numeric', year: 'numeric'
+        }) + ' at ' + new Date(iso).toLocaleTimeString([], {
+            hour: '2-digit', minute: '2-digit'
+        });
+    }
+
+    function safeLower(value) {
+        return (value || '').toString().toLowerCase();
+    }
+
+    function safeNumber(value, fallback) {
+        fallback = fallback || 0;
+        var num = parseFloat(value);
+        return isNaN(num) ? fallback : num;
+    }
+
+    function statusBadgeHtml(status) {
+        var map = {
+            available: ['returned', 'Available'],
+            borrowed: ['borrowed', 'Borrowed'],
+            lost: ['lost', 'Lost'],
+            unavailable: ['unavailable', 'Unavailable']
+        };
+        var data = map[status] || ['pending', status || 'Unknown'];
+        return '<span class="status-badge ' + data[0] + '">' + data[1] + '</span>';
+    }
+
+    function updateNumber(id, value) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = value;
+    }
+
+    function showToast(message, type) {
+        type = type || 'success';
+        var root = document.getElementById('toastRoot');
+        if (!root) {
+            root = document.createElement('div');
+            root.id = 'toastRoot';
+            document.body.appendChild(root);
+        }
+        var toast = document.createElement('div');
+        toast.className = 'toast-notification';
+        toast.textContent = message;
+        toast.style.background = type === 'error' ? '#EF4444' : type === 'warning' ? '#F59E0B' : '#1E293B';
+        root.appendChild(toast);
+        setTimeout(function() { toast.remove(); }, 3000);
+    }
+
+    function showAlertModal(message, type, title) {
+        type = type || 'success';
+        var modal = document.getElementById('alertModal');
+        if (!modal) return;
+
+        var icon = document.getElementById('alertIcon');
+        var titleEl = document.getElementById('alertTitle');
+        var msgEl = document.getElementById('alertMessage');
+        if (!icon || !titleEl || !msgEl) return;
+
+        icon.className = 'alert-icon';
+        var titles = { success: 'Success', error: 'Error', warning: 'Warning', info: 'Information' };
+        var icons = {
+            success: 'fa-check-circle',
+            error: 'fa-times-circle',
+            warning: 'fa-exclamation-triangle',
+            info: 'fa-info-circle'
+        };
+        var classes = { success: 'success', error: 'error', warning: 'warning', info: 'info' };
+
+        icon.classList.add(classes[type] || 'success');
+        icon.innerHTML = '<i class="fas ' + (icons[type] || icons.success) + '"></i>';
+        titleEl.textContent = title || titles[type] || 'Notice';
+        msgEl.textContent = message;
+
+        modal.classList.add('active');
+        modal.style.display = 'flex';
+    }
+
+    function closeAlertModal() {
+        var modal = document.getElementById('alertModal');
+        if (modal) {
+            modal.classList.remove('active');
+            modal.style.display = 'none';
+        }
+    }
+
+    function showDetailModal(title, contentHtml) {
+        document.getElementById('detailModalTitle').innerText = title;
+        document.getElementById('detailModalContent').innerHTML = contentHtml;
+        document.getElementById('detailModal').style.display = 'flex';
+    }
+
+    function closeDetailModal() {
+        document.getElementById('detailModal').style.display = 'none';
     }
 
     function openPortalMenu(triggerEl, menuHtml, onRender) {
@@ -196,92 +312,33 @@
         });
     }
 
-    function formatDate(iso) {
-        if (!iso) return '—';
-        return new Date(iso).toLocaleString('en-SG', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    }
-
-    function formatDateShort(iso) {
-        if (!iso) return '—';
-        return new Date(iso).toLocaleDateString('en-SG', {
-            year: 'numeric',
-            month: 'short',
-            day: 'numeric'
-        });
-    }
-
-    function updateNumber(id, value) {
-        var el = document.getElementById(id);
-        if (el) el.textContent = value;
-    }
-
-    function safeLower(value) {
-        return (value || '').toString().toLowerCase();
-    }
-
-    function toArray(value) {
-        if (Array.isArray(value)) return value;
-        if (typeof value === 'string') return value.split(',').map(function(s) { return s.trim(); }).filter(Boolean);
-        if (value && typeof value === 'object') {
-            if (Array.isArray(value.permissions)) return value.permissions;
-            if (Array.isArray(value.roles)) return value.roles;
-            if (Array.isArray(value.permission_codes)) return value.permission_codes;
-            return [];
+    function printSection(containerId) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        var clone = container.cloneNode(true);
+        clone.querySelectorAll('.btn-print').forEach(function(el) { el.remove(); });
+        var header = clone.querySelector('.card-header');
+        if (header) {
+            header.querySelectorAll('.btn-print, .btn-manage, .btn-refresh, input, select, button').forEach(function(el) { el.remove(); });
         }
-        return [];
+        clone.querySelectorAll('.grid, .search-bar, .flex.gap-2.justify-end').forEach(function(el) { el.remove(); });
+
+        var styles = document.querySelector('style') ? document.querySelector('style').innerHTML : '';
+        var width = Math.min(1200, screen.width - 40);
+        var height = Math.min(800, screen.height - 80);
+        var printWin = window.open('', '_blank', 'width=' + width + ',height=' + height);
+        printWin.document.write('<!DOCTYPE html><html><head><title>Print</title><style>'
+            + '* { box-sizing: border-box; } body { font-family: "Inter", sans-serif; background: white; padding: 2rem; } '
+            + '.container { max-width: 1200px; margin: 0 auto; } .card-header { background: #f8fafc; padding: 0.75rem 1.125rem; border-bottom: 2px solid #d4a843; } '
+            + '.card-header h3 { margin: 0; font-size: 1rem; } .card-body { padding: 1rem 1.125rem; } table { width: 100%; border-collapse: collapse; font-size: 0.8rem; } '
+            + 'th { background: #f1f5f9; text-align: left; padding: 0.5rem; border-bottom: 2px solid #e2e8f0; } td { padding: 0.5rem; border-bottom: 1px solid #e2e8f0; } '
+            + '.status-badge { padding: 0.1rem 0.6rem; border-radius: 40px; font-size: 0.7rem; display: inline-block; } .no-print { display: none !important; } '
+            + '@page { margin: 1.5cm; } ' + styles
+            + '</style></head><body><div class="container">' + clone.outerHTML + '</div><script>window.onload = function() { window.print(); window.close(); };<\/script></body></html>');
+        printWin.document.close();
     }
 
-    function getInitials(name) {
-        if (!name) return '?';
-        var parts = name.trim().split(/\s+/);
-        if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-        return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
-    }
-
-    function getAvatarColor(name) {
-        if (!name) return 'hsl(0,70%,80%)';
-        var h = 0;
-        for (var i = 0; i < name.length; i++) {
-            h = name.charCodeAt(i) + ((h << 5) - h);
-        }
-        return 'hsl(' + Math.abs(h % 360) + ',70%,80%)';
-    }
-
-    function formatLastActive(iso) {
-        if (!iso) return 'Never';
-        return new Date(iso).toLocaleDateString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            year: 'numeric'
-        }) + ' at ' + new Date(iso).toLocaleTimeString([], {
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    }
-
-    function safeNumber(value, fallback) {
-        fallback = fallback || 0;
-        var num = parseFloat(value);
-        return isNaN(num) ? fallback : num;
-    }
-
-    function statusBadgeHtml(status) {
-        var map = {
-            available: ['returned', 'Available'],
-            borrowed: ['borrowed', 'Borrowed'],
-            lost: ['lost', 'Lost'],
-            unavailable: ['unavailable', 'Unavailable']
-        };
-        var data = map[status] || ['pending', status || 'Unknown'];
-        return '<span class="status-badge ' + data[0] + '">' + data[1] + '</span>';
-    }
-
+    // ==================== AUTHENTICATED FETCH ====================
     async function authenticatedFetch(url, options) {
         options = options || {};
         var token = getToken();
@@ -368,284 +425,64 @@
         }
     }
 
-    function showToast(message, type) {
-        type = type || 'success';
-        var root = document.getElementById('toastRoot');
-        if (!root) {
-            root = document.createElement('div');
-            root.id = 'toastRoot';
-            document.body.appendChild(root);
-        }
-        var toast = document.createElement('div');
-        toast.className = 'toast-notification';
-        toast.textContent = message;
-        toast.style.background = type === 'error' ? '#EF4444' : type === 'warning' ? '#F59E0B' : '#1E293B';
-        root.appendChild(toast);
-        setTimeout(function() { toast.remove(); }, 3000);
-    }
+    // ==================== CSRF ====================
+    var csrfToken = null;
+    var csrfFetchPromise = null;
 
-    function showAlertModal(message, type, title) {
-        type = type || 'success';
-        var modal = document.getElementById('alertModal');
-        if (!modal) return;
-
-        var icon = document.getElementById('alertIcon');
-        var titleEl = document.getElementById('alertTitle');
-        var msgEl = document.getElementById('alertMessage');
-        if (!icon || !titleEl || !msgEl) return;
-
-        icon.className = 'alert-icon';
-        var titles = { success: 'Success', error: 'Error', warning: 'Warning', info: 'Information' };
-        var icons = {
-            success: 'fa-check-circle',
-            error: 'fa-times-circle',
-            warning: 'fa-exclamation-triangle',
-            info: 'fa-info-circle'
-        };
-        var classes = { success: 'success', error: 'error', warning: 'warning', info: 'info' };
-
-        icon.classList.add(classes[type] || 'success');
-        icon.innerHTML = '<i class="fas ' + (icons[type] || icons.success) + '"></i>';
-        titleEl.textContent = title || titles[type] || 'Notice';
-        msgEl.textContent = message;
-
-        modal.classList.add('active');
-        modal.style.display = 'flex';
-    }
-
-    function closeAlertModal() {
-        var modal = document.getElementById('alertModal');
-        if (modal) {
-            modal.classList.remove('active');
-            modal.style.display = 'none';
-        }
-    }
-
-    function showDetailModal(title, contentHtml) {
-        document.getElementById('detailModalTitle').innerText = title;
-        document.getElementById('detailModalContent').innerHTML = contentHtml;
-        document.getElementById('detailModal').style.display = 'flex';
-    }
-
-    function closeDetailModal() {
-        document.getElementById('detailModal').style.display = 'none';
-    }
-
-    function openProfileModal() {
-        var user = getUser();
-        if (user) {
-            authenticatedFetch('/api/user/profile')
-                .then(function(res) { return res.json(); })
-                .then(function(data) {
-                    document.getElementById('profileName').value = data.name || '';
-                    document.getElementById('profileEmail').value = data.email || '';
-                    document.getElementById('profileCurrentPassword').value = '';
-                    document.getElementById('profilePassword').value = '';
-                })
-                .catch(function() {
-                    document.getElementById('profileName').value = user.name || '';
-                    document.getElementById('profileEmail').value = user.email || '';
+    async function fetchCsrfToken() {
+        if (csrfFetchPromise) return csrfFetchPromise;
+        csrfFetchPromise = (async function() {
+            try {
+                var response = await fetch('/api/csrf-token', {
+                    credentials: 'include',
+                    headers: { 'Accept': 'application/json' }
                 });
-        }
-        document.getElementById('profileModal').style.display = 'flex';
-        var mobileMenu = document.getElementById('mobileMenu');
-        if (mobileMenu) mobileMenu.classList.remove('open');
-    }
-
-    function printSection(containerId) {
-        var container = document.getElementById(containerId);
-        if (!container) return;
-        var clone = container.cloneNode(true);
-        clone.querySelectorAll('.btn-print').forEach(function(el) { el.remove(); });
-        var header = clone.querySelector('.card-header');
-        if (header) {
-            header.querySelectorAll('.btn-print, .btn-manage, .btn-refresh, input, select, button').forEach(function(el) { el.remove(); });
-        }
-        clone.querySelectorAll('.grid, .search-bar, .flex.gap-2.justify-end').forEach(function(el) { el.remove(); });
-
-        var styles = document.querySelector('style') ? document.querySelector('style').innerHTML : '';
-        var width = Math.min(1200, screen.width - 40);
-        var height = Math.min(800, screen.height - 80);
-        var printWin = window.open('', '_blank', 'width=' + width + ',height=' + height);
-        printWin.document.write('<!DOCTYPE html><html><head><title>Print</title><style>'
-            + '* { box-sizing: border-box; } body { font-family: "Inter", sans-serif; background: white; padding: 2rem; } '
-            + '.container { max-width: 1200px; margin: 0 auto; } .card-header { background: #f8fafc; padding: 0.75rem 1.125rem; border-bottom: 2px solid #d4a843; } '
-            + '.card-header h3 { margin: 0; font-size: 1rem; } .card-body { padding: 1rem 1.125rem; } table { width: 100%; border-collapse: collapse; font-size: 0.8rem; } '
-            + 'th { background: #f1f5f9; text-align: left; padding: 0.5rem; border-bottom: 2px solid #e2e8f0; } td { padding: 0.5rem; border-bottom: 1px solid #e2e8f0; } '
-            + '.status-badge { padding: 0.1rem 0.6rem; border-radius: 40px; font-size: 0.7rem; display: inline-block; } .no-print { display: none !important; } '
-            + '@page { margin: 1.5cm; } ' + styles
-            + '</style></head><body><div class="container">' + clone.outerHTML + '</div><script>window.onload = function() { window.print(); window.close(); };<\/script></body></html>');
-        printWin.document.close();
-    }
-
-    async function checkAuth() {
-        try {
-            var token = getToken();
-            if (!token) {
-                if (!isRedirecting) redirectToLogin();
-                return false;
-            }
-
-            var response = await fetch('/api/auth/check-session', {
-                credentials: 'include',
-                headers: { 'Accept': 'application/json' }
-            });
-
-            if (!response.ok) {
-                if (!isRedirecting) redirectToLogin();
-                return false;
-            }
-
-            var data = await response.json();
-            if (!data.authenticated) {
-                if (!isRedirecting) redirectToLogin();
-                return false;
-            }
-
-            if (data.user) {
-                try {
-                    var profileRes = await fetch('/api/user/profile', {
-                        credentials: 'include',
-                        headers: {
-                            'Authorization': 'Bearer ' + token,
-                            'Accept': 'application/json'
-                        }
-                    });
-                    if (profileRes.ok) {
-                        var profileData = await profileRes.json();
-                        data.user.name = profileData.name || data.user.name || 'User';
-                        data.user.email = profileData.email || data.user.email;
-                        data.user.role = profileData.role || data.user.role || 'user';
-                    }
-                } catch (profileErr) {
-                    if (!data.user.name) data.user.name = 'User';
+                if (response.ok) {
+                    var data = await response.json();
+                    csrfToken = data.csrfToken;
+                    return csrfToken;
                 }
-                if (!data.user.name || data.user.name.trim() === '') {
-                    data.user.name = 'User';
-                }
-                localStorage.setItem('kms_user', JSON.stringify(data.user));
+                return null;
+            } catch (error) {
+                console.error('Error fetching CSRF token:', error);
+                return null;
+            } finally {
+                csrfFetchPromise = null;
             }
-
-            if (data.user.role !== 'admin') {
-                var accessDenied = document.getElementById('accessDenied');
-                var loadingContainer = document.getElementById('loadingContainer');
-                if (accessDenied) accessDenied.style.display = 'flex';
-                if (loadingContainer) loadingContainer.style.display = 'none';
-                return false;
-            }
-
-            return true;
-        } catch (error) {
-            console.error('Auth check failed:', error);
-            if (!isRedirecting) redirectToLogin();
-            return false;
-        }
+        })();
+        return csrfFetchPromise;
     }
 
-    async function logAuditEvent(action, targetType, targetId, details, oldData, newData) {
-        details = details || {};
-        try {
-            var user = getUser();
-            await authenticatedFetch('/api/audit/log', {
-                method: 'POST',
-                body: {
-                    action: action,
-                    target_type: targetType,
-                    target_id: targetId,
-                    details: details,
-                    old_data: oldData || null,
-                    new_data: newData || null,
-                    user_name: user ? user.name : 'System',
-                    user_email: user ? user.email : 'system'
-                }
-            });
-        } catch (err) {
-            console.error('Failed to log audit event:', err);
-        }
+    async function getCsrfToken() {
+        if (csrfToken) return csrfToken;
+        return await fetchCsrfToken();
     }
 
-    async function previewTemplate(templateKey) {
-        try {
-            var res = await authenticatedFetch('/api/admin/email/templates/' + templateKey);
-            var template = await res.json();
-
-            var existingModal = document.getElementById('templatePreviewModal');
-            if (existingModal) existingModal.remove();
-
-            var modal = document.createElement('div');
-            modal.className = 'modal-overlay active';
-            modal.id = 'templatePreviewModal';
-            modal.style.display = 'flex';
-            modal.style.zIndex = '100001';
-
-            modal.innerHTML = '<div class="modal-container" style="max-width:800px;max-height:90vh;">'
-                + '<div class="modal-header"><h3><i class="fas fa-eye"></i> Template Preview: ' + escapeHtml(template.template_key) + '</h3>'
-                + '<button class="close-btn" id="templatePreviewCloseBtn">&times;</button></div>'
-                + '<div class="modal-body" style="padding:0;overflow:hidden;">'
-                + '<div style="padding:1rem 1.5rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;">'
-                + '<p style="margin:0;font-size:0.85rem;color:#64748b;"><strong>Subject:</strong> ' + escapeHtml(template.subject) + '</p>'
-                + '<p style="margin:0.25rem 0 0;font-size:0.8rem;color:#64748b;"><strong>Status:</strong> ' + (template.is_active ? '✅ Active' : '❌ Inactive') + '</p>'
-                + '</div><div style="padding:1.5rem;max-height:60vh;overflow-y:auto;background:#f4f7fc;">' + template.body_html + '</div>'
-                + '</div><div class="modal-footer" style="gap:8px;justify-content:flex-end;">'
-                + '<button class="btn btn-refresh" id="templatePreviewCloseFooterBtn">Close</button>'
-                + '<button class="btn btn-primary" id="templatePreviewOkBtn">OK</button>'
-                + '</div></div>';
-
-            document.body.appendChild(modal);
-
-            var closeModal = function() {
-                var modalEl = document.getElementById('templatePreviewModal');
-                if (modalEl) modalEl.remove();
-            };
-
-            modal.addEventListener('click', function(e) {
-                if (e.target === this) closeModal();
-            });
-
-            document.getElementById('templatePreviewCloseBtn') && document.getElementById('templatePreviewCloseBtn').addEventListener('click', closeModal);
-            document.getElementById('templatePreviewCloseFooterBtn') && document.getElementById('templatePreviewCloseFooterBtn').addEventListener('click', closeModal);
-            document.getElementById('templatePreviewOkBtn') && document.getElementById('templatePreviewOkBtn').addEventListener('click', closeModal);
-
-            var escHandler = function(e) {
-                if (e.key === 'Escape') {
-                    closeModal();
-                    document.removeEventListener('keydown', escHandler);
-                }
-            };
-            document.addEventListener('keydown', escHandler);
-        } catch (err) {
-            showAlertModal('Failed to preview template: ' + err.message, 'error');
-        }
+    async function refreshCsrfToken() {
+        csrfToken = null;
+        csrfFetchPromise = null;
+        return await fetchCsrfToken();
     }
 
-    var allTransactions = [];
-    var filteredTransactions = [];
-    var txPage = 1, txRows = 10, txTotal = 0;
-    var inventoryData = [];
-    var filteredInventory = [];
-    var invPage = 1, invRows = 10, invTotal = 0;
-    var manageKeyData = [];
-    var manageKeyFiltered = [];
-    var manageKeyPage = 1, manageKeyRows = 8, manageKeyTotal = 0;
-    var permissionsData = { roles: [], permissions: [], roleMappings: {} };
-    var allRolesList = [];
-    var emailTabLoaded = false;
-    var securityLoaded = false;
-    var currentAction = null;
-    var currentRequestId = null;
-    var searchTimeout = null;
+    async function ensureCsrfToken() {
+        var token = await getCsrfToken();
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta && token) meta.setAttribute('content', token);
+        return token;
+    }
 
+    // ==================== AUDIT LOGS ====================
     async function loadAuditLogs(page, limit) {
         page = page || auditLogState.page;
         limit = limit || auditLogState.limit;
-        
+
         if (typeof limit === 'string') {
             limit = parseInt(limit, 10);
         }
         if (isNaN(limit) || limit < 1) {
             limit = 25;
         }
-        
+
         auditLogState.page = page;
         auditLogState.limit = limit;
 
@@ -673,16 +510,16 @@
             if (auditLogState.filters.to) params.append('to', auditLogState.filters.to);
 
             var res = await authenticatedFetch('/api/audit/logs?' + params.toString());
-            
+
             if (!res.ok) {
                 throw new Error('Failed to load audit logs');
             }
 
             var result = await res.json();
-            
+
             var logs = [];
             var total = 0;
-            
+
             if (result.data && Array.isArray(result.data)) {
                 logs = result.data;
                 total = result.total || logs.length;
@@ -703,7 +540,7 @@
 
             var start = (auditLogState.page - 1) * auditLogState.limit + 1;
             var end = Math.min(start + auditLogState.limit - 1, total);
-            
+
             if (infoSpan) {
                 if (total === 0) {
                     infoSpan.textContent = 'Showing 0 of 0 entries';
@@ -730,16 +567,11 @@
                 var html = '';
                 for (var i = 0; i < logs.length; i++) {
                     var log = logs[i];
-                    var action = escapeHtml(log.action || '');
-                    var target = escapeHtml(log.target || log.target_type || '');
-                    var userName = escapeHtml(log.user_name || log.user_email || 'Unknown');
-                    var timestamp = log.created_at ? formatDate(log.created_at) : '—';
-                    
                     html += '<tr class="audit-row" data-log-id="' + (log.id || '') + '">'
-                        + '<td class="action-cell">' + action + '</td>'
-                        + '<td class="target-cell">' + target + '</td>'
-                        + '<td class="user-cell">' + userName + '</td>'
-                        + '<td class="time-cell">' + timestamp + '</td>'
+                        + '<td class="action-cell">' + escapeHtml(log.action || '') + '</td>'
+                        + '<td class="target-cell">' + escapeHtml(log.target || log.target_type || '') + '</td>'
+                        + '<td class="user-cell">' + escapeHtml(log.user_name || log.user_email || 'Unknown') + '</td>'
+                        + '<td class="time-cell">' + (log.created_at ? formatDate(log.created_at) : '—') + '</td>'
                         + '</tr>';
                 }
                 container.innerHTML = html;
@@ -776,30 +608,12 @@
             title.textContent = 'Audit Log Details';
 
             var detailsHtml = '<div class="detail-grid">'
-                + '<div class="detail-section full-width">'
-                + '<div class="detail-label">Action</div>'
-                + '<div class="detail-value">' + escapeHtml(log.action || '—') + '</div>'
-                + '</div>'
-                + '<div class="detail-section">'
-                + '<div class="detail-label">Target</div>'
-                + '<div class="detail-value">' + escapeHtml(log.target || log.target_type || '—') + '</div>'
-                + '</div>'
-                + '<div class="detail-section">'
-                + '<div class="detail-label">User</div>'
-                + '<div class="detail-value">' + escapeHtml(log.user_name || log.user_email || '—') + '</div>'
-                + '</div>'
-                + '<div class="detail-section">'
-                + '<div class="detail-label">Timestamp</div>'
-                + '<div class="detail-value">' + (log.created_at ? formatDate(log.created_at) : '—') + '</div>'
-                + '</div>'
-                + '<div class="detail-section full-width">'
-                + '<div class="detail-label">IP Address</div>'
-                + '<div class="detail-value">' + escapeHtml(log.ip_address || '—') + '</div>'
-                + '</div>'
-                + '<div class="detail-section full-width">'
-                + '<div class="detail-label">Details</div>'
-                + '<div class="detail-value"><pre>' + escapeHtml(typeof log.details === 'string' ? log.details : JSON.stringify(log.details || {}, null, 2)) + '</pre></div>'
-                + '</div>'
+                + '<div class="detail-section full-width"><div class="detail-label">Action</div><div class="detail-value">' + escapeHtml(log.action || '—') + '</div></div>'
+                + '<div class="detail-section"><div class="detail-label">Target</div><div class="detail-value">' + escapeHtml(log.target || log.target_type || '—') + '</div></div>'
+                + '<div class="detail-section"><div class="detail-label">User</div><div class="detail-value">' + escapeHtml(log.user_name || log.user_email || '—') + '</div></div>'
+                + '<div class="detail-section"><div class="detail-label">Timestamp</div><div class="detail-value">' + (log.created_at ? formatDate(log.created_at) : '—') + '</div></div>'
+                + '<div class="detail-section full-width"><div class="detail-label">IP Address</div><div class="detail-value">' + escapeHtml(log.ip_address || '—') + '</div></div>'
+                + '<div class="detail-section full-width"><div class="detail-label">Details</div><div class="detail-value"><pre>' + escapeHtml(typeof log.details === 'string' ? log.details : JSON.stringify(log.details || {}, null, 2)) + '</pre></div></div>'
                 + '</div>';
 
             content.innerHTML = detailsHtml;
@@ -849,7 +663,6 @@
                 var originalHtml = this.innerHTML;
                 this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
                 this.disabled = true;
-                
                 loadAuditLogs().finally(function() {
                     refreshBtn.innerHTML = originalHtml;
                     refreshBtn.disabled = false;
@@ -899,7 +712,7 @@
                     }
                 }, 500);
             });
-            
+
             input.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter' && searchBtn) {
                     if (auditSearchTimeout) {
@@ -911,6 +724,7 @@
         });
     }
 
+    // ==================== AUDIT HEALTH ====================
     async function loadAuditHealth() {
         try {
             var res = await authenticatedFetch('/api/admin/audit-health');
@@ -938,6 +752,7 @@
         }
     }
 
+    // ==================== TRANSACTIONS ====================
     async function loadTransactions() {
         var giver = document.getElementById('filterGiver') ? document.getElementById('filterGiver').value.trim() : '';
         var receiver = document.getElementById('filterReceiver') ? document.getElementById('filterReceiver').value.trim() : '';
@@ -1048,6 +863,7 @@
         document.getElementById('reminderNextDue').innerText = next ? 'Next due: ' + formatDateShort(next.planned_return) : 'Next due: --';
     }
 
+    // ==================== PENDING REQUESTS ====================
     async function loadPendingRequests() {
         try {
             var res = await authenticatedFetch('/api/admin/requests/pending');
@@ -1114,6 +930,7 @@
         });
     }
 
+    // ==================== PENDING RETURNS ====================
     async function loadPendingReturns() {
         try {
             var res = await authenticatedFetch('/api/return/pending');
@@ -1166,6 +983,7 @@
         });
     }
 
+    // ==================== LOST KEYS ====================
     async function loadLostKeys() {
         try {
             var res = await authenticatedFetch('/api/admin/lost-keys');
@@ -1265,11 +1083,6 @@
                     var res = await authenticatedFetch('/api/admin/lost-keys/' + item.id + '/create-fine', { method: 'POST' });
                     var data = await res.json();
                     if (res.ok) {
-                        await logAuditEvent('create_fine', 'lost_key', item.id, {
-                            key_code: keyCode,
-                            amount: 50,
-                            borrower: item.borrower_name || item.borrower_email
-                        });
                         showAlertModal('Fee created successfully.', 'success');
                         closeDetailModal();
                         await loadLostKeys();
@@ -1293,10 +1106,6 @@
                 try {
                     var res = await authenticatedFetch('/api/admin/fines/' + item.fine_id + '/paid', { method: 'POST' });
                     if (res.ok) {
-                        await logAuditEvent('mark_fine_paid', 'lost_key', item.id, {
-                            key_code: keyCode,
-                            fine_id: item.fine_id
-                        });
                         showAlertModal('Fee marked paid.', 'success');
                         closeDetailModal();
                         await loadLostKeys();
@@ -1317,10 +1126,6 @@
                 try {
                     var res = await authenticatedFetch('/api/admin/fines/' + item.fine_id + '/waived', { method: 'POST' });
                     if (res.ok) {
-                        await logAuditEvent('waive_fine', 'lost_key', item.id, {
-                            key_code: keyCode,
-                            fine_id: item.fine_id
-                        });
                         showAlertModal('Fee waived.', 'success');
                         closeDetailModal();
                         await loadLostKeys();
@@ -1350,10 +1155,6 @@
                         body: { resolution_notes: notes || null }
                     });
                     if (res.ok) {
-                        await logAuditEvent('close_lost_ticket', 'lost_key', item.id, {
-                            key_code: keyCode,
-                            resolution_notes: notes || null
-                        });
                         showAlertModal('Ticket closed successfully.', 'success');
                         closeDetailModal();
                         await loadLostKeys();
@@ -1380,9 +1181,6 @@
                     var res = await authenticatedFetch('/api/admin/lost-keys/' + item.id + '/make-available', { method: 'POST' });
                     var data = await res.json();
                     if (res.ok) {
-                        await logAuditEvent('make_key_available', 'lost_key', item.id, {
-                            key_code: keyCode
-                        });
                         showAlertModal('Key ' + keyCode + ' is now available.', 'success');
                         closeDetailModal();
                         await loadLostKeys();
@@ -1409,7 +1207,6 @@
         try {
             var res = await authenticatedFetch('/api/admin/lost-keys/' + item.id);
             var data = await res.json();
-            var formatAmount = function(amount) { return safeNumber(amount).toFixed(2); };
             var statusClass = data.resolved_at ? 'returned' : 'lost';
             var statusLabel = data.resolved_at ? 'Resolved' : 'Lost';
 
@@ -1429,9 +1226,10 @@
                 + '</div></div>';
 
             if (data.fine) {
+                var fineStatusClass = data.fine.status === 'paid' ? 'returned' : 'pending';
                 html += '<div class="detail-section"><div class="detail-label">Fee</div>'
-                    + '<div class="detail-grid"><div><span class="detail-label">Amount</span><div class="detail-value">$' + formatAmount(data.fine.amount) + '</div></div>'
-                    + '<div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ' + (data.fine.status === 'paid' ? 'returned' : 'pending') + '">' + escapeHtml(data.fine.status || 'pending') + '</span></div></div>'
+                    + '<div class="detail-grid"><div><span class="detail-label">Amount</span><div class="detail-value">$' + safeNumber(data.fine.amount).toFixed(2) + '</div></div>'
+                    + '<div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ' + fineStatusClass + '">' + escapeHtml(data.fine.status || 'pending') + '</span></div></div>'
                     + '<div><span class="detail-label">Issued</span><div class="detail-value">' + formatDate(data.fine.created_at) + '</div></div>'
                     + (data.fine.paid_at ? '<div><span class="detail-label">Paid At</span><div class="detail-value">' + formatDate(data.fine.paid_at) + '</div></div>' : '')
                     + (data.fine.waived_at ? '<div><span class="detail-label">Waived At</span><div class="detail-value">' + formatDate(data.fine.waived_at) + '</div></div>' : '')
@@ -1522,6 +1320,7 @@
         showDetailModal('Return Reminders', summary + '<table class="table-clean"><thead><tr><th>Key</th><th>Borrower</th><th>Due Date</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table>');
     }
 
+    // ==================== INVENTORY ====================
     async function loadInventory() {
         var container = document.getElementById('inventoryTableBody');
         container.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-400"><div class="skeleton h-8 w-full"></div></td></tr>';
@@ -1722,6 +1521,7 @@
         }
     }
 
+    // ==================== KEY MANAGEMENT ====================
     async function openKeyManageModal() {
         document.getElementById('keyManageModal').style.display = 'flex';
         await fetchManageKeys();
@@ -1802,7 +1602,7 @@
             btn.addEventListener('click', async function() {
                 var id = this.dataset.id;
                 var code = this.dataset.code;
-                
+
                 var ok = await showConfirm(
                     'Delete key ' + code + '? This action will soft-delete the key (set status to inactive). The key record will be preserved for audit purposes.',
                     { title: 'Delete Key' }
@@ -1811,13 +1611,9 @@
 
                 try {
                     var res = await authenticatedFetch('/api/admin/keys/' + id, { method: 'DELETE' });
-                    
+
                     if (res.ok) {
                         var data = await res.json();
-                        await logAuditEvent('delete_key', 'key', id, { 
-                            key_code: code,
-                            status: data.status || 'inactive'
-                        });
                         showAlertModal('Key ' + code + ' has been deactivated successfully. The record is preserved for audit purposes.', 'success');
                         fetchManageKeys();
                         loadInventory();
@@ -1885,11 +1681,226 @@
         modal.style.display = 'flex';
     }
 
+    // ==================== LOST KEYS MANAGEMENT ====================
+    async function loadLostKeysManagement() {
+        var container = document.getElementById('lostKeysManagementContainer');
+        if (!container) return;
+        container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading lost keys...</div>';
+
+        try {
+            var res = await authenticatedFetch('/api/admin/lost-keys');
+            var data = await res.json();
+
+            if (!data.length) {
+                container.innerHTML = '<div class="text-center py-8 text-slate-400">No lost keys found.</div>';
+                return;
+            }
+
+            var html = '<table class="table-clean"><thead><tr>'
+                + '<th class="text-left">Key Code</th><th class="text-left">Brand</th>'
+                + '<th class="text-left">Borrower</th><th style="text-align:center;">Lost Date</th>'
+                + '<th style="text-align:center;">Status</th><th style="text-align:right;">Actions</th>'
+                + '</tr></thead><tbody>';
+
+            for (var i = 0; i < data.length; i++) {
+                var item = data[i];
+                var statusClass = item.resolved_at ? 'returned' : 'lost';
+                var statusLabel = item.resolved_at ? 'Resolved' : 'Lost';
+
+                html += '<tr><td class="text-left"><code>' + escapeHtml(item.key_code) + '</code></td>'
+                    + '<td class="text-left">' + escapeHtml(item.brand) + '</td>'
+                    + '<td class="text-left">' + escapeHtml(item.borrower_name || item.borrower_email) + '</td>'
+                    + '<td style="text-align:center;">' + formatDate(item.lost_at) + '</td>'
+                    + '<td style="text-align:center;"><span class="status-badge ' + statusClass + '">' + statusLabel + '</span></td>'
+                    + '<td style="text-align:right;"><button class="btn btn-sm btn-ghost lost-key-actions-btn" data-id="' + item.id + '"><i class="fas fa-ellipsis-v"></i></button></td></tr>';
+            }
+            html += '</tbody></table>';
+            container.innerHTML = html;
+
+            container.querySelectorAll('.lost-key-actions-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var id = parseInt(this.dataset.id);
+                    var lostItem = null;
+                    for (var d = 0; d < data.length; d++) {
+                        if (data[d].id === id) {
+                            lostItem = data[d];
+                            break;
+                        }
+                    }
+                    if (!lostItem) return;
+
+                    var menuHtml = '<button class="menu-item" data-action="view"><i class="fas fa-eye"></i> View</button>'
+                        + '<button class="menu-item" data-action="edit"><i class="fas fa-edit"></i> Edit</button>'
+                        + '<div class="menu-divider"></div>';
+
+                    if (!lostItem.resolved_at) {
+                        menuHtml += '<button class="menu-item" data-action="close-ticket"><i class="fas fa-check-circle"></i> Close Ticket</button>';
+                    }
+                    menuHtml += '<button class="menu-item" data-action="make-available"><i class="fas fa-check"></i> Make Available</button>';
+
+                    openPortalMenu(this, menuHtml, function(menu) {
+                        menu.querySelectorAll('.menu-item[data-action]').forEach(function(item) {
+                            item.addEventListener('click', function() {
+                                var action = this.dataset.action;
+                                menu.remove();
+
+                                if (action === 'view') {
+                                    showLostKeyDetail(id);
+                                } else if (action === 'edit') {
+                                    openLostKeyEditModal(id);
+                                } else if (action === 'close-ticket') {
+                                    handleCloseTicket(id, lostItem.key_code);
+                                } else if (action === 'make-available') {
+                                    handleMakeAvailable(id, lostItem.key_code);
+                                }
+                            });
+                        });
+                    });
+                });
+            });
+        } catch (err) {
+            container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load lost keys: ' + escapeHtml(err.message) + '</div>';
+            showAlertModal(err.message || 'Failed to load lost keys.', 'error');
+        }
+    }
+
+    async function handleCloseTicket(id, key) {
+        var ok = await showConfirm('Close lost ticket for key ' + key + '?', {
+            title: 'Close Ticket',
+            danger: false,
+            okLabel: 'Close Ticket'
+        });
+        if (!ok) return;
+
+        var notes = await showPromptModal('Resolution notes (optional):', { title: 'Close Ticket' });
+        if (notes === undefined) return;
+
+        try {
+            var res = await authenticatedFetch('/api/admin/lost-keys/' + id + '/close', {
+                method: 'POST',
+                body: { resolution_notes: notes || null }
+            });
+            var data = await res.json();
+
+            if (res.ok) {
+                showAlertModal('Ticket closed successfully.', 'success');
+                closeDetailModal();
+                loadLostKeysManagement();
+                loadLostKeys();
+                loadInventory();
+            } else {
+                showAlertModal(data.error || 'Failed to close ticket.', 'error');
+            }
+        } catch (err) {
+            showAlertModal(err.message || 'Network error.', 'error');
+        }
+    }
+
+    async function handleMakeAvailable(id, key) {
+        var ok = await showConfirm('Mark key ' + key + ' as available again?', {
+            title: 'Mark Available',
+            danger: false,
+            okLabel: 'Mark Available'
+        });
+        if (!ok) return;
+
+        try {
+            var res = await authenticatedFetch('/api/admin/lost-keys/' + id + '/make-available', { method: 'POST' });
+            var data = await res.json();
+
+            if (res.ok) {
+                showAlertModal('Key ' + key + ' is now available.', 'success');
+                closeDetailModal();
+                loadLostKeysManagement();
+                loadLostKeys();
+                loadInventory();
+            } else {
+                showAlertModal(data.error || 'Failed to make key available.', 'error');
+            }
+        } catch (err) {
+            showAlertModal(err.message || 'Network error.', 'error');
+        }
+    }
+
+    async function showLostKeyDetail(id) {
+        var modal = document.getElementById('lostKeyDetailModal');
+        var content = document.getElementById('lostKeyDetailContent');
+        modal.style.display = 'flex';
+        content.innerHTML = '<div class="text-center py-8 text-slate-400">Loading...</div>';
+
+        try {
+            var res = await authenticatedFetch('/api/admin/lost-keys/' + id);
+            var data = await res.json();
+            var statusClass = data.resolved_at ? 'returned' : 'lost';
+            var statusLabel = data.resolved_at ? 'Resolved' : 'Lost';
+
+            var html = '<div class="detail-section"><div class="detail-label">Key Information</div>'
+                + '<div class="detail-grid"><div><span class="detail-label">Code</span><div class="detail-value">' + escapeHtml(data.key_code) + '</div></div>'
+                + '<div><span class="detail-label">Brand</span><div class="detail-value">' + escapeHtml(data.brand) + '</div></div>'
+                + '<div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ' + statusClass + '">' + statusLabel + '</span></div></div></div></div>'
+                + '<div class="detail-section"><div class="detail-label">Borrower</div>'
+                + '<div class="detail-grid"><div><span class="detail-label">Name</span><div class="detail-value">' + escapeHtml(data.borrower_name || '—') + '</div></div>'
+                + '<div><span class="detail-label">Email</span><div class="detail-value">' + escapeHtml(data.borrower_email || '—') + '</div></div></div></div>'
+                + '<div class="detail-section"><div class="detail-label">Lost Event</div>'
+                + '<div class="detail-grid"><div><span class="detail-label">Lost At</span><div class="detail-value">' + formatDate(data.lost_at) + '</div></div>'
+                + '<div><span class="detail-label">Planned Return</span><div class="detail-value">' + formatDate(data.planned_return) + '</div></div>'
+                + (data.returned_at ? '<div><span class="detail-label">Returned At</span><div class="detail-value">' + formatDate(data.returned_at) + '</div></div>' : '')
+                + '<div class="full-width"><span class="detail-label">Reason for Loss</span><div class="detail-value">' + escapeHtml(data.reason || '—') + '</div></div>'
+                + (data.resolved_at ? '<div><span class="detail-label">Resolved At</span><div class="detail-value">' + formatDate(data.resolved_at) + '</div></div>' : '')
+                + '</div></div>';
+
+            if (data.fine) {
+                var fineStatusClass = data.fine.status === 'paid' ? 'returned' : 'pending';
+                html += '<div class="detail-section"><div class="detail-label">Fee</div>'
+                    + '<div class="detail-grid"><div><span class="detail-label">Amount</span><div class="detail-value">$' + safeNumber(data.fine.amount).toFixed(2) + '</div></div>'
+                    + '<div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ' + fineStatusClass + '">' + escapeHtml(data.fine.status || 'pending') + '</span></div></div>'
+                    + '<div><span class="detail-label">Issued</span><div class="detail-value">' + formatDate(data.fine.created_at) + '</div></div>'
+                    + (data.fine.paid_at ? '<div><span class="detail-label">Paid At</span><div class="detail-value">' + formatDate(data.fine.paid_at) + '</div></div>' : '')
+                    + (data.fine.waived_at ? '<div><span class="detail-label">Waived At</span><div class="detail-value">' + formatDate(data.fine.waived_at) + '</div></div>' : '')
+                    + '</div></div>';
+            }
+            content.innerHTML = html;
+            document.getElementById('lostKeyDetailTitle').textContent = 'Lost Key: ' + data.key_code;
+        } catch (err) {
+            content.innerHTML = '<div class="text-center py-8 text-rose-600">Unable to load details: ' + escapeHtml(err.message || 'Please refresh and try again.') + '</div>';
+            showAlertModal(err.message || 'Failed to load lost key details.', 'error');
+        }
+    }
+
+    async function openLostKeyEditModal(id) {
+        var modal = document.getElementById('lostKeyEditModal');
+        modal.style.display = 'flex';
+
+        try {
+            var res = await authenticatedFetch('/api/admin/lost-keys/' + id);
+            var data = await res.json();
+
+            document.getElementById('editLostTransactionId').value = id;
+            document.getElementById('editLostKeyCode').value = data.key_code || '';
+            document.getElementById('editLostBrand').value = data.brand || '';
+            document.getElementById('editLostBorrower').value = data.borrower_name || data.borrower_email || '';
+            document.getElementById('editLostReason').value = data.reason || '';
+
+            if (data.lost_at) {
+                var date = new Date(data.lost_at);
+                document.getElementById('editLostDate').value = date.toISOString().slice(0, 16);
+            }
+
+            document.getElementById('editLostStatus').value = data.resolved_at ? 'resolved' : 'lost';
+            document.getElementById('lostKeyEditTitle').textContent = 'Edit Lost Key: ' + data.key_code;
+        } catch (err) {
+            showAlertModal(err.message || 'Failed to load lost key details.', 'error');
+            modal.style.display = 'none';
+        }
+    }
+
+    // ==================== EMAIL ====================
     async function checkEmailPermissions() {
         try {
             var res = await authenticatedFetch('/api/user/permissions');
             var data = await res.json();
-            var permsArray = toArray(data);
+            var permsArray = Array.isArray(data) ? data : [];
             var canManageTemplates = false;
             var canManageSettings = false;
             for (var i = 0; i < permsArray.length; i++) {
@@ -1977,6 +1988,60 @@
         }
     }
 
+    async function previewTemplate(templateKey) {
+        try {
+            var res = await authenticatedFetch('/api/admin/email/templates/' + templateKey);
+            var template = await res.json();
+
+            var existingModal = document.getElementById('templatePreviewModal');
+            if (existingModal) existingModal.remove();
+
+            var modal = document.createElement('div');
+            modal.className = 'modal-overlay active';
+            modal.id = 'templatePreviewModal';
+            modal.style.display = 'flex';
+            modal.style.zIndex = '100001';
+
+            modal.innerHTML = '<div class="modal-container" style="max-width:800px;max-height:90vh;">'
+                + '<div class="modal-header"><h3><i class="fas fa-eye"></i> Template Preview: ' + escapeHtml(template.template_key) + '</h3>'
+                + '<button class="close-btn" id="templatePreviewCloseBtn">&times;</button></div>'
+                + '<div class="modal-body" style="padding:0;overflow:hidden;">'
+                + '<div style="padding:1rem 1.5rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;">'
+                + '<p style="margin:0;font-size:0.85rem;color:#64748b;"><strong>Subject:</strong> ' + escapeHtml(template.subject) + '</p>'
+                + '<p style="margin:0.25rem 0 0;font-size:0.8rem;color:#64748b;"><strong>Status:</strong> ' + (template.is_active ? '✅ Active' : '❌ Inactive') + '</p>'
+                + '</div><div style="padding:1.5rem;max-height:60vh;overflow-y:auto;background:#f4f7fc;">' + template.body_html + '</div>'
+                + '</div><div class="modal-footer" style="gap:8px;justify-content:flex-end;">'
+                + '<button class="btn btn-refresh" id="templatePreviewCloseFooterBtn">Close</button>'
+                + '<button class="btn btn-primary" id="templatePreviewOkBtn">OK</button>'
+                + '</div></div>';
+
+            document.body.appendChild(modal);
+
+            var closeModal = function() {
+                var modalEl = document.getElementById('templatePreviewModal');
+                if (modalEl) modalEl.remove();
+            };
+
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) closeModal();
+            });
+
+            document.getElementById('templatePreviewCloseBtn') && document.getElementById('templatePreviewCloseBtn').addEventListener('click', closeModal);
+            document.getElementById('templatePreviewCloseFooterBtn') && document.getElementById('templatePreviewCloseFooterBtn').addEventListener('click', closeModal);
+            document.getElementById('templatePreviewOkBtn') && document.getElementById('templatePreviewOkBtn').addEventListener('click', closeModal);
+
+            var escHandler = function(e) {
+                if (e.key === 'Escape') {
+                    closeModal();
+                    document.removeEventListener('keydown', escHandler);
+                }
+            };
+            document.addEventListener('keydown', escHandler);
+        } catch (err) {
+            showAlertModal('Failed to preview template: ' + err.message, 'error');
+        }
+    }
+
     async function openTemplateManageModal() {
         var modal = document.getElementById('templateManageModal');
         var container = document.getElementById('templateManageContainer');
@@ -2026,7 +2091,6 @@
                     try {
                         var res = await authenticatedFetch('/api/admin/email/templates/' + key, { method: 'DELETE' });
                         if (res.ok) {
-                            await logAuditEvent('delete_email_template', 'email_template', key, { template_key: key });
                             showAlertModal('Template deleted successfully.', 'success');
                             openTemplateManageModal();
                             loadTemplates();
@@ -2134,224 +2198,6 @@
         }
     }
 
-    async function loadLostKeysManagement() {
-        var container = document.getElementById('lostKeysManagementContainer');
-        if (!container) return;
-        container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading lost keys...</div>';
-
-        try {
-            var res = await authenticatedFetch('/api/admin/lost-keys');
-            var data = await res.json();
-
-            if (!data.length) {
-                container.innerHTML = '<div class="text-center py-8 text-slate-400">No lost keys found.</div>';
-                return;
-            }
-
-            var html = '<table class="table-clean"><thead><tr>'
-                + '<th class="text-left">Key Code</th><th class="text-left">Brand</th>'
-                + '<th class="text-left">Borrower</th><th style="text-align:center;">Lost Date</th>'
-                + '<th style="text-align:center;">Status</th><th style="text-align:right;">Actions</th>'
-                + '</tr></thead><tbody>';
-
-            for (var i = 0; i < data.length; i++) {
-                var item = data[i];
-                var statusClass = item.resolved_at ? 'returned' : 'lost';
-                var statusLabel = item.resolved_at ? 'Resolved' : 'Lost';
-
-                html += '<tr><td class="text-left"><code>' + escapeHtml(item.key_code) + '</code></td>'
-                    + '<td class="text-left">' + escapeHtml(item.brand) + '</td>'
-                    + '<td class="text-left">' + escapeHtml(item.borrower_name || item.borrower_email) + '</td>'
-                    + '<td style="text-align:center;">' + formatDate(item.lost_at) + '</td>'
-                    + '<td style="text-align:center;"><span class="status-badge ' + statusClass + '">' + statusLabel + '</span></td>'
-                    + '<td style="text-align:right;"><button class="btn btn-sm btn-ghost lost-key-actions-btn" data-id="' + item.id + '"><i class="fas fa-ellipsis-v"></i></button></td></tr>';
-            }
-            html += '</tbody></table>';
-            container.innerHTML = html;
-
-            container.querySelectorAll('.lost-key-actions-btn').forEach(function(btn) {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    var id = parseInt(this.dataset.id);
-                    var lostItem = null;
-                    for (var d = 0; d < data.length; d++) {
-                        if (data[d].id === id) {
-                            lostItem = data[d];
-                            break;
-                        }
-                    }
-                    if (!lostItem) return;
-
-                    var menuHtml = '<button class="menu-item" data-action="view"><i class="fas fa-eye"></i> View</button>'
-                        + '<button class="menu-item" data-action="edit"><i class="fas fa-edit"></i> Edit</button>'
-                        + '<div class="menu-divider"></div>';
-
-                    if (!lostItem.resolved_at) {
-                        menuHtml += '<button class="menu-item" data-action="close-ticket"><i class="fas fa-check-circle"></i> Close Ticket</button>';
-                    }
-                    menuHtml += '<button class="menu-item" data-action="make-available"><i class="fas fa-check"></i> Make Available</button>';
-
-                    openPortalMenu(this, menuHtml, function(menu) {
-                        menu.querySelectorAll('.menu-item[data-action]').forEach(function(item) {
-                            item.addEventListener('click', function() {
-                                var action = this.dataset.action;
-                                menu.remove();
-
-                                if (action === 'view') {
-                                    showLostKeyDetail(id);
-                                } else if (action === 'edit') {
-                                    openLostKeyEditModal(id);
-                                } else if (action === 'close-ticket') {
-                                    handleCloseTicket(id, lostItem.key_code);
-                                } else if (action === 'make-available') {
-                                    handleMakeAvailable(id, lostItem.key_code);
-                                }
-                            });
-                        });
-                    });
-                });
-            });
-        } catch (err) {
-            container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load lost keys: ' + escapeHtml(err.message) + '</div>';
-            showAlertModal(err.message || 'Failed to load lost keys.', 'error');
-        }
-    }
-
-    async function handleCloseTicket(id, key) {
-        var ok = await showConfirm('Close lost ticket for key ' + key + '?', {
-            title: 'Close Ticket',
-            danger: false,
-            okLabel: 'Close Ticket'
-        });
-        if (!ok) return;
-
-        var notes = await showPromptModal('Resolution notes (optional):', { title: 'Close Ticket' });
-        if (notes === undefined) return;
-
-        try {
-            var res = await authenticatedFetch('/api/admin/lost-keys/' + id + '/close', {
-                method: 'POST',
-                body: { resolution_notes: notes || null }
-            });
-            var data = await res.json();
-
-            if (res.ok) {
-                await logAuditEvent('close_lost_ticket', 'lost_key', id, {
-                    key_code: key,
-                    resolution_notes: notes || null
-                });
-                showAlertModal('Ticket closed successfully.', 'success');
-                closeDetailModal();
-                loadLostKeysManagement();
-                loadLostKeys();
-                loadInventory();
-            } else {
-                showAlertModal(data.error || 'Failed to close ticket.', 'error');
-            }
-        } catch (err) {
-            showAlertModal(err.message || 'Network error.', 'error');
-        }
-    }
-
-    async function handleMakeAvailable(id, key) {
-        var ok = await showConfirm('Mark key ' + key + ' as available again?', {
-            title: 'Mark Available',
-            danger: false,
-            okLabel: 'Mark Available'
-        });
-        if (!ok) return;
-
-        try {
-            var res = await authenticatedFetch('/api/admin/lost-keys/' + id + '/make-available', { method: 'POST' });
-            var data = await res.json();
-
-            if (res.ok) {
-                await logAuditEvent('make_key_available', 'lost_key', id, { key_code: key });
-                showAlertModal('Key ' + key + ' is now available.', 'success');
-                closeDetailModal();
-                loadLostKeysManagement();
-                loadLostKeys();
-                loadInventory();
-            } else {
-                showAlertModal(data.error || 'Failed to make key available.', 'error');
-            }
-        } catch (err) {
-            showAlertModal(err.message || 'Network error.', 'error');
-        }
-    }
-
-    async function showLostKeyDetail(id) {
-        var modal = document.getElementById('lostKeyDetailModal');
-        var content = document.getElementById('lostKeyDetailContent');
-        modal.style.display = 'flex';
-        content.innerHTML = '<div class="text-center py-8 text-slate-400">Loading...</div>';
-
-        try {
-            var res = await authenticatedFetch('/api/admin/lost-keys/' + id);
-            var data = await res.json();
-            var formatAmount = function(amount) { return safeNumber(amount).toFixed(2); };
-            var statusClass = data.resolved_at ? 'returned' : 'lost';
-            var statusLabel = data.resolved_at ? 'Resolved' : 'Lost';
-
-            var html = '<div class="detail-section"><div class="detail-label">Key Information</div>'
-                + '<div class="detail-grid"><div><span class="detail-label">Code</span><div class="detail-value">' + escapeHtml(data.key_code) + '</div></div>'
-                + '<div><span class="detail-label">Brand</span><div class="detail-value">' + escapeHtml(data.brand) + '</div></div>'
-                + '<div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ' + statusClass + '">' + statusLabel + '</span></div></div></div></div>'
-                + '<div class="detail-section"><div class="detail-label">Borrower</div>'
-                + '<div class="detail-grid"><div><span class="detail-label">Name</span><div class="detail-value">' + escapeHtml(data.borrower_name || '—') + '</div></div>'
-                + '<div><span class="detail-label">Email</span><div class="detail-value">' + escapeHtml(data.borrower_email || '—') + '</div></div></div></div>'
-                + '<div class="detail-section"><div class="detail-label">Lost Event</div>'
-                + '<div class="detail-grid"><div><span class="detail-label">Lost At</span><div class="detail-value">' + formatDate(data.lost_at) + '</div></div>'
-                + '<div><span class="detail-label">Planned Return</span><div class="detail-value">' + formatDate(data.planned_return) + '</div></div>'
-                + (data.returned_at ? '<div><span class="detail-label">Returned At</span><div class="detail-value">' + formatDate(data.returned_at) + '</div></div>' : '')
-                + '<div class="full-width"><span class="detail-label">Reason for Loss</span><div class="detail-value">' + escapeHtml(data.reason || '—') + '</div></div>'
-                + (data.resolved_at ? '<div><span class="detail-label">Resolved At</span><div class="detail-value">' + formatDate(data.resolved_at) + '</div></div>' : '')
-                + '</div></div>';
-
-            if (data.fine) {
-                html += '<div class="detail-section"><div class="detail-label">Fee</div>'
-                    + '<div class="detail-grid"><div><span class="detail-label">Amount</span><div class="detail-value">$' + formatAmount(data.fine.amount) + '</div></div>'
-                    + '<div><span class="detail-label">Status</span><div class="detail-value"><span class="status-badge ' + (data.fine.status === 'paid' ? 'returned' : 'pending') + '">' + escapeHtml(data.fine.status || 'pending') + '</span></div></div>'
-                    + '<div><span class="detail-label">Issued</span><div class="detail-value">' + formatDate(data.fine.created_at) + '</div></div>'
-                    + (data.fine.paid_at ? '<div><span class="detail-label">Paid At</span><div class="detail-value">' + formatDate(data.fine.paid_at) + '</div></div>' : '')
-                    + (data.fine.waived_at ? '<div><span class="detail-label">Waived At</span><div class="detail-value">' + formatDate(data.fine.waived_at) + '</div></div>' : '')
-                    + '</div></div>';
-            }
-            content.innerHTML = html;
-            document.getElementById('lostKeyDetailTitle').textContent = 'Lost Key: ' + data.key_code;
-        } catch (err) {
-            content.innerHTML = '<div class="text-center py-8 text-rose-600">Unable to load details: ' + escapeHtml(err.message || 'Please refresh and try again.') + '</div>';
-            showAlertModal(err.message || 'Failed to load lost key details.', 'error');
-        }
-    }
-
-    async function openLostKeyEditModal(id) {
-        var modal = document.getElementById('lostKeyEditModal');
-        modal.style.display = 'flex';
-
-        try {
-            var res = await authenticatedFetch('/api/admin/lost-keys/' + id);
-            var data = await res.json();
-
-            document.getElementById('editLostTransactionId').value = id;
-            document.getElementById('editLostKeyCode').value = data.key_code || '';
-            document.getElementById('editLostBrand').value = data.brand || '';
-            document.getElementById('editLostBorrower').value = data.borrower_name || data.borrower_email || '';
-            document.getElementById('editLostReason').value = data.reason || '';
-
-            if (data.lost_at) {
-                var date = new Date(data.lost_at);
-                document.getElementById('editLostDate').value = date.toISOString().slice(0, 16);
-            }
-
-            document.getElementById('editLostStatus').value = data.resolved_at ? 'resolved' : 'lost';
-            document.getElementById('lostKeyEditTitle').textContent = 'Edit Lost Key: ' + data.key_code;
-        } catch (err) {
-            showAlertModal(err.message || 'Failed to load lost key details.', 'error');
-            modal.style.display = 'none';
-        }
-    }
-
     async function loadAdminRecipients() {
         var container = document.getElementById('adminRecipientsContainer');
         if (!container) return;
@@ -2399,7 +2245,6 @@
                             body: { user_id: userId, enabled: newEnabled }
                         });
                         if (res.ok) {
-                            await logAuditEvent('toggle_admin_recipient', 'admin_recipient', userId, { enabled: newEnabled });
                             showAlertModal('Recipient ' + (newEnabled ? 'enabled' : 'disabled') + '.', 'success');
                             loadAdminRecipients();
                         } else {
@@ -2422,7 +2267,6 @@
                     try {
                         var res = await authenticatedFetch('/api/admin/admin-notification-recipients/' + userId, { method: 'DELETE' });
                         if (res.ok) {
-                            await logAuditEvent('delete_admin_recipient', 'admin_recipient', userId, { name: name });
                             showAlertModal('Recipient removed successfully.', 'success');
                             loadAdminRecipients();
                         } else {
@@ -2469,6 +2313,7 @@
         }
     }
 
+    // ==================== SECURITY ====================
     async function loadSecurityTab() {
         if (securityLoaded) return;
         securityLoaded = true;
@@ -2682,124 +2527,7 @@
         }
     }
 
-    async function loadPendingRegistrations() {
-        var container = document.getElementById('pendingRequestsContainer');
-        container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading requests...</div>';
-
-        try {
-            var res = await authenticatedFetch('/api/auth/admin/pending-requests');
-            var requests = await res.json();
-
-            if (!requests.length) {
-                container.innerHTML = '<div class="text-center py-8 text-slate-400">No pending requests.</div>';
-                return;
-            }
-
-            var html = '<table class="table-clean"><thead><tr>'
-                + '<th style="text-align:center;">Name</th><th style="text-align:center;">Email</th>'
-                + '<th style="text-align:center;">Username</th><th style="text-align:center;">Requested</th>'
-                + '<th style="text-align:center;">Actions</th>'
-                + '</tr></thead><tbody>';
-
-            for (var i = 0; i < requests.length; i++) {
-                var req = requests[i];
-                html += '<tr><td style="text-align:center;">' + escapeHtml(req.name) + '</td>'
-                    + '<td style="text-align:center;">' + escapeHtml(req.email) + '</td>'
-                    + '<td style="text-align:center;">' + escapeHtml(req.username || '—') + '</td>'
-                    + '<td style="text-align:center;">' + formatDate(req.created_at) + '</td>'
-                    + '<td style="text-align:center;"><button class="btn btn-sm btn-ghost registration-actions-btn" data-id="' + req.id + '" data-name="' + escapeHtml(req.name) + '"><i class="fas fa-ellipsis-v"></i></button></td></tr>';
-            }
-            html += '</tbody></table>';
-            container.innerHTML = html;
-
-            container.querySelectorAll('.registration-actions-btn').forEach(function(btn) {
-                btn.addEventListener('click', function(e) {
-                    e.stopPropagation();
-                    var id = parseInt(this.dataset.id);
-                    var name = this.dataset.name;
-
-                    var menuHtml = '<button class="menu-item approve-registration" data-id="' + id + '"><i class="fas fa-check-circle"></i> Approve</button>'
-                        + '<button class="menu-item danger reject-registration" data-id="' + id + '"><i class="fas fa-times-circle"></i> Reject</button>';
-
-                    openPortalMenu(this, menuHtml, function(menu) {
-                        menu.querySelector('.approve-registration').addEventListener('click', function() {
-                            menu.remove();
-                            handleApproveRegistration(id);
-                        });
-
-                        menu.querySelector('.reject-registration').addEventListener('click', function() {
-                            menu.remove();
-                            handleRejectRegistration(id);
-                        });
-                    });
-                });
-            });
-        } catch (err) {
-            container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load requests. Please refresh the page.</div>';
-            showAlertModal(err.message || 'Unable to load pending requests.', 'error');
-        }
-    }
-
-    async function handleApproveRegistration(id) {
-        var ok = await showConfirm('Approve this registration request?', {
-            title: 'Approve Request',
-            danger: false,
-            okLabel: 'Approve'
-        });
-        if (!ok) return;
-
-        try {
-            var res = await authenticatedFetch('/api/auth/admin/pending-requests/' + id + '/approve', { method: 'POST' });
-            var data = await res.json();
-
-            if (res.ok) {
-                await logAuditEvent('registration_approved', 'registration_request', id, {
-                    user_name: data.user ? data.user.name : data.name,
-                    user_email: data.user ? data.user.email : data.email,
-                    approved_by: getUser() ? getUser().name : 'Admin'
-                });
-                showAlertModal(data.message || 'User approved. Password sent.', 'success');
-                loadPendingRegistrations();
-            } else {
-                showAlertModal(data.error || 'Approval failed.', 'error');
-            }
-        } catch (err) {
-            showAlertModal(err.message || 'Network error.', 'error');
-        }
-    }
-
-    async function handleRejectRegistration(id) {
-        var reason = await showPromptModal('Optional reason for rejection:', {
-            title: 'Reject Request',
-            placeholder: 'Reason (optional)'
-        });
-        if (reason === undefined) return;
-
-        var ok = await showConfirm('Reject this registration request?', { title: 'Reject Request' });
-        if (!ok) return;
-
-        try {
-            var res = await authenticatedFetch('/api/auth/admin/pending-requests/' + id + '/reject', {
-                method: 'POST',
-                body: { reason: reason || null }
-            });
-            var data = await res.json();
-
-            if (res.ok) {
-                await logAuditEvent('registration_rejected', 'registration_request', id, {
-                    reason: reason || 'No reason provided',
-                    rejected_by: getUser() ? getUser().name : 'Admin'
-                });
-                showAlertModal('Request rejected successfully.', 'success');
-                loadPendingRegistrations();
-            } else {
-                showAlertModal(data.error || 'Rejection failed.', 'error');
-            }
-        } catch (err) {
-            showAlertModal(err.message || 'Network error.', 'error');
-        }
-    }
-
+    // ==================== USER MANAGEMENT ====================
     function initUserManagement() {
         var tbody = document.getElementById('acmUserTableBody');
         var searchInput = document.getElementById('acmSearchInput');
@@ -3178,12 +2906,6 @@
                 var data = await res.json();
 
                 if (res.ok) {
-                    await logAuditEvent(editUserId ? 'update_user' : 'create_user', 'user', data.id || editUserId, {
-                        user_name: name,
-                        user_email: email,
-                        role: role,
-                        status: status
-                    });
                     showAlertModal(editUserId ? 'User updated successfully.' : 'User ' + data.name + ' created successfully.', 'success');
                     closeUserModal();
                     fetchUsersInline();
@@ -3207,22 +2929,14 @@
             confirmDeleteBtn.innerText = 'Deactivating...';
 
             try {
-                var res = await authenticatedFetch('/api/admin/users/' + deleteUserId + '/deactivate', { 
-                    method: 'PATCH' 
-                });
-                
+                var res = await authenticatedFetch('/api/admin/users/' + deleteUserId + '/deactivate', { method: 'PATCH' });
+
                 if (res.ok) {
-                    var data = await res.json();
-                    await logAuditEvent('deactivate_user', 'user', deleteUserId, { 
-                        user_id: deleteUserId,
-                        status: 'inactive'
-                    });
                     showAlertModal('User has been deactivated (soft delete). The record is preserved for audit and FK integrity.', 'success');
                     closeDeleteModal();
                     deleteUserId = null;
                     fetchUsersInline();
                     fetchManageUsers();
-                    loadPendingRegistrations();
                 } else {
                     var data = await res.json();
                     showAlertModal(data.error || 'Deactivation failed.', 'error');
@@ -3248,6 +2962,139 @@
         });
     }
 
+    // ==================== PENDING REGISTRATIONS ====================
+    async function loadPendingRegistrations() {
+        var container = document.getElementById('pendingRequestsContainer');
+        container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading requests...</div>';
+
+        try {
+            var res = await authenticatedFetch('/api/auth/admin/pending-requests');
+            var requests = await res.json();
+
+            if (!requests.length) {
+                container.innerHTML = '<div class="text-center py-8 text-slate-400">No pending requests.</div>';
+                return;
+            }
+
+            var html = '<table class="table-clean"><thead><tr>'
+                + '<th style="text-align:center;">Name</th><th style="text-align:center;">Email</th>'
+                + '<th style="text-align:center;">Username</th><th style="text-align:center;">Requested</th>'
+                + '<th style="text-align:center;">Actions</th>'
+                + '</tr></thead><tbody>';
+
+            for (var i = 0; i < requests.length; i++) {
+                var req = requests[i];
+                html += '<tr><td style="text-align:center;">' + escapeHtml(req.name) + '</td>'
+                    + '<td style="text-align:center;">' + escapeHtml(req.email) + '</td>'
+                    + '<td style="text-align:center;">' + escapeHtml(req.username || '—') + '</td>'
+                    + '<td style="text-align:center;">' + formatDate(req.created_at) + '</td>'
+                    + '<td style="text-align:center;"><button class="btn btn-sm btn-ghost registration-actions-btn" data-id="' + req.id + '" data-name="' + escapeHtml(req.name) + '"><i class="fas fa-ellipsis-v"></i></button></td></tr>';
+            }
+            html += '</tbody></table>';
+            container.innerHTML = html;
+
+            container.querySelectorAll('.registration-actions-btn').forEach(function(btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var id = parseInt(this.dataset.id);
+                    var name = this.dataset.name;
+
+                    var menuHtml = '<button class="menu-item approve-registration" data-id="' + id + '"><i class="fas fa-check-circle"></i> Approve</button>'
+                        + '<button class="menu-item danger reject-registration" data-id="' + id + '"><i class="fas fa-times-circle"></i> Reject</button>';
+
+                    openPortalMenu(this, menuHtml, function(menu) {
+                        menu.querySelector('.approve-registration').addEventListener('click', function() {
+                            menu.remove();
+                            handleApproveRegistration(id);
+                        });
+
+                        menu.querySelector('.reject-registration').addEventListener('click', function() {
+                            menu.remove();
+                            handleRejectRegistration(id);
+                        });
+                    });
+                });
+            });
+        } catch (err) {
+            container.innerHTML = '<div class="text-center py-8 text-rose-600">Failed to load requests. Please refresh the page.</div>';
+            showAlertModal(err.message || 'Unable to load pending requests.', 'error');
+        }
+    }
+
+    async function handleApproveRegistration(id) {
+        var ok = await showConfirm('Approve this registration request?', {
+            title: 'Approve Request',
+            danger: false,
+            okLabel: 'Approve'
+        });
+        if (!ok) return;
+
+        try {
+            var res = await authenticatedFetch('/api/auth/admin/pending-requests/' + id + '/approve', { method: 'POST' });
+            var data = await res.json();
+
+            if (res.ok) {
+                showAlertModal(data.message || 'User approved. Password sent.', 'success');
+                loadPendingRegistrations();
+            } else {
+                showAlertModal(data.error || 'Approval failed.', 'error');
+            }
+        } catch (err) {
+            showAlertModal(err.message || 'Network error.', 'error');
+        }
+    }
+
+    async function handleRejectRegistration(id) {
+        var reason = await showPromptModal('Optional reason for rejection:', {
+            title: 'Reject Request',
+            placeholder: 'Reason (optional)'
+        });
+        if (reason === undefined) return;
+
+        var ok = await showConfirm('Reject this registration request?', { title: 'Reject Request' });
+        if (!ok) return;
+
+        try {
+            var res = await authenticatedFetch('/api/auth/admin/pending-requests/' + id + '/reject', {
+                method: 'POST',
+                body: { reason: reason || null }
+            });
+            var data = await res.json();
+
+            if (res.ok) {
+                showAlertModal('Request rejected successfully.', 'success');
+                loadPendingRegistrations();
+            } else {
+                showAlertModal(data.error || 'Rejection failed.', 'error');
+            }
+        } catch (err) {
+            showAlertModal(err.message || 'Network error.', 'error');
+        }
+    }
+
+    // ==================== PROFILE ====================
+    function openProfileModal() {
+        var user = getUser();
+        if (user) {
+            authenticatedFetch('/api/user/profile')
+                .then(function(res) { return res.json(); })
+                .then(function(data) {
+                    document.getElementById('profileName').value = data.name || '';
+                    document.getElementById('profileEmail').value = data.email || '';
+                    document.getElementById('profileCurrentPassword').value = '';
+                    document.getElementById('profilePassword').value = '';
+                })
+                .catch(function() {
+                    document.getElementById('profileName').value = user.name || '';
+                    document.getElementById('profileEmail').value = user.email || '';
+                });
+        }
+        document.getElementById('profileModal').style.display = 'flex';
+        var mobileMenu = document.getElementById('mobileMenu');
+        if (mobileMenu) mobileMenu.classList.remove('open');
+    }
+
+    // ==================== LOGOUT ====================
     async function handleLogout() {
         if (isRedirecting) return;
         isRedirecting = true;
@@ -3272,6 +3119,72 @@
         }
     }
 
+    // ==================== AUTH ====================
+    async function checkAuth() {
+        try {
+            var token = getToken();
+            if (!token) {
+                if (!isRedirecting) redirectToLogin();
+                return false;
+            }
+
+            var response = await fetch('/api/auth/check-session', {
+                credentials: 'include',
+                headers: { 'Accept': 'application/json' }
+            });
+
+            if (!response.ok) {
+                if (!isRedirecting) redirectToLogin();
+                return false;
+            }
+
+            var data = await response.json();
+            if (!data.authenticated) {
+                if (!isRedirecting) redirectToLogin();
+                return false;
+            }
+
+            if (data.user) {
+                try {
+                    var profileRes = await fetch('/api/user/profile', {
+                        credentials: 'include',
+                        headers: {
+                            'Authorization': 'Bearer ' + token,
+                            'Accept': 'application/json'
+                        }
+                    });
+                    if (profileRes.ok) {
+                        var profileData = await profileRes.json();
+                        data.user.name = profileData.name || data.user.name || 'User';
+                        data.user.email = profileData.email || data.user.email;
+                        data.user.role = profileData.role || data.user.role || 'user';
+                    }
+                } catch (profileErr) {
+                    if (!data.user.name) data.user.name = 'User';
+                }
+                if (!data.user.name || data.user.name.trim() === '') {
+                    data.user.name = 'User';
+                }
+                localStorage.setItem('kms_user', JSON.stringify(data.user));
+            }
+
+            if (data.user.role !== 'admin') {
+                var accessDenied = document.getElementById('accessDenied');
+                var loadingContainer = document.getElementById('loadingContainer');
+                if (accessDenied) accessDenied.style.display = 'flex';
+                if (loadingContainer) loadingContainer.style.display = 'none';
+                return false;
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Auth check failed:', error);
+            if (!isRedirecting) redirectToLogin();
+            return false;
+        }
+    }
+
+    // ==================== INITIALIZATION ====================
     function initEventListeners() {
         document.getElementById('alertOkBtn') && document.getElementById('alertOkBtn').addEventListener('click', closeAlertModal);
         document.getElementById('alertModal') && document.getElementById('alertModal').addEventListener('click', function(e) {
@@ -3351,7 +3264,6 @@
                 var data = await res.json();
 
                 if (res.ok) {
-                    await logAuditEvent('update_profile', 'user_profile', 'self', { name: name, email: email });
                     showAlertModal('Profile updated successfully.', 'success');
                     var user = getUser();
                     if (user) {
@@ -3457,9 +3369,6 @@
                 var data = await res.json();
 
                 if (res.ok) {
-                    await logAuditEvent(action === 'approve' ? 'approve_request' : 'deny_request', 'request', id, {
-                        admin_notes: notes || null
-                    });
                     showAlertModal(action === 'approve' ? 'Request approved.' : 'Request denied.', 'success');
                     document.getElementById('adminModal').style.display = 'none';
                     loadPendingRequests();
@@ -3651,11 +3560,6 @@
                 var data = await res.json();
 
                 if (res.ok) {
-                    await logAuditEvent(id ? 'update_key' : 'create_key', 'key', data.id || id, {
-                        key_code: code,
-                        brand: brand,
-                        status: status
-                    });
                     showAlertModal(id ? 'Key updated successfully.' : 'Key created successfully.', 'success');
                     document.getElementById('keyEditModal').style.display = 'none';
                     loadInventory();
@@ -3744,10 +3648,6 @@
                 var res = await authenticatedFetch(url, { method: method, body: { subject: subject, body_html: body_html, is_active: is_active } });
 
                 if (res.ok) {
-                    await logAuditEvent(isNew ? 'create_email_template' : 'update_email_template', 'email_template', finalKey, {
-                        subject: subject,
-                        is_active: is_active
-                    });
                     showAlertModal(isNew ? 'Template created successfully.' : 'Template updated successfully.', 'success');
                     document.getElementById('templateEditModal').style.display = 'none';
                     loadTemplates();
@@ -3795,7 +3695,6 @@
                         body: { enabled: update.enabled, config: update.config }
                     });
                 }
-                await logAuditEvent('update_notification_settings', 'settings', 'all', { updates: updates });
                 showAlertModal('All settings saved successfully.', 'success');
                 loadSettings();
             } catch (err) {
@@ -3832,7 +3731,6 @@
                 });
 
                 if (res.ok) {
-                    await logAuditEvent('add_admin_recipient', 'admin_recipient', userId, { user_id: userId });
                     showAlertModal('Admin added to notification recipients.', 'success');
                     document.getElementById('addAdminRecipientModal').style.display = 'none';
                     loadAdminRecipients();
@@ -3893,7 +3791,6 @@
                 });
 
                 if (res.ok) {
-                    await logAuditEvent('update_lost_key', 'lost_key', id, { reason: reason, status: status });
                     showAlertModal('Lost key updated successfully.', 'success');
                     document.getElementById('lostKeyEditModal').style.display = 'none';
                     loadLostKeysManagement();
@@ -3912,7 +3809,7 @@
             var originalHtml = this.innerHTML;
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             this.disabled = true;
-            
+
             loadAuditLogs().finally(function() {
                 refreshAuditLogBtn.innerHTML = originalHtml;
                 refreshAuditLogBtn.disabled = false;
@@ -3976,7 +3873,6 @@
                         });
                     }
                 }
-                await logAuditEvent('update_permissions', 'permissions', 'all', { updates: updates });
                 showAlertModal('Permissions saved successfully.', 'success');
                 await loadPermissions();
             } catch (err) {
@@ -4009,6 +3905,19 @@
                 document.getElementById('userManagementModal').style.display = 'none';
             }
         });
+    }
+
+    function startRefreshInterval() {
+        if (refreshInterval) clearInterval(refreshInterval);
+        refreshInterval = setInterval(function() {
+            if (isPageVisible) {
+                loadPendingRequests();
+                loadTransactions();
+                loadPendingReturns();
+                loadLostKeys();
+                loadAuditHealth();
+            }
+        }, 60000);
     }
 
     async function init() {
@@ -4058,19 +3967,6 @@
         });
 
         startRefreshInterval();
-    }
-
-    function startRefreshInterval() {
-        if (refreshInterval) clearInterval(refreshInterval);
-        refreshInterval = setInterval(function() {
-            if (isPageVisible) {
-                loadPendingRequests();
-                loadTransactions();
-                loadPendingReturns();
-                loadLostKeys();
-                loadAuditHealth();
-            }
-        }, 60000);
     }
 
     document.addEventListener('DOMContentLoaded', init);

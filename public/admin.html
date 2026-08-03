@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <style>
+        /* ===== LOADING ===== */
         .loading-container {
             display: flex;
             flex-direction: column;
@@ -38,12 +39,16 @@
             font-family: 'Inter', sans-serif;
             font-size: 0.95rem;
         }
+
+        /* ===== LAYOUT ===== */
         .admin-content-wrapper {
             display: none;
             flex: 1 0 auto;
             flex-direction: column;
             min-height: 100dvh;
         }
+
+        /* ===== ACCESS DENIED ===== */
         .access-denied {
             display: none;
             flex-direction: column;
@@ -85,6 +90,8 @@
         .access-denied .btn-back:hover {
             background: #0F1A2E;
         }
+
+        /* ===== STATUS BADGES ===== */
         .status-badge {
             padding: 0.15rem 0.6rem;
             border-radius: 40px;
@@ -117,6 +124,8 @@
             background: #FEF3C7;
             color: #92400E;
         }
+
+        /* ===== ACTION BUTTONS - RESPONSIVE ===== */
         .action-btn-group {
             display: flex;
             gap: 4px;
@@ -128,6 +137,7 @@
             font-size: 0.7rem;
             white-space: nowrap;
         }
+
         .btn-make-available {
             background: #10B981;
             color: white;
@@ -153,6 +163,8 @@
         .btn-make-available i {
             font-size: 0.6rem;
         }
+
+        /* ===== TOAST NOTIFICATIONS ===== */
         #toastRoot {
             position: fixed;
             bottom: 24px;
@@ -204,6 +216,8 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        /* ===== AUDIT TABLE ===== */
         .audit-table-wrap {
             width: 100%;
             overflow-x: auto;
@@ -259,6 +273,8 @@
             color: #64748b;
             font-size: 0.8rem;
         }
+
+        /* ===== AUDIT FILTERS - RESPONSIVE ===== */
         .audit-filters {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
@@ -292,6 +308,8 @@
             outline: none;
             border-color: #1e293b;
         }
+
+        /* ===== AUDIT ACTIONS ===== */
         .audit-actions {
             display: flex;
             gap: 0.5rem;
@@ -326,6 +344,8 @@
         .audit-actions .btn-secondary:hover {
             background: #f1f5f9;
         }
+
+        /* ===== AUDIT PAGINATION ===== */
         .audit-pagination {
             display: flex;
             flex-wrap: wrap;
@@ -344,6 +364,7 @@
             display: flex;
             gap: 0.5rem;
             align-items: center;
+            flex-wrap: wrap;
         }
         .audit-pagination .pagination-controls select {
             padding: 0.3rem 0.5rem;
@@ -368,6 +389,8 @@
             opacity: 0.4;
             cursor: not-allowed;
         }
+
+        /* ===== AUDIT DETAIL ===== */
         .audit-detail-content {
             max-height: 60vh;
             overflow-y: auto;
@@ -400,6 +423,8 @@
             white-space: pre-wrap;
             word-break: break-all;
         }
+
+        /* ===== FOOTER ===== */
         .app-footer {
             background: #1e293b;
             border-top: 3px solid #d4a843;
@@ -435,6 +460,18 @@
         .footer-divider {
             color: rgba(255,255,255,0.3);
         }
+
+        /* ===== RESPONSIVE: TABLES WITH ACTION COLUMNS ===== */
+        @media (max-width: 1024px) {
+            .table-clean {
+                font-size: 0.8rem;
+            }
+            .table-clean th,
+            .table-clean td {
+                padding: 0.4rem 0.5rem;
+            }
+        }
+
         @media (max-width: 768px) {
             .audit-filters {
                 grid-template-columns: 1fr 1fr;
@@ -454,7 +491,50 @@
             .footer-divider {
                 display: none;
             }
+
+            /* Table responsive - horizontal scroll with visible actions */
+            .table-responsive-wrap {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin: 0 -0.5rem;
+                padding: 0 0.5rem;
+            }
+            .table-responsive-wrap table {
+                min-width: 700px;
+                font-size: 0.75rem;
+            }
+            .table-responsive-wrap table th,
+            .table-responsive-wrap table td {
+                padding: 0.3rem 0.4rem;
+                white-space: nowrap;
+            }
+            /* Ensure action buttons are visible */
+            .table-responsive-wrap .action-buttons {
+                display: flex;
+                gap: 3px;
+                flex-wrap: nowrap;
+                justify-content: flex-end;
+                min-width: 80px;
+            }
+            .table-responsive-wrap .action-buttons .btn-sm {
+                font-size: 0.6rem;
+                padding: 0.15rem 0.35rem;
+                white-space: nowrap;
+            }
+
+            /* Bento cards responsive */
+            .bento-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 0.75rem;
+            }
+            .bento-card .card-header h3 {
+                font-size: 0.8rem;
+            }
+            .bento-card .big-number {
+                font-size: 1.5rem !important;
+            }
         }
+
         @media (max-width: 480px) {
             .audit-filters {
                 grid-template-columns: 1fr;
@@ -467,17 +547,158 @@
             .audit-table tbody td {
                 padding: 0.4rem 0.5rem;
             }
-        }
-        @media (min-width: 640px) {
-            .app-footer-inner {
-                flex-direction: row;
+
+            .bento-grid {
+                grid-template-columns: 1fr 1fr !important;
+                gap: 0.5rem;
+            }
+            .bento-card {
+                padding: 0.75rem;
+            }
+            .bento-card .big-number {
+                font-size: 1.25rem !important;
+            }
+            .bento-card .label {
+                font-size: 0.6rem;
+            }
+
+            /* Tab bar responsive */
+            .tab-bar {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                -webkit-overflow-scrolling: touch;
+                padding: 0.5rem 0.25rem;
+                gap: 0.25rem;
+            }
+            .tab-bar .tab-button {
+                padding: 0.4rem 0.6rem;
+                font-size: 0.7rem;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+
+            /* Sub tab bar responsive */
+            .sub-tab-bar {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                -webkit-overflow-scrolling: touch;
+                gap: 0.25rem;
+            }
+            .sub-tab-bar .sub-tab-button {
+                padding: 0.35rem 0.6rem;
+                font-size: 0.7rem;
+                white-space: nowrap;
+                flex-shrink: 0;
+            }
+
+            /* Card headers responsive */
+            .card-header {
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            .card-header .header-actions {
+                flex-wrap: wrap;
+                gap: 0.25rem;
+                width: 100%;
+            }
+            .card-header .header-actions .search-input-sm {
+                width: 100%;
+                min-width: 120px;
+            }
+            .card-header .header-actions .btn-sm {
+                font-size: 0.6rem;
+                padding: 0.2rem 0.4rem;
+            }
+
+            /* Top nav responsive */
+            .top-nav .brand-text {
+                font-size: 0.8rem;
+            }
+            .top-nav .brand-badge {
+                font-size: 0.5rem;
+                padding: 0.1rem 0.3rem;
+            }
+
+            /* Search bars */
+            .search-bar {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .search-bar .search-input {
+                width: 100%;
+            }
+            .search-bar .filter-select,
+            .search-bar .filter-select-sm {
+                width: 100%;
+            }
+
+            /* Grid layouts */
+            .grid-cols-2 {
+                grid-template-columns: 1fr !important;
+            }
+            .grid-cols-5 {
+                grid-template-columns: 1fr 1fr !important;
+            }
+
+            /* Modal responsive */
+            .modal-container {
+                max-width: 95% !important;
+                margin: 0.5rem !important;
+                max-height: 95vh !important;
+            }
+            .modal-body {
+                padding: 1rem !important;
+            }
+
+            /* Transaction filter grid */
+            .grid-cols-1.sm\:grid-cols-2.md\:grid-cols-5 {
+                grid-template-columns: 1fr 1fr !important;
+            }
+
+            .action-buttons {
+                flex-wrap: wrap;
                 justify-content: center;
-                gap: 0.75rem;
             }
-            .app-footer-inner .footer-divider {
-                display: inline;
+            .action-buttons .btn-sm {
+                font-size: 0.6rem;
+                padding: 0.15rem 0.35rem;
             }
         }
+
+        @media (max-width: 380px) {
+            .bento-grid {
+                grid-template-columns: 1fr 1fr !important;
+                gap: 0.4rem;
+            }
+            .bento-card {
+                padding: 0.5rem;
+            }
+            .bento-card .big-number {
+                font-size: 1rem !important;
+            }
+            .bento-card .label {
+                font-size: 0.55rem;
+            }
+            .bento-card .card-header h3 {
+                font-size: 0.7rem;
+            }
+
+            .tab-bar .tab-button {
+                font-size: 0.6rem;
+                padding: 0.3rem 0.4rem;
+            }
+
+            .table-responsive-wrap table {
+                min-width: 600px;
+                font-size: 0.65rem;
+            }
+            .table-responsive-wrap table th,
+            .table-responsive-wrap table td {
+                padding: 0.2rem 0.3rem;
+            }
+        }
+
+        /* ===== FOCUS STYLES ===== */
         *:focus,
         *:focus-visible,
         *:focus-within {
@@ -650,7 +871,7 @@
 
             <div class="tab-bar">
                 <button class="tab-button active" data-tab="dashboard">Dashboard</button>
-                <button class="tab-button" data-tab="requests">Requests</button>
+                <button class="tab-button" data-tab="requests">Account Requests</button>
                 <button class="tab-button" data-tab="inventory">Key Inventory</button>
                 <button class="tab-button" data-tab="lost">Lost Keys</button>
                 <button class="tab-button" data-tab="security">Security</button>
@@ -715,7 +936,7 @@
                             </select>
                         </div>
                         <div class="flex flex-wrap items-center gap-3 mb-4">
-                            <div class="flex items-center gap-2">
+                            <div class="flex items-center gap-2 flex-wrap">
                                 <label class="text-sm text-slate-600">From:</label>
                                 <input type="date" id="filterFrom" class="w-auto" />
                                 <label class="text-sm text-slate-600 ml-2">To:</label>
@@ -726,7 +947,7 @@
                                 <button id="resetBtn" class="btn btn-refresh"><i class="fas fa-times"></i> Reset</button>
                             </div>
                         </div>
-                        <div class="overflow-x-auto">
+                        <div class="table-responsive-wrap">
                             <table class="table-clean">
                                 <thead><tr><th>ID</th><th>Giver</th><th>Receiver</th><th>Key</th><th>Qty</th><th>Action</th><th>Borrowed At</th><th>Returned At</th><th>Status</th><th>Reason</th></tr></thead>
                                 <tbody id="transactionsTableBody"><tr><td colspan="10" class="text-center py-8 text-slate-400"><div class="skeleton h-8 w-full"></div></td></tr></tbody>
@@ -762,7 +983,7 @@
                         </div>
                     </div>
                     <div class="card-body">
-                        <div id="pendingRequestsContainer"><div class="text-center py-8 text-slate-400">Loading requests...</div></div>
+                        <div class="table-responsive-wrap" id="pendingRequestsContainer"><div class="text-center py-8 text-slate-400">Loading requests...</div></div>
                     </div>
                 </div>
             </div>
@@ -785,7 +1006,7 @@
                             </div>
                             <button id="inventoryResetFiltersBtn" class="btn btn-refresh btn-sm"><i class="fas fa-times"></i> Reset</button>
                         </div>
-                        <div class="overflow-x-auto">
+                        <div class="table-responsive-wrap">
                             <table class="table-clean inventory-table">
                                 <thead>
                                     <tr>
@@ -829,7 +1050,7 @@
                         </div>
                     </div>
                     <div class="card-body">
-                        <div id="lostKeysManagementContainer">
+                        <div class="table-responsive-wrap" id="lostKeysManagementContainer">
                             <div class="text-center py-8 text-slate-400">Loading lost keys...</div>
                         </div>
                     </div>
@@ -883,17 +1104,19 @@
                                 </select>
                                 <button id="acmResetFiltersBtn" class="btn btn-refresh btn-sm"><i class="fas fa-times"></i> Reset</button>
                             </div>
-                            <table class="table-clean user-table">
-                                <thead>
-                                    <tr>
-                                        <th style="text-align:center;width:35%;">User</th>
-                                        <th style="text-align:center;width:15%;">Role</th>
-                                        <th style="text-align:center;width:15%;">Status</th>
-                                        <th style="text-align:center;width:35%;">Last Active</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="acmUserTableBody"><tr><td colspan="4" class="text-center py-8 text-slate-400">Loading users...</td></tr></tbody>
-                            </table>
+                            <div class="table-responsive-wrap">
+                                <table class="table-clean user-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="text-align:center;width:35%;">User</th>
+                                            <th style="text-align:center;width:15%;">Role</th>
+                                            <th style="text-align:center;width:15%;">Status</th>
+                                            <th style="text-align:center;width:35%;">Last Active</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="acmUserTableBody"><tr><td colspan="4" class="text-center py-8 text-slate-400">Loading users...</td></tr></tbody>
+                                </table>
+                            </div>
                             <div class="pagination-bar">
                                 <div class="pagination-left">
                                     <span class="pagination-info" id="acmPaginationInfo">Showing 0 of 0 users</span>
@@ -1051,7 +1274,7 @@
             </div>
         </div>
 
-        <!-- MODALS -->
+        <!-- ===== MODALS ===== -->
         <div id="detailModal" class="modal-overlay">
             <div class="modal-container">
                 <div class="modal-header"><h3 id="detailModalTitle">Details</h3><button id="closeDetailModalBtn" class="close-btn">&times;</button></div>
@@ -1066,7 +1289,7 @@
                 <div class="modal-body">
                     <label class="block text-sm font-medium text-slate-700 mb-1">Admin notes (optional)</label>
                     <textarea id="modalNotes" rows="3" placeholder="Add any remarks..."></textarea>
-                    <div class="mt-5 flex gap-3 justify-end">
+                    <div class="mt-5 flex gap-3 justify-end flex-wrap">
                         <button id="modalCancelBtn" class="btn btn-refresh">Cancel</button>
                         <button id="modalConfirmBtn" class="btn btn-primary">Confirm</button>
                     </div>
@@ -1091,7 +1314,7 @@
                     <div class="exec-confirm-icon" id="execConfirmIcon"><i class="fas fa-question"></i></div>
                     <h3 class="exec-confirm-title" id="execConfirmTitle">Please confirm</h3>
                     <p class="exec-confirm-message" id="execConfirmMessage">Are you sure?</p>
-                    <div class="flex gap-3 justify-center mt-5">
+                    <div class="flex gap-3 justify-center mt-5 flex-wrap">
                         <button class="btn btn-secondary" id="execConfirmCancelBtn">Cancel</button>
                         <button class="btn btn-critical" id="execConfirmOkBtn">Confirm</button>
                     </div>
@@ -1109,7 +1332,7 @@
                     <p class="text-sm text-slate-500 mb-3" id="execPromptMessage"></p>
                     <textarea id="execPromptInput" rows="3" placeholder="" maxlength="500"></textarea>
                 </div>
-                <div class="modal-footer" style="gap:8px;">
+                <div class="modal-footer" style="gap:8px;flex-wrap:wrap;">
                     <button class="btn btn-secondary" id="execPromptCancelBtn">Cancel</button>
                     <button class="btn btn-primary" id="execPromptOkBtn">Submit</button>
                 </div>
@@ -1124,7 +1347,7 @@
                     <input type="text" id="newRoleName" placeholder="e.g., manager" />
                     <p class="text-xs text-slate-500 mt-2">This role will appear in the permissions matrix.</p>
                 </div>
-                <div class="modal-footer" style="gap:8px;">
+                <div class="modal-footer" style="gap:8px;flex-wrap:wrap;">
                     <button id="cancelAddRoleBtn" class="btn btn-refresh">Cancel</button>
                     <button id="confirmAddRoleBtn" class="btn btn-primary">Add Role</button>
                 </div>
@@ -1149,7 +1372,7 @@
                         </select>
                     </div>
                 </div>
-                <div class="modal-footer" style="gap:8px;">
+                <div class="modal-footer" style="gap:8px;flex-wrap:wrap;">
                     <button id="acmCancelModalBtn" class="btn btn-refresh">Cancel</button>
                     <button id="acmSaveUserBtn" class="btn btn-primary">Save User</button>
                 </div>
@@ -1162,7 +1385,7 @@
                     <div style="width:48px;height:48px;border-radius:50%;background:#fee2e2;color:#dc2626;display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin:0 auto 16px;"><i class="fas fa-trash"></i></div>
                     <h3 style="font-size:1rem;font-weight:600;margin-bottom:4px;">Delete user?</h3>
                     <p id="acmDeleteUserMessage" style="color:var(--text-secondary);font-size:0.9rem;">This action cannot be undone.</p>
-                    <div class="flex gap-3 justify-center mt-5">
+                    <div class="flex gap-3 justify-center mt-5 flex-wrap">
                         <button id="acmCancelDeleteBtn" class="btn btn-refresh">Cancel</button>
                         <button id="acmConfirmDeleteBtn" class="btn btn-danger">Delete</button>
                     </div>
@@ -1210,7 +1433,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer" style="gap:8px;">
+                <div class="modal-footer" style="gap:8px;flex-wrap:wrap;">
                     <button id="cancelLostKeyEditBtn" class="btn btn-refresh">Cancel</button>
                     <button id="saveLostKeyEditBtn" class="btn btn-primary">Save Changes</button>
                 </div>
@@ -1261,7 +1484,7 @@
                     <div><label class="block text-sm font-medium text-slate-700 mb-1">Current Password</label><input type="password" id="profileCurrentPassword" placeholder="Enter current password..." /><p class="text-xs text-slate-400 mt-1">Required only if changing password.</p></div>
                     <div><label class="block text-sm font-medium text-slate-700 mb-1">New Password</label><input type="password" id="profilePassword" placeholder="Enter new password..." /></div>
                 </div>
-                <div class="modal-footer" style="gap:8px;">
+                <div class="modal-footer" style="gap:8px;flex-wrap:wrap;">
                     <button id="cancelProfileBtn" class="btn btn-refresh">Cancel</button>
                     <button id="saveProfileBtn" class="btn btn-primary"><i class="fas fa-save"></i> Update Profile</button>
                 </div>
@@ -1278,7 +1501,7 @@
                     </div>
                 </div>
                 <div class="modal-body">
-                    <div class="flex justify-between items-center mb-4">
+                    <div class="flex justify-between items-center mb-4 flex-wrap gap-2">
                         <div class="text-sm text-slate-500">All users in the system</div>
                         <button id="addUserFromManageBtn" class="btn btn-primary"><i class="fas fa-plus"></i> Add User</button>
                     </div>
@@ -1297,15 +1520,17 @@
                         </select>
                         <button id="resetManageUserFilters" class="btn btn-refresh"><i class="fas fa-times"></i> Reset</button>
                     </div>
-                    <table class="table-clean user-table">
-                        <thead>
-                            <tr><th style="text-align:center;">User</th><th style="text-align:center;">Role</th><th style="text-align:center;">Status</th><th style="text-align:center;">Last Active</th><th style="text-align:center;">Actions</th></tr>
-                        </thead>
-                        <tbody id="manageUserTableBody"><tr><td colspan="5" class="text-center py-8 text-slate-400">Loading users...</td></tr></tbody>
-                    </table>
+                    <div class="table-responsive-wrap">
+                        <table class="table-clean user-table">
+                            <thead>
+                                <tr><th style="text-align:center;">User</th><th style="text-align:center;">Role</th><th style="text-align:center;">Status</th><th style="text-align:center;">Last Active</th><th style="text-align:center;">Actions</th></tr>
+                            </thead>
+                            <tbody id="manageUserTableBody"><tr><td colspan="5" class="text-center py-8 text-slate-400">Loading users...</td></tr></tbody>
+                        </table>
+                    </div>
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
                         <div class="text-sm text-slate-500" id="manageUserPaginationInfo">Showing 0 of 0 users</div>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 flex-wrap">
                             <button id="manageUserPrevBtn" class="btn btn-refresh">Previous</button>
                             <button id="manageUserNextBtn" class="btn btn-refresh">Next</button>
                         </div>
@@ -1359,7 +1584,7 @@
                         <label for="editTemplateActive" class="text-sm text-slate-700">Active</label>
                     </div>
                 </div>
-                <div class="modal-footer" style="gap:8px;">
+                <div class="modal-footer" style="gap:8px;flex-wrap:wrap;">
                     <button id="cancelTemplateEditBtn" class="btn btn-refresh">Cancel</button>
                     <button id="saveTemplateEditBtn" class="btn btn-primary">Save Template</button>
                 </div>
@@ -1413,7 +1638,7 @@
                         <p class="text-xs text-slate-500 mt-1">"Borrowed" is set automatically and can't be chosen here.</p>
                     </div>
                 </div>
-                <div class="modal-footer" style="gap:8px;">
+                <div class="modal-footer" style="gap:8px;flex-wrap:wrap;">
                     <button id="cancelKeyEditBtn" class="btn btn-refresh">Cancel</button>
                     <button id="saveKeyEditBtn" class="btn btn-primary">Save Key</button>
                 </div>
@@ -1452,7 +1677,7 @@
                         </div>
                         <button id="resetManageKeyFilters" class="btn btn-refresh"><i class="fas fa-times"></i> Reset</button>
                     </div>
-                    <div class="overflow-x-auto">
+                    <div class="table-responsive-wrap">
                         <table class="table-clean">
                             <thead>
                                 <tr>
@@ -1468,7 +1693,7 @@
                     </div>
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mt-4">
                         <div class="text-sm text-slate-500" id="manageKeyPaginationInfo">Showing 0 of 0 keys</div>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 flex-wrap">
                             <button id="manageKeyPrevBtn" class="btn btn-refresh">Previous</button>
                             <button id="manageKeyNextBtn" class="btn btn-refresh">Next</button>
                         </div>
@@ -1495,7 +1720,7 @@
                         <p class="text-xs text-slate-500 mt-1">Only active admin users are shown.</p>
                     </div>
                 </div>
-                <div class="modal-footer" style="gap:8px;">
+                <div class="modal-footer" style="gap:8px;flex-wrap:wrap;">
                     <button id="cancelAddAdminRecipientBtn" class="btn btn-refresh">Cancel</button>
                     <button id="saveAdminRecipientBtn" class="btn btn-primary">Add Recipient</button>
                 </div>

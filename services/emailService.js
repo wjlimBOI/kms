@@ -56,49 +56,200 @@ function getLogoBase64() {
 }
 
 // ============================================================
-// FIX: EMAIL WRAPPER - Only wraps content, no duplicate headers
+// FIX: EMAIL WRAPPER - Consistent colors across all email clients
 // ============================================================
 function wrapEmailContent(contentHtml, subject) {
     const logoBase64 = getLogoBase64();
     const cleanBase = APP_URL.replace(/\/$/, '');
     const currentYear = new Date().getFullYear();
 
+    // Clean contentHtml to prevent duplicate headers
+    // If contentHtml contains <html> or <body> tags, extract only the inner content
+    let cleanContent = contentHtml;
+    if (contentHtml.includes('<html') || contentHtml.includes('<body')) {
+        // Extract content between body tags if present
+        const bodyMatch = contentHtml.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+        if (bodyMatch) {
+            cleanContent = bodyMatch[1];
+        } else {
+            // Remove html, head, body tags
+            cleanContent = contentHtml
+                .replace(/<html[^>]*>/gi, '')
+                .replace(/<\/html>/gi, '')
+                .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
+                .replace(/<body[^>]*>/gi, '')
+                .replace(/<\/body>/gi, '')
+                .trim();
+        }
+    }
+
     return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="color-scheme" content="light dark">
+  <meta name="supported-color-schemes" content="light dark">
   <title>${subject}</title>
   <style>
+    /* Base styles for all email clients */
+    body, .email-body {
+      margin: 0;
+      padding: 0;
+      background-color: #f4f7fc;
+      font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+    }
+    .email-container {
+      max-width: 600px;
+      width: 100%;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 24px;
+      overflow: hidden;
+      border: 1px solid #e0e7ef;
+    }
+    .email-header {
+      background-color: #0f2b3d;
+      padding: 30px 24px;
+      text-align: center;
+    }
+    .email-header h1 {
+      color: #ffffff;
+      font-size: 26px;
+      font-weight: 600;
+      margin: 0;
+    }
+    .email-header p {
+      color: #e2e8f0;
+      font-size: 15px;
+      margin: 8px 0 0;
+    }
+    .email-body-content {
+      padding: 30px 28px;
+      background-color: #ffffff;
+      color: #1e293b;
+    }
+    .email-footer {
+      background-color: #f8fafc;
+      border-top: 1px solid #e2e8f0;
+      padding: 20px 28px;
+      text-align: center;
+    }
+    .email-footer p {
+      margin: 0 0 6px;
+      font-size: 12px;
+      color: #64748b;
+    }
+    .email-footer a {
+      color: #0d9488;
+      text-decoration: none;
+      font-size: 12px;
+    }
+
+    /* Dark mode support for email clients that support it (Apple Mail, Outlook.com, etc.) */
+    @media (prefers-color-scheme: dark) {
+      body, .email-body {
+        background-color: #1a202c;
+      }
+      .email-container {
+        background-color: #2d3748;
+        border-color: #4a5568;
+      }
+      .email-header {
+        background-color: #1a365d;
+      }
+      .email-header h1 {
+        color: #f7fafc;
+      }
+      .email-header p {
+        color: #a0aec0;
+      }
+      .email-body-content {
+        background-color: #2d3748;
+        color: #e2e8f0;
+      }
+      .email-body-content p,
+      .email-body-content li,
+      .email-body-content td {
+        color: #e2e8f0;
+      }
+      .email-body-content a {
+        color: #63b3ed;
+      }
+      .email-body-content h2,
+      .email-body-content h3,
+      .email-body-content h4 {
+        color: #f7fafc;
+      }
+      .email-body-content table {
+        border-color: #4a5568;
+      }
+      .email-body-content td {
+        border-bottom-color: #4a5568 !important;
+      }
+      .email-body-content .callout {
+        background-color: #2d3748 !important;
+        border-color: #4a5568 !important;
+      }
+      .email-footer {
+        background-color: #2d3748;
+        border-top-color: #4a5568;
+      }
+      .email-footer p {
+        color: #a0aec0;
+      }
+      .email-footer a {
+        color: #63b3ed;
+      }
+    }
+
+    /* Mobile responsive */
     @media only screen and (max-width: 600px) {
-      .container { width: 100% !important; }
-      .button { width: 100% !important; text-align: center !important; }
-      .responsive-padding { padding: 20px !important; }
+      .email-container {
+        border-radius: 0;
+        border: none;
+        margin: 0;
+      }
+      .email-header {
+        padding: 20px 16px;
+      }
+      .email-body-content {
+        padding: 20px 16px;
+      }
+      .email-footer {
+        padding: 16px;
+      }
+      .email-header h1 {
+        font-size: 20px;
+      }
+      .email-header img {
+        max-width: 140px !important;
+      }
     }
   </style>
 </head>
-<body style="margin:0;padding:0;background-color:#f4f7fc;font-family: 'Segoe UI', Arial, Helvetica, sans-serif;">
-  <center style="width:100%;table-layout:fixed;">
-    <table align="center" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;background-color:#ffffff;margin:20px auto;border:1px solid #e0e7ef;border-radius:24px;overflow:hidden;">
+<body class="email-body" style="margin:0;padding:0;background-color:#f4f7fc;font-family:'Segoe UI',Arial,Helvetica,sans-serif;">
+  <center style="width:100%;table-layout:fixed;background-color:#f4f7fc;padding:20px 0;">
+    <table align="center" width="100%" cellpadding="0" cellspacing="0" border="0" class="email-container" style="max-width:600px;width:100%;background-color:#ffffff;margin:0 auto;border:1px solid #e0e7ef;border-radius:24px;overflow:hidden;">
       <tr>
-        <td bgcolor="#0f2b3d" style="background-color:#0f2b3d;padding:30px 24px;text-align:center;">
+        <td class="email-header" style="background-color:#0f2b3d;padding:30px 24px;text-align:center;">
           ${logoBase64 ? `<img src="${logoBase64}" alt="Beauty One International" width="180" style="display:block;max-width:180px;width:100%;height:auto;margin:0 auto 16px auto;border:0;" />` : ''}
           <h1 style="color:#ffffff;font-size:26px;font-weight:600;margin:0;">Key Management System</h1>
           <p style="color:#e2e8f0;font-size:15px;margin:8px 0 0;">Beauty One International</p>
         </td>
       </tr>
       <tr>
-        <td style="padding:30px 28px;" class="responsive-padding">
-          ${contentHtml}
+        <td class="email-body-content" style="padding:30px 28px;background-color:#ffffff;color:#1e293b;">
+          ${cleanContent}
         </td>
       </tr>
       <tr>
-        <td bgcolor="#f8fafc" style="background-color:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 28px;text-align:center;">
+        <td class="email-footer" style="background-color:#f8fafc;border-top:1px solid #e2e8f0;padding:20px 28px;text-align:center;">
           <p style="margin:0 0 6px;font-size:12px;color:#64748b;">
-            © ${currentYear} Beauty One International Pte Ltd. All rights reserved.
+            &copy; ${currentYear} Beauty One International Pte Ltd. All rights reserved.
           </p>
           <p style="margin:0;font-size:12px;color:#64748b;">
-            This is an automated message — please do not reply.
+            This is an automated message &mdash; please do not reply.
           </p>
           <p style="margin:10px 0 0;">
             <a href="${cleanBase}" style="color:#0d9488;text-decoration:none;font-size:12px;">Visit our portal</a>
@@ -347,8 +498,26 @@ async function getNotificationConfig(settingKey) {
 // ============================================================
 
 function buildEmailHtml(bodyHtml, subject) {
-    // bodyHtml from templates should be the content only (no <html>, <body>, etc.)
-    return wrapEmailContent(bodyHtml, subject);
+    // Clean the content to prevent duplicate headers
+    let cleanContent = bodyHtml || '';
+    
+    // If the content contains full HTML, extract only the body content
+    if (cleanContent.includes('<html') || cleanContent.includes('<body')) {
+        const bodyMatch = cleanContent.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+        if (bodyMatch) {
+            cleanContent = bodyMatch[1];
+        } else {
+            cleanContent = cleanContent
+                .replace(/<html[^>]*>/gi, '')
+                .replace(/<\/html>/gi, '')
+                .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
+                .replace(/<body[^>]*>/gi, '')
+                .replace(/<\/body>/gi, '')
+                .trim();
+        }
+    }
+    
+    return wrapEmailContent(cleanContent, subject);
 }
 
 async function sendOtpEmail(toEmail, otp) {

@@ -217,8 +217,9 @@ async function createUser(db, userData, options = {}) {
     if (sendEmail) {
         try {
             const changePasswordLink = `${APP_URL}/change-password`;
-            await sendWelcomeEmail(email, name, tempPassword, changePasswordLink);
-            logger.info(`Welcome email sent to ${email}`);
+            // FIX: Use finalUsername (email prefix) instead of name
+            await sendWelcomeEmail(email, finalUsername, tempPassword, changePasswordLink);
+            logger.info(`Welcome email sent to ${email} with username ${finalUsername}`);
         } catch (emailErr) {
             logger.error('Failed to send welcome email:', emailErr);
         }
@@ -261,10 +262,7 @@ function validateSession(token, res) {
     return session.email;
 }
 
-// ============================================================
 // OTP ROUTES
-// ============================================================
-
 router.post('/request-otp', otpLimiter, async (req, res) => {
     const { email } = req.body;
     logger.info('OTP request', { email: email?.substring(0, 3) + '***' });
@@ -316,10 +314,7 @@ router.post('/verify-otp', otpLimiter, async (req, res) => {
     }
 });
 
-// ============================================================
 // REGISTRATION ROUTES
-// ============================================================
-
 router.post('/check-registration-status', async (req, res) => {
     try {
         const { email } = req.body;
@@ -596,10 +591,7 @@ router.post('/admin/cleanup-registrations', requireAuth, authorize('admin'), asy
     }
 });
 
-// ============================================================
 // LOGIN
-// ============================================================
-
 router.post('/login', loginLimiter, async (req, res) => {
     const { username, password } = req.body;
     const clientIp = req.ip || req.connection.remoteAddress;
@@ -765,10 +757,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     }
 });
 
-// ============================================================
 // PASSWORD MANAGEMENT
-// ============================================================
-
 router.post('/change-password', requireAuth, async (req, res) => {
     const { current_password, new_password } = req.body;
     const userId = req.user?.id || req.session.userId;
@@ -905,10 +894,7 @@ router.post('/set-password-from-token', async (req, res) => {
     }
 });
 
-// ============================================================
 // UNIFIED ADMIN USER CREATION
-// ============================================================
-
 router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) => {
     try {
         const { name, email, username, role, status } = req.body;
@@ -920,7 +906,7 @@ router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) =>
         const user = await createUser(req.db, {
             name,
             email,
-            username,
+            username: username || email.split('@')[0],
             role: role || DEFAULT_ROLE,
             status: status || 'active'
         }, {
@@ -948,10 +934,7 @@ router.post('/admin/users', requireAuth, authorize('admin'), async (req, res) =>
     }
 });
 
-// ============================================================
 // SESSION & LOGOUT
-// ============================================================
-
 router.get('/session', requireAuth, (req, res) => {
     res.json({
         loggedIn: true,
@@ -1049,10 +1032,7 @@ router.post('/logout', async (req, res) => {
     });
 });
 
-// ============================================================
 // FORGOT PASSWORD
-// ============================================================
-
 router.post('/forgot-password', async (req, res) => {
     const { email } = req.body;
     const db = req.db;
@@ -1068,7 +1048,6 @@ router.post('/forgot-password', async (req, res) => {
         );
 
         if (userResult.rowCount === 0) {
-            // Don't reveal if user exists
             return res.json({ message: 'If an account with that email exists, a reset link has been sent.' });
         }
 
@@ -1084,14 +1063,12 @@ router.post('/forgot-password', async (req, res) => {
 
         const resetLink = `${APP_URL}/reset-password?token=${token}`;
 
-        // Send reset email
         try {
             const { sendPasswordResetEmail } = require('../services/emailService');
             await sendPasswordResetEmail(email, resetLink);
             logger.info(`Password reset email sent to ${email}`);
         } catch (emailErr) {
             logger.error('Failed to send password reset email:', emailErr);
-            // Still return success to avoid email enumeration
         }
 
         res.json({ message: 'If an account with that email exists, a reset link has been sent.' });

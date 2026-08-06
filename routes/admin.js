@@ -40,10 +40,7 @@ async function sendAdminNotification(db, subject, message) {
     }
 }
 
-// ============================================================
 // TRANSACTIONS
-// ============================================================
-
 router.get('/transactions', requireAuth, authorize('admin'), async (req, res) => {
     await setAuditContext(req);
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
@@ -183,10 +180,7 @@ router.post('/force-return', requireAuth, authorize('admin'), blockIfReadOnly, a
     }
 });
 
-// ============================================================
 // KEY REQUESTS
-// ============================================================
-
 router.get('/requests/pending', requireAuth, authorize('admin'), async (req, res) => {
     await setAuditContext(req);
     const db = req.db;
@@ -345,10 +339,7 @@ router.post('/requests/deny', requireAuth, authorize('admin'), blockIfReadOnly, 
     }
 });
 
-// ============================================================
 // AUDIT
-// ============================================================
-
 router.get('/audit-health', requireAuth, authorize('admin'), async (req, res) => {
     try {
         const result = await req.db.query(
@@ -362,10 +353,7 @@ router.get('/audit-health', requireAuth, authorize('admin'), async (req, res) =>
     }
 });
 
-// ============================================================
 // LOST KEYS
-// ============================================================
-
 router.get('/lost-keys', requireAuth, authorize('admin'), async (req, res) => {
     try {
         const result = await req.db.query(`
@@ -779,10 +767,7 @@ router.post('/fines/:fineId/:action', requireAuth, authorize('admin'), blockIfRe
     }
 });
 
-// ============================================================
 // KEY MANAGEMENT
-// ============================================================
-
 router.get('/keys', requireAuth, authorize('admin'), async (req, res) => {
     try {
         const result = await req.db.query(`
@@ -1156,10 +1141,7 @@ router.delete('/keys/:id', requireAuth, authorize('admin'), blockIfReadOnly, asy
     }
 });
 
-// ============================================================
 // USER MANAGEMENT (Read/Update Only - Creation moved to auth.js)
-// ============================================================
-
 router.get('/users', requireAuth, authorize('admin'), async (req, res) => {
     const { search, role, status, page = 1, limit = 10 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -1401,13 +1383,14 @@ router.post('/users/:id/deactivate', requireAuth, authorize('admin'), blockIfRea
     }
 });
 
+// FIX: Send Welcome Email - Use username (email prefix) not full name
 router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), blockIfReadOnly, async (req, res) => {
     const { userId } = req.params;
     const db = req.db;
 
     try {
         const userResult = await db.query(
-            'SELECT id, name, email, status FROM users WHERE id = $1',
+            'SELECT id, name, email, status, username FROM users WHERE id = $1',
             [userId]
         );
 
@@ -1428,7 +1411,10 @@ router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), bloc
         await db.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [hashed, userId]);
 
         const changePasswordLink = `${process.env.APP_URL || 'https://kms-staging.onrender.com'}/change-password`;
-        await sendManualWelcomeEmail(user.email, user.name, tempPassword, changePasswordLink);
+        
+        // FIX: Use username (email prefix) instead of user.name
+        const username = user.username || user.email.split('@')[0];
+        await sendManualWelcomeEmail(user.email, username, tempPassword, changePasswordLink);
 
         await logUpdate({
             targetType: 'users',
@@ -1448,10 +1434,7 @@ router.post('/users/:userId/send-welcome', requireAuth, authorize('admin'), bloc
     }
 });
 
-// ============================================================
 // PERMISSIONS
-// ============================================================
-
 router.get('/permissions/roles', requireAuth, authorize('admin'), async (req, res) => {
     try {
         const result = await req.db.query(`
@@ -1524,10 +1507,7 @@ router.get('/user/permissions', requireAuth, async (req, res) => {
     }
 });
 
-// ============================================================
 // ADMIN NOTIFICATION RECIPIENTS
-// ============================================================
-
 router.get('/admin-notification-recipients', requireAuth, requirePermission('manage_notification_settings'), async (req, res) => {
     try {
         const result = await req.db.query(`
@@ -1589,10 +1569,7 @@ router.delete('/admin-notification-recipients/:userId', requireAuth, requirePerm
     }
 });
 
-// ============================================================
 // EMAIL TEMPLATES
-// ============================================================
-
 router.get('/email/templates', requireAuth, requirePermission('manage_email_templates'), async (req, res) => {
     try {
         const result = await req.db.query(
@@ -1665,10 +1642,7 @@ router.delete('/email/templates/:key', requireAuth, requirePermission('manage_em
     }
 });
 
-// ============================================================
 // EMAIL SETTINGS
-// ============================================================
-
 router.get('/email/settings', requireAuth, requirePermission('manage_notification_settings'), async (req, res) => {
     try {
         const result = await req.db.query(
@@ -1700,10 +1674,7 @@ router.put('/email/settings/:key', requireAuth, requirePermission('manage_notifi
     }
 });
 
-// ============================================================
 // TEST EMAIL ENDPOINT
-// ============================================================
-
 router.post('/test-email', requireAuth, authorize('admin'), async (req, res) => {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email address required' });

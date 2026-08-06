@@ -2,6 +2,8 @@
     'use strict';
 
     let isRedirecting = false;
+    let redirectTimer = null;
+    let isRedirectingFromModal = false;
 
     function redirectToLogin() {
         if (isRedirecting) return;
@@ -15,32 +17,30 @@
         window.location.href = '/login?t=' + Date.now();
     }
 
-    async function handleLogout() {
-        if (isRedirecting) return;
+    function redirectToDashboard() {
+        if (isRedirecting || isRedirectingFromModal) return;
         isRedirecting = true;
-        try {
-            const token = localStorage.getItem('kms_token');
-            if (token) {
-                await fetch('/api/auth/logout', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': 'Bearer ' + token,
-                        'Content-Type': 'application/json'
-                    },
-                    credentials: 'include'
-                }).catch(function() {});
-            }
-        } catch (error) {
-            console.error('Logout error:', error);
-        } finally {
-            localStorage.removeItem('kms_token');
-            localStorage.removeItem('kms_user');
-            sessionStorage.clear();
-            document.cookie.split(";").forEach(function(c) {
-                document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-            });
-            window.location.href = '/login?t=' + Date.now();
-        }
+        window.location.href = '/?t=' + Date.now();
+    }
+
+    function showMessage(text, type) {
+        var messageDiv = document.getElementById('message');
+        if (!messageDiv) return;
+        messageDiv.textContent = text;
+        messageDiv.className = 'alert-box ' + type;
+        messageDiv.classList.remove('hidden');
+    }
+
+    function showSuccessModal() {
+        var modal = document.getElementById('successModal');
+        if (!modal) return;
+        modal.classList.add('active');
+    }
+
+    function hideSuccessModal() {
+        var modal = document.getElementById('successModal');
+        if (!modal) return;
+        modal.classList.remove('active');
     }
 
     function initToggleButtons() {
@@ -74,17 +74,7 @@
         });
     }
 
-    function showMessage(text, type) {
-        var messageDiv = document.getElementById('message');
-        if (!messageDiv) return;
-        messageDiv.textContent = text;
-        messageDiv.className = 'alert-box ' + type;
-        messageDiv.classList.remove('hidden');
-    }
-
     document.addEventListener('DOMContentLoaded', function() {
-        ensureCsrfToken();
-
         var form = document.getElementById('changeForm');
         var currentInput = document.getElementById('currentPassword');
         var newInput = document.getElementById('newPassword');
@@ -92,16 +82,47 @@
         var currentError = document.getElementById('currentError');
         var newError = document.getElementById('newError');
         var confirmError = document.getElementById('confirmError');
-        var messageDiv = document.getElementById('message');
         var infoBox = document.getElementById('infoBox');
         var changeBtn = document.getElementById('changeBtn');
+        var successModalBtn = document.getElementById('successModalBtn');
 
         if (!form || !currentInput || !newInput || !confirmInput || !changeBtn) {
             console.error('Required elements not found');
             return;
         }
 
+        // Initialize CSRF token
+        ensureCsrfToken();
+
+        // Initialize toggle buttons
         initToggleButtons();
+
+        // Success modal button - redirect to dashboard
+        if (successModalBtn) {
+            successModalBtn.addEventListener('click', function() {
+                if (isRedirectingFromModal) return;
+                isRedirectingFromModal = true;
+                hideSuccessModal();
+                // Clear any pending timer
+                if (redirectTimer) {
+                    clearTimeout(redirectTimer);
+                    redirectTimer = null;
+                }
+                redirectToDashboard();
+            });
+        }
+
+        // Close modal on overlay click
+        var modal = document.getElementById('successModal');
+        if (modal) {
+            modal.addEventListener('click', function(e) {
+                if (e.target === this) {
+                    // Don't close if user clicks overlay - let them use the button
+                    // But we can close it if they click outside the container
+                    // Actually, let's keep it open so they don't miss it
+                }
+            });
+        }
 
         function validateForm() {
             var current = currentInput.value.trim();
@@ -119,6 +140,7 @@
             });
         });
 
+        // Check session and redirect if not required to change password
         (async function checkSession() {
             try {
                 var csrf = await getCsrfToken();
@@ -129,21 +151,31 @@
                         'X-Requested-With': 'XMLHttpRequest'
                     }
                 });
+
                 if (res.status === 401) {
                     redirectToLogin();
                     return;
                 }
+
                 var data = await res.json();
+
                 if (!data.loggedIn) {
                     redirectToLogin();
                     return;
                 }
-                if (infoBox) {
-                    infoBox.classList.toggle('hidden', !data.mustChangePassword);
+
+                // If user does NOT need to change password, redirect immediately
+                if (!data.mustChangePassword) {
+                    if (infoBox) infoBox.classList.add('hidden');
+                    redirectToDashboard();
+                    return;
                 }
+
+                // User needs to change password - show the form
+                if (infoBox) infoBox.classList.remove('hidden');
+
             } catch (err) {
                 console.error('Session check error:', err);
-                redirectToLogin();
             }
         })();
 
@@ -153,6 +185,7 @@
             document.querySelectorAll('.field-error').forEach(function(el) {
                 el.classList.remove('visible');
             });
+            var messageDiv = document.getElementById('message');
             if (messageDiv) messageDiv.classList.add('hidden');
 
             var current = currentInput.value.trim();
@@ -233,21 +266,68 @@
                 var data = await res.json();
 
                 if (res.ok) {
-                    showMessage('✅ Password updated successfully!', 'alert-success');
-                    setTimeout(function() {
-                        window.location.href = '/';
-                    }, 2000);
+                    // Clear any existing timer
+                    if (redirectTimer) {
+                        clearTimeout(redirectTimer);
+                        redirectTimer = null;
+                    }
+
+                    // Clear local storage to force fresh session
+                    localStorage.removeItem('kms_token');
+                    localStorage.removeItem('kms_user');
+                    sessionStorage.clear();
+
+                    // Show success modal
+                    showSuccessModal();
+
+                    // Auto-redirect after 5 seconds if user doesn't click the button
+                    redirectTimer = setTimeout(function() {
+                        if (!isRedirectingFromModal) {
+                            isRedirectingFromModal = true;
+                            hideSuccessModal();
+                            redirectToDashboard();
+                        }
+                    }, 5000);
+
+                    // Reset button state
+                    changeBtn.disabled = false;
+                    changeBtn.innerHTML = originalText;
+
                 } else if (res.status === 401) {
-                    handleLogout();
+                    // Session expired - redirect to login
+                    if (redirectTimer) {
+                        clearTimeout(redirectTimer);
+                        redirectTimer = null;
+                    }
+                    redirectToLogin();
                 } else {
-                    showMessage(data.error || 'Failed to update password.', 'alert-error');
+                    showMessage(data.error || 'Failed to update password. Please try again.', 'alert-error');
+                    changeBtn.disabled = false;
+                    changeBtn.innerHTML = originalText;
                 }
             } catch (err) {
                 console.error('Password update error:', err);
                 showMessage('Network error. Please try again.', 'alert-error');
-            } finally {
                 changeBtn.disabled = false;
                 changeBtn.innerHTML = originalText;
+            }
+        });
+
+        // Handle page visibility change to prevent loops
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                if (redirectTimer) {
+                    clearTimeout(redirectTimer);
+                    redirectTimer = null;
+                }
+            }
+        });
+
+        // Handle beforeunload to prevent loops
+        window.addEventListener('beforeunload', function() {
+            if (redirectTimer) {
+                clearTimeout(redirectTimer);
+                redirectTimer = null;
             }
         });
     });

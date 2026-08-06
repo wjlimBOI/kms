@@ -137,54 +137,31 @@ function generateSecurePassword(length) {
     return password.split('').sort(() => crypto.randomBytes(1)[0] > 127 ? 1 : -1).join('');
 }
 
-// FIX: generateUniqueUsername - handles numeric suffixes properly
 async function generateUniqueUsername(db, base) {
-    // Clean the base username: remove special chars, lowercase
     let candidate = base.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-    
-    // If empty or too short, generate a random one
     if (!candidate || candidate.length < 3) {
         candidate = 'user_' + Date.now().toString(36);
     }
 
     let unique = false;
     let attempts = 0;
-    const maxAttempts = 50;
     let final = candidate;
 
-    while (!unique && attempts < maxAttempts) {
-        // Check if username exists in users OR pending_users
+    while (!unique && attempts < 20) {
         const check = await db.query(
             `SELECT id FROM users WHERE username = $1
              UNION
              SELECT id FROM pending_users WHERE username = $1`,
             [final]
         );
-        
         if (check.rows.length === 0) {
             unique = true;
         } else {
             attempts++;
-            // If the username ends with a number, increment it
-            // Otherwise, append a number starting from 2
-            const match = candidate.match(/^(.+?)(\d+)$/);
-            if (match && attempts === 1) {
-                // If it already has a number, start from that number + 1
-                const prefix = match[1];
-                const num = parseInt(match[2]);
-                final = prefix + (num + 1);
-            } else if (match && attempts > 1) {
-                const prefix = match[1];
-                const baseNum = parseInt(match[2]);
-                final = prefix + (baseNum + attempts);
-            } else {
-                // No number at the end, append the attempt count
-                final = candidate + attempts;
-            }
+            final = candidate + attempts;
         }
     }
 
-    // If still not unique after max attempts, use timestamp
     if (!unique) {
         final = candidate + '_' + Date.now().toString(36);
     }
@@ -240,7 +217,6 @@ async function createUser(db, userData, options = {}) {
     if (sendEmail) {
         try {
             const changePasswordLink = `${APP_URL}/change-password`;
-            // FIX: Use finalUsername (email prefix) instead of name
             await sendWelcomeEmail(email, finalUsername, tempPassword, changePasswordLink);
             logger.info(`Welcome email sent to ${email} with username ${finalUsername}`);
         } catch (emailErr) {
@@ -780,7 +756,10 @@ router.post('/login', loginLimiter, async (req, res) => {
     }
 });
 
-// PASSWORD MANAGEMENT
+// ============================================================
+// PASSWORD MANAGEMENT - FIXED
+// ============================================================
+
 router.post('/change-password', requireAuth, async (req, res) => {
     const { current_password, new_password } = req.body;
     const userId = req.user?.id || req.session.userId;
@@ -798,7 +777,7 @@ router.post('/change-password', requireAuth, async (req, res) => {
     const db = req.db;
     try {
         const userResult = await db.query(
-            'SELECT password_hash FROM users WHERE id = $1',
+            'SELECT password_hash, must_change_password FROM users WHERE id = $1',
             [userId]
         );
         if (userResult.rowCount === 0) {
@@ -819,8 +798,14 @@ router.post('/change-password', requireAuth, async (req, res) => {
         }
 
         const newHash = await bcrypt.hash(new_password, BCRYPT_ROUNDS);
+
+        // FIX: Update password and clear must_change_password flag
         await db.query(
-            'UPDATE users SET password_hash = $1, must_change_password = false WHERE id = $2',
+            `UPDATE users 
+             SET password_hash = $1, 
+                 must_change_password = false, 
+                 updated_at = NOW() 
+             WHERE id = $2`,
             [newHash, userId]
         );
 
@@ -832,11 +817,52 @@ router.post('/change-password', requireAuth, async (req, res) => {
             extraDetails: { action: 'password_changed' }
         });
 
+        // FIX: Clear session flag and save
         if (req.session) {
             req.session.mustChangePassword = false;
+            // Force session save
+            await new Promise((resolve, reject) => {
+                req.session.save(function(err) {
+                    if (err) {
+                        logger.error('Session save error after password change:', err);
+                        reject(err);
+                    } else {
+                        resolve();
+                    }
+                });
+            });
         }
 
-        res.json({ message: 'Password updated successfully.' });
+        // FIX: Regenerate JWT token if it exists
+        const existingToken = req.cookies?.token;
+        if (existingToken) {
+            try {
+                const decoded = jwt.verify(existingToken, JWT_SECRET);
+                if (decoded && decoded.id) {
+                    const newToken = jwt.sign(
+                        {
+                            id: decoded.id,
+                            username: decoded.username || username,
+                            role: decoded.role || 'user',
+                            email: decoded.email || '',
+                            name: decoded.name || username
+                        },
+                        JWT_SECRET,
+                        { expiresIn: JWT_EXPIRY }
+                    );
+                    setAuthCookie(res, newToken);
+                }
+            } catch (tokenErr) {
+                // Token invalid - clear it
+                clearAuthCookie(res);
+                logger.warn('Invalid token during password change, cleared cookie');
+            }
+        }
+
+        res.json({
+            message: 'Password updated successfully.',
+            mustChangePassword: false
+        });
     } catch (err) {
         logger.error('Change password error', { error: err.message, userId });
         res.status(500).json({ error: 'Internal server error.' });

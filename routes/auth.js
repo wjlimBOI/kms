@@ -137,31 +137,54 @@ function generateSecurePassword(length) {
     return password.split('').sort(() => crypto.randomBytes(1)[0] > 127 ? 1 : -1).join('');
 }
 
+// FIX: generateUniqueUsername - handles numeric suffixes properly
 async function generateUniqueUsername(db, base) {
+    // Clean the base username: remove special chars, lowercase
     let candidate = base.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    
+    // If empty or too short, generate a random one
     if (!candidate || candidate.length < 3) {
         candidate = 'user_' + Date.now().toString(36);
     }
 
     let unique = false;
     let attempts = 0;
+    const maxAttempts = 50;
     let final = candidate;
 
-    while (!unique && attempts < 20) {
+    while (!unique && attempts < maxAttempts) {
+        // Check if username exists in users OR pending_users
         const check = await db.query(
             `SELECT id FROM users WHERE username = $1
              UNION
              SELECT id FROM pending_users WHERE username = $1`,
             [final]
         );
+        
         if (check.rows.length === 0) {
             unique = true;
         } else {
             attempts++;
-            final = candidate + attempts;
+            // If the username ends with a number, increment it
+            // Otherwise, append a number starting from 2
+            const match = candidate.match(/^(.+?)(\d+)$/);
+            if (match && attempts === 1) {
+                // If it already has a number, start from that number + 1
+                const prefix = match[1];
+                const num = parseInt(match[2]);
+                final = prefix + (num + 1);
+            } else if (match && attempts > 1) {
+                const prefix = match[1];
+                const baseNum = parseInt(match[2]);
+                final = prefix + (baseNum + attempts);
+            } else {
+                // No number at the end, append the attempt count
+                final = candidate + attempts;
+            }
         }
     }
 
+    // If still not unique after max attempts, use timestamp
     if (!unique) {
         final = candidate + '_' + Date.now().toString(36);
     }

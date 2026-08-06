@@ -1,7 +1,6 @@
 (function() {
     'use strict';
 
-    // ===== GLOBALS =====
     var isRedirecting = false;
     var refreshInterval = null;
     var isPageVisible = true;
@@ -37,13 +36,11 @@
     var csrfToken = null;
     var csrfFetchPromise = null;
 
-    // Redirect if no token
     if (!localStorage.getItem('kms_token') && !window.location.pathname.includes('/login')) {
         window.location.href = '/login';
         return;
     }
 
-    // ===== AUTH HELPERS =====
     function redirectToLogin() {
         if (isRedirecting) return;
         isRedirecting = true;
@@ -62,7 +59,6 @@
         try { return JSON.parse(localStorage.getItem('kms_user')); } catch (e) { return null; }
     }
 
-    // ===== UTILITY FUNCTIONS =====
     function escapeHtml(str) {
         if (!str) return '';
         var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#x27;', '/': '&#x2F;' };
@@ -120,7 +116,6 @@
         if (el) el.textContent = value;
     }
 
-    // ===== TOAST & ALERTS =====
     function showToast(message, type) {
         type = type || 'success';
         var root = document.getElementById('toastRoot');
@@ -184,7 +179,6 @@
         document.getElementById('detailModal').style.display = 'none';
     }
 
-    // ===== PORTAL MENU =====
     function openPortalMenu(triggerEl, menuHtml, onRender) {
         document.querySelectorAll('.portal-menu').forEach(function(m) { m.remove(); });
         var menu = document.createElement('div');
@@ -223,7 +217,6 @@
         return menu;
     }
 
-    // ===== CONFIRM / PROMPT MODALS =====
     function showConfirm(message, options) {
         options = options || {};
         var title = options.title || 'Please confirm';
@@ -317,7 +310,6 @@
         });
     }
 
-    // ===== PRINT =====
     function printSection(containerId) {
         var container = document.getElementById(containerId);
         if (!container) return;
@@ -344,7 +336,6 @@
         printWin.document.close();
     }
 
-    // ===== AUTHENTICATED FETCH =====
     async function authenticatedFetch(url, options) {
         options = options || {};
         var token = getToken();
@@ -431,7 +422,6 @@
         }
     }
 
-    // ===== CSRF =====
     async function fetchCsrfToken() {
         if (csrfFetchPromise) return csrfFetchPromise;
         csrfFetchPromise = (async function() {
@@ -474,7 +464,10 @@
         return token;
     }
 
-    // ===== AUDIT =====
+    // ============================================================
+    // AUDIT FUNCTIONS
+    // ============================================================
+
     async function loadAuditLogs(page, limit) {
         page = page || auditLogState.page;
         limit = limit || auditLogState.limit;
@@ -754,7 +747,10 @@
         }
     }
 
-    // ===== TRANSACTIONS =====
+    // ============================================================
+    // TRANSACTIONS
+    // ============================================================
+
     async function loadTransactions() {
         var giver = document.getElementById('filterGiver') ? document.getElementById('filterGiver').value.trim() : '';
         var receiver = document.getElementById('filterReceiver') ? document.getElementById('filterReceiver').value.trim() : '';
@@ -865,7 +861,10 @@
         document.getElementById('reminderNextDue').innerText = next ? 'Next due: ' + formatDateShort(next.planned_return) : 'Next due: --';
     }
 
-    // ===== PENDING KEY REQUESTS =====
+    // ============================================================
+    // PENDING KEY REQUESTS
+    // ============================================================
+
     async function loadPendingRequests() {
         try {
             var res = await authenticatedFetch('/api/admin/requests/pending');
@@ -932,7 +931,10 @@
         });
     }
 
-    // ===== PENDING RETURNS =====
+    // ============================================================
+    // PENDING RETURNS
+    // ============================================================
+
     async function loadPendingReturns() {
         try {
             var res = await authenticatedFetch('/api/return/pending');
@@ -985,7 +987,10 @@
         });
     }
 
-    // ===== LOST KEYS =====
+    // ============================================================
+    // LOST KEYS
+    // ============================================================
+
     async function loadLostKeys() {
         try {
             var res = await authenticatedFetch('/api/admin/lost-keys');
@@ -1322,7 +1327,10 @@
         showDetailModal('Return Reminders', summary + '<table class="table-clean"><thead><tr><th>Key</th><th>Borrower</th><th>Due Date</th><th>Status</th></tr></thead><tbody>' + rows + '</tbody></table>');
     }
 
-    // ===== INVENTORY =====
+    // ============================================================
+    // INVENTORY
+    // ============================================================
+
     async function loadInventory() {
         var container = document.getElementById('inventoryTableBody');
         container.innerHTML = '<tr><td colspan="7" class="text-center py-8 text-slate-400"><div class="skeleton h-8 w-full"></div></td></tr>';
@@ -1523,7 +1531,10 @@
         }
     }
 
-    // ===== KEY MANAGEMENT =====
+    // ============================================================
+    // KEY MANAGEMENT
+    // ============================================================
+
     async function openKeyManageModal() {
         document.getElementById('keyManageModal').style.display = 'flex';
         await fetchManageKeys();
@@ -1683,7 +1694,10 @@
         modal.style.display = 'flex';
     }
 
-    // ===== LOST KEYS MANAGEMENT =====
+    // ============================================================
+    // LOST KEYS MANAGEMENT
+    // ============================================================
+
     async function loadLostKeysManagement() {
         var container = document.getElementById('lostKeysManagementContainer');
         if (!container) return;
@@ -1897,7 +1911,10 @@
         }
     }
 
-    // ===== EMAIL =====
+    // ============================================================
+    // EMAIL FUNCTIONS
+    // ============================================================
+
     async function checkEmailPermissions() {
         try {
             var res = await authenticatedFetch('/api/user/permissions');
@@ -2315,7 +2332,10 @@
         }
     }
 
-    // ===== SECURITY =====
+    // ============================================================
+    // SECURITY FUNCTIONS
+    // ============================================================
+
     async function loadSecurityTab() {
         if (securityLoaded) return;
         securityLoaded = true;
@@ -2529,7 +2549,10 @@
         }
     }
 
-    // ===== USER MANAGEMENT =====
+    // ============================================================
+    // USER MANAGEMENT (FIXED: With Username & Single Click Edit)
+    // ============================================================
+
     function initUserManagement() {
         var tbody = document.getElementById('acmUserTableBody');
         var searchInput = document.getElementById('acmSearchInput');
@@ -2562,17 +2585,57 @@
         var manageRows = 5;
         var manageTotal = 0;
 
+        var userModal = document.getElementById('acmUserModal');
+        var modalTitle = document.getElementById('acmModalTitle');
+        var closeModalBtn = document.getElementById('acmCloseModalBtn');
+        var cancelModalBtn = document.getElementById('acmCancelModalBtn');
+        var saveUserBtn = document.getElementById('acmSaveUserBtn');
+        var deleteConfirmModal = document.getElementById('acmDeleteConfirmModal');
+        var cancelDeleteBtn = document.getElementById('acmCancelDeleteBtn');
+        var confirmDeleteBtn = document.getElementById('acmConfirmDeleteBtn');
+        var editUserId = null;
+        var deleteUserId = null;
+
         document.getElementById('openUserManagementBtn') && document.getElementById('openUserManagementBtn').addEventListener('click', function() {
             manageModal.style.display = 'flex';
             fetchManageUsers();
         });
+
         document.getElementById('closeUserManagementModalBtn') && document.getElementById('closeUserManagementModalBtn').addEventListener('click', function() {
             manageModal.style.display = 'none';
         });
+
         manageModal && manageModal.addEventListener('click', function(e) {
             if (e.target === e.currentTarget) manageModal.style.display = 'none';
         });
 
+        // ----- User Modal Controls -----
+        function closeUserModal() { userModal.classList.remove('active'); }
+        function openUserModal() { userModal.classList.add('active'); }
+
+        function resetForm() {
+            editUserId = null;
+            document.getElementById('acmFullName').value = '';
+            document.getElementById('acmEmail').value = '';
+            document.getElementById('acmUsername').value = '';
+            document.getElementById('acmRole').value = '';
+            document.getElementById('acmStatus').value = 'active';
+            modalTitle.innerText = 'Add New User';
+        }
+
+        function openEditUserModal(user) {
+            editUserId = user.id;
+            document.getElementById('acmFullName').value = user.name || '';
+            document.getElementById('acmEmail').value = user.email || '';
+            document.getElementById('acmUsername').value = user.username || '';
+            document.getElementById('acmRole').value = user.role || '';
+            document.getElementById('acmStatus').value = user.status || 'active';
+            modalTitle.innerText = 'Edit User';
+            userModal.classList.add('active');
+            manageModal.style.display = 'none';
+        }
+
+        // ----- Inline Table -----
         async function fetchUsersInline() {
             var search = searchInput.value.trim();
             var role = roleFilter.value;
@@ -2594,14 +2657,14 @@
                 renderInlineTable();
                 updateInlinePagination();
             } catch (err) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-rose-600">Unable to load users. Please refresh.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-rose-600">Unable to load users. Please refresh.</td></tr>';
                 showAlertModal(err.message || 'Failed to load users.', 'error');
             }
         }
 
         function renderInlineTable() {
             if (!filteredUsers.length) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center py-8 text-slate-400">No users found</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">No users found</td></tr>';
                 return;
             }
 
@@ -2613,14 +2676,32 @@
                     user.status === 'locked' ? 'bg-amber-100 text-amber-700' : 'bg-amber-100 text-amber-700';
                 var statusLabel = user.status.charAt(0).toUpperCase() + user.status.slice(1);
 
-                html += '<tr class="hover:bg-slate-50 transition">'
+                html += '<tr class="hover:bg-slate-50 transition cursor-pointer user-row" data-user-id="' + user.id + '">'
                     + '<td style="text-align:center;"><div><div class="text-sm font-medium text-slate-800">' + escapeHtml(user.name || 'User') + '</div>'
                     + '<div class="text-sm text-slate-500">' + escapeHtml(user.email) + '</div></div></td>'
+                    + '<td style="text-align:center;">' + escapeHtml(user.username || '—') + '</td>'
                     + '<td style="text-align:center;">' + escapeHtml(user.role) + '</td>'
                     + '<td style="text-align:center;"><span class="status-badge ' + statusBadge + '">' + statusLabel + '</span></td>'
                     + '<td style="text-align:center;">' + formatLastActive(user.lastActive) + '</td></tr>';
             }
             tbody.innerHTML = html;
+
+            // FIX: Click on any user row opens the edit modal
+            document.querySelectorAll('.user-row').forEach(function(row) {
+                row.addEventListener('click', function() {
+                    var userId = parseInt(this.dataset.userId);
+                    var user = null;
+                    for (var i = 0; i < allUsers.length; i++) {
+                        if (allUsers[i].id === userId) {
+                            user = allUsers[i];
+                            break;
+                        }
+                    }
+                    if (user) {
+                        openEditUserModal(user);
+                    }
+                });
+            });
         }
 
         function updateInlinePagination() {
@@ -2659,17 +2740,7 @@
 
         fetchUsersInline();
 
-        var userModal = document.getElementById('acmUserModal');
-        var modalTitle = document.getElementById('acmModalTitle');
-        var closeModalBtn = document.getElementById('acmCloseModalBtn');
-        var cancelModalBtn = document.getElementById('acmCancelModalBtn');
-        var saveUserBtn = document.getElementById('acmSaveUserBtn');
-        var deleteConfirmModal = document.getElementById('acmDeleteConfirmModal');
-        var cancelDeleteBtn = document.getElementById('acmCancelDeleteBtn');
-        var confirmDeleteBtn = document.getElementById('acmConfirmDeleteBtn');
-        var editUserId = null;
-        var deleteUserId = null;
-
+        // ----- Manage Table -----
         async function fetchManageUsers() {
             var search = manageSearch.value.trim();
             var role = manageRoleFilter.value;
@@ -2692,14 +2763,14 @@
                 updateManagePagination();
                 if (manageTotalLabel) manageTotalLabel.textContent = 'Total: ' + manageTotal;
             } catch (err) {
-                manageTbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-rose-600">Unable to load users. Please refresh.</td></tr>';
+                manageTbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-rose-600">Unable to load users. Please refresh.</td></tr>';
                 showAlertModal(err.message || 'Failed to load users.', 'error');
             }
         }
 
         function renderManageTable() {
             if (!manageFiltered.length) {
-                manageTbody.innerHTML = '<tr><td colspan="5" class="text-center py-8 text-slate-400">No users found</td></tr>';
+                manageTbody.innerHTML = '<tr><td colspan="6" class="text-center py-8 text-slate-400">No users found</td></tr>';
                 return;
             }
 
@@ -2714,6 +2785,7 @@
                 html += '<tr class="hover:bg-slate-50 transition">'
                     + '<td style="text-align:center;"><div><div class="text-sm font-medium text-slate-800">' + escapeHtml(user.name || 'User') + '</div>'
                     + '<div class="text-sm text-slate-500">' + escapeHtml(user.email) + '</div></div></td>'
+                    + '<td style="text-align:center;">' + escapeHtml(user.username || '—') + '</td>'
                     + '<td style="text-align:center;">' + escapeHtml(user.role) + '</td>'
                     + '<td style="text-align:center;"><span class="status-badge ' + statusBadge + '">' + statusLabel + '</span></td>'
                     + '<td style="text-align:center;">' + formatLastActive(user.lastActive) + '</td>'
@@ -2747,14 +2819,7 @@
                     openPortalMenu(this, menuHtml, function(menu) {
                         menu.querySelector('[data-action="edit"]') && menu.querySelector('[data-action="edit"]').addEventListener('click', function() {
                             menu.remove();
-                            editUserId = user.id;
-                            document.getElementById('acmFullName').value = user.name;
-                            document.getElementById('acmEmail').value = user.email;
-                            document.getElementById('acmRole').value = user.role;
-                            document.getElementById('acmStatus').value = user.status;
-                            modalTitle.innerText = 'Edit User';
-                            userModal.classList.add('active');
-                            manageModal.style.display = 'none';
+                            openEditUserModal(user);
                         });
 
                         menu.querySelector('[data-action="suspend"]') && menu.querySelector('[data-action="suspend"]').addEventListener('click', async function() {
@@ -2866,22 +2931,11 @@
             manageModal.style.display = 'none';
         });
 
-        function closeUserModal() { userModal.classList.remove('active'); }
-
-        function openUserModal() { userModal.classList.add('active'); }
-
-        function resetForm() {
-            editUserId = null;
-            document.getElementById('acmFullName').value = '';
-            document.getElementById('acmEmail').value = '';
-            document.getElementById('acmRole').value = '';
-            document.getElementById('acmStatus').value = 'active';
-            modalTitle.innerText = 'Add New User';
-        }
-
+        // ----- Save User -----
         async function saveUser() {
             var name = document.getElementById('acmFullName').value.trim();
             var email = document.getElementById('acmEmail').value.trim();
+            var username = document.getElementById('acmUsername').value.trim();
             var role = document.getElementById('acmRole').value;
             var status = document.getElementById('acmStatus').value;
 
@@ -2898,7 +2952,7 @@
             saveUserBtn.innerText = 'Saving...';
 
             try {
-                var payload = { name: name, email: email, role: role, status: status };
+                var payload = { name: name, email: email, username: username, role: role, status: status };
                 var res;
                 if (editUserId) {
                     res = await authenticatedFetch('/api/admin/users/' + editUserId, { method: 'PUT', body: payload });
@@ -2923,6 +2977,11 @@
             }
         }
 
+        closeModalBtn && closeModalBtn.addEventListener('click', closeUserModal);
+        cancelModalBtn && cancelModalBtn.addEventListener('click', closeUserModal);
+        saveUserBtn && saveUserBtn.addEventListener('click', saveUser);
+
+        // ----- Delete Confirm -----
         function closeDeleteModal() { deleteConfirmModal.classList.remove('active'); }
 
         async function confirmDelete() {
@@ -2951,20 +3010,17 @@
             }
         }
 
-        closeModalBtn && closeModalBtn.addEventListener('click', closeUserModal);
-        cancelModalBtn && cancelModalBtn.addEventListener('click', closeUserModal);
-        saveUserBtn && saveUserBtn.addEventListener('click', saveUser);
         cancelDeleteBtn && cancelDeleteBtn.addEventListener('click', closeDeleteModal);
         confirmDeleteBtn && confirmDeleteBtn.addEventListener('click', confirmDelete);
-        userModal && userModal.addEventListener('click', function(e) {
-            if (e.target === userModal) closeUserModal();
-        });
         deleteConfirmModal && deleteConfirmModal.addEventListener('click', function(e) {
             if (e.target === deleteConfirmModal) closeDeleteModal();
         });
     }
 
-    // ===== PENDING REGISTRATIONS =====
+    // ============================================================
+    // PENDING REGISTRATIONS
+    // ============================================================
+
     async function loadPendingRegistrations() {
         var container = document.getElementById('pendingRequestsContainer');
         container.innerHTML = '<div class="text-center py-8 text-slate-400">Loading requests...</div>';
@@ -3074,7 +3130,10 @@
         }
     }
 
-    // ===== PROFILE =====
+    // ============================================================
+    // PROFILE
+    // ============================================================
+
     function openProfileModal() {
         var user = getUser();
         if (user) {
@@ -3096,7 +3155,10 @@
         if (mobileMenu) mobileMenu.classList.remove('open');
     }
 
-    // ===== LOGOUT =====
+    // ============================================================
+    // LOGOUT
+    // ============================================================
+
     async function handleLogout() {
         if (isRedirecting) return;
         isRedirecting = true;
@@ -3121,7 +3183,10 @@
         }
     }
 
-    // ===== AUTH CHECK =====
+    // ============================================================
+    // AUTH CHECK
+    // ============================================================
+
     async function checkAuth() {
         try {
             var token = getToken();
@@ -3186,25 +3251,32 @@
         }
     }
 
-    // ===== EVENT LISTENERS =====
+    // ============================================================
+    // EVENT LISTENERS
+    // ============================================================
+
     function initEventListeners() {
+        // Alert Modal
         document.getElementById('alertOkBtn') && document.getElementById('alertOkBtn').addEventListener('click', closeAlertModal);
         document.getElementById('alertModal') && document.getElementById('alertModal').addEventListener('click', function(e) {
             if (e.target === this) closeAlertModal();
         });
 
+        // Detail Modal
         document.getElementById('closeDetailModalBtn') && document.getElementById('closeDetailModalBtn').addEventListener('click', closeDetailModal);
         document.getElementById('closeDetailModalFooterBtn') && document.getElementById('closeDetailModalFooterBtn').addEventListener('click', closeDetailModal);
         document.getElementById('detailModal') && document.getElementById('detailModal').addEventListener('click', function(e) {
             if (e.target === e.currentTarget) closeDetailModal();
         });
 
+        // Brand Home Link
         document.getElementById('brandHomeLink') && document.getElementById('brandHomeLink').addEventListener('click', function(e) {
             e.preventDefault();
             var dashboardTab = document.querySelector('.tab-button[data-tab="dashboard"]');
             if (dashboardTab) dashboardTab.click();
         });
 
+        // Mobile Menu
         var mobileMenuBtn = document.getElementById('mobileMenuBtn');
         var mobileMenu = document.getElementById('mobileMenu');
         if (mobileMenuBtn && mobileMenu) {
@@ -3219,12 +3291,15 @@
             });
         }
 
+        // Logout
         document.getElementById('mobileLogoutBtn') && document.getElementById('mobileLogoutBtn').addEventListener('click', handleLogout);
         document.getElementById('logoutBtn') && document.getElementById('logoutBtn').addEventListener('click', handleLogout);
 
+        // Profile
         document.getElementById('myProfileBtn') && document.getElementById('myProfileBtn').addEventListener('click', openProfileModal);
         document.getElementById('mobileProfileBtn') && document.getElementById('mobileProfileBtn').addEventListener('click', openProfileModal);
 
+        // Profile Modal
         document.getElementById('closeProfileModalBtn') && document.getElementById('closeProfileModalBtn').addEventListener('click', function() {
             document.getElementById('profileModal').style.display = 'none';
         });
@@ -3237,6 +3312,7 @@
             }
         });
 
+        // Save Profile
         document.getElementById('saveProfileBtn') && document.getElementById('saveProfileBtn').addEventListener('click', async function() {
             var name = document.getElementById('profileName').value.trim();
             var email = document.getElementById('profileEmail').value.trim();
@@ -3282,6 +3358,7 @@
             }
         });
 
+        // Tab Buttons
         document.querySelectorAll('.tab-button').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('.tab-button').forEach(function(b) { b.classList.remove('active'); });
@@ -3309,6 +3386,7 @@
             });
         });
 
+        // Sub Tab Buttons
         document.querySelectorAll('.sub-tab-button').forEach(function(btn) {
             btn.addEventListener('click', function() {
                 document.querySelectorAll('.sub-tab-button').forEach(function(b) { b.classList.remove('active'); });
@@ -3323,8 +3401,10 @@
             });
         });
 
+        // Refresh Requests
         document.getElementById('refreshRequestsBtn') && document.getElementById('refreshRequestsBtn').addEventListener('click', loadPendingRegistrations);
 
+        // Transactions
         document.getElementById('transactionsRowsPerPage') && document.getElementById('transactionsRowsPerPage').addEventListener('change', function() {
             txRows = parseInt(this.value);
             txPage = 1;
@@ -3348,6 +3428,7 @@
             }
         });
 
+        // Cards
         document.getElementById('pendingRequestsCard') && document.getElementById('pendingRequestsCard').addEventListener('click', showPendingRequestsModal);
         document.getElementById('pendingKeyRequestsCard') && document.getElementById('pendingKeyRequestsCard').addEventListener('click', showPendingRequestsModal);
         document.getElementById('pendingReturnsCard') && document.getElementById('pendingReturnsCard').addEventListener('click', showPendingReturnsModal);
@@ -3355,8 +3436,10 @@
         document.getElementById('returnRemindersCard') && document.getElementById('returnRemindersCard').addEventListener('click', showReturnRemindersModal);
         document.getElementById('lostKeysCard') && document.getElementById('lostKeysCard').addEventListener('click', showLostKeysModal);
 
+        // Audit Refresh
         document.getElementById('refreshAuditBtn') && document.getElementById('refreshAuditBtn').addEventListener('click', loadAuditHealth);
 
+        // Modal Confirm
         document.getElementById('modalConfirmBtn') && document.getElementById('modalConfirmBtn').addEventListener('click', async function() {
             var notes = document.getElementById('modalNotes').value.trim();
             var action = currentAction;
@@ -3384,6 +3467,7 @@
             }
         });
 
+        // Modal Cancel
         document.getElementById('modalCancelBtn') && document.getElementById('modalCancelBtn').addEventListener('click', function() {
             document.getElementById('adminModal').style.display = 'none';
         });
@@ -3396,6 +3480,7 @@
             }
         });
 
+        // Search / Reset
         document.getElementById('searchBtn') && document.getElementById('searchBtn').addEventListener('click', function(e) {
             e.preventDefault();
             loadTransactions();
@@ -3414,6 +3499,7 @@
             loadTransactions();
         });
 
+        // Inventory
         document.getElementById('inventorySearchInput') && document.getElementById('inventorySearchInput').addEventListener('input', function() {
             if (searchTimeout) clearTimeout(searchTimeout);
             searchTimeout = setTimeout(function() {
@@ -3453,6 +3539,7 @@
             applyInventoryFilters();
         });
 
+        // Key Management
         document.getElementById('manageKeysBtn') && document.getElementById('manageKeysBtn').addEventListener('click', openKeyManageModal);
 
         document.getElementById('closeKeyManageModalBtn') && document.getElementById('closeKeyManageModalBtn').addEventListener('click', function() {
@@ -3500,6 +3587,7 @@
             document.getElementById('keyManageModal').style.display = 'none';
         });
 
+        // Key Edit Modal
         document.getElementById('closeKeyEditModalBtn') && document.getElementById('closeKeyEditModalBtn').addEventListener('click', function() {
             document.getElementById('keyEditModal').style.display = 'none';
         });
@@ -3574,6 +3662,7 @@
             }
         });
 
+        // Print
         document.addEventListener('click', function(e) {
             var btn = e.target.closest('.btn-print');
             if (!btn) return;
@@ -3592,6 +3681,7 @@
             printSection(containerId);
         });
 
+        // Templates
         document.getElementById('manageTemplatesBtn') && document.getElementById('manageTemplatesBtn').addEventListener('click', openTemplateManageModal);
         document.getElementById('closeTemplateManageModalBtn') && document.getElementById('closeTemplateManageModalBtn').addEventListener('click', function() {
             document.getElementById('templateManageModal').style.display = 'none';
@@ -3663,6 +3753,7 @@
             }
         });
 
+        // Settings
         document.getElementById('saveSettingsBtn') && document.getElementById('saveSettingsBtn').addEventListener('click', async function() {
             var toggles = document.querySelectorAll('.setting-toggle');
             var updates = [];
@@ -3704,6 +3795,7 @@
             }
         });
 
+        // Admin Recipients
         document.getElementById('addAdminRecipientBtn') && document.getElementById('addAdminRecipientBtn').addEventListener('click', openAddAdminRecipientModal);
         document.getElementById('closeAddAdminRecipientModalBtn') && document.getElementById('closeAddAdminRecipientModalBtn').addEventListener('click', function() {
             document.getElementById('addAdminRecipientModal').style.display = 'none';
@@ -3745,6 +3837,7 @@
             }
         });
 
+        // Lost Keys
         document.getElementById('refreshLostKeysBtn') && document.getElementById('refreshLostKeysBtn').addEventListener('click', loadLostKeysManagement);
 
         document.getElementById('closeLostKeyDetailModalBtn') && document.getElementById('closeLostKeyDetailModalBtn').addEventListener('click', function() {
@@ -3811,13 +3904,13 @@
             var originalHtml = this.innerHTML;
             this.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             this.disabled = true;
-
             loadAuditLogs().finally(function() {
                 refreshAuditLogBtn.innerHTML = originalHtml;
                 refreshAuditLogBtn.disabled = false;
             });
         });
 
+        // Roles
         document.getElementById('addRoleBtn') && document.getElementById('addRoleBtn').addEventListener('click', function() {
             document.getElementById('newRoleName').value = '';
             document.getElementById('addRoleModal').style.display = 'flex';
@@ -3882,6 +3975,7 @@
             }
         });
 
+        // Key Detail Modal
         document.getElementById('closeKeyDetailModalBtn') && document.getElementById('closeKeyDetailModalBtn').addEventListener('click', function() {
             document.getElementById('keyDetailModal').style.display = 'none';
         });
@@ -3893,23 +3987,12 @@
                 document.getElementById('keyDetailModal').style.display = 'none';
             }
         });
-
-        document.getElementById('openUserManagementBtn') && document.getElementById('openUserManagementBtn').addEventListener('click', function() {
-            document.getElementById('userManagementModal').style.display = 'flex';
-            fetchManageUsers();
-        });
-
-        document.getElementById('closeUserManagementModalBtn') && document.getElementById('closeUserManagementModalBtn').addEventListener('click', function() {
-            document.getElementById('userManagementModal').style.display = 'none';
-        });
-        document.getElementById('userManagementModal') && document.getElementById('userManagementModal').addEventListener('click', function(e) {
-            if (e.target === e.currentTarget) {
-                document.getElementById('userManagementModal').style.display = 'none';
-            }
-        });
     }
 
-    // ===== REFRESH INTERVAL =====
+    // ============================================================
+    // REFRESH INTERVAL
+    // ============================================================
+
     function startRefreshInterval() {
         if (refreshInterval) clearInterval(refreshInterval);
         refreshInterval = setInterval(function() {
@@ -3923,7 +4006,10 @@
         }, 60000);
     }
 
-    // ===== INIT =====
+    // ============================================================
+    // INIT
+    // ============================================================
+
     async function init() {
         var isAuthenticated = await checkAuth();
         if (!isAuthenticated) return;

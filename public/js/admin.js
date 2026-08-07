@@ -3188,68 +3188,79 @@
     // ============================================================
 
     async function checkAuth() {
-        try {
-            var token = getToken();
-            if (!token) {
-                if (!isRedirecting) redirectToLogin();
-                return false;
-            }
-
-            var response = await fetch('/api/auth/check-session', {
-                credentials: 'include',
-                headers: { 'Accept': 'application/json' }
-            });
-
-            if (!response.ok) {
-                if (!isRedirecting) redirectToLogin();
-                return false;
-            }
-
-            var data = await response.json();
-            if (!data.authenticated) {
-                if (!isRedirecting) redirectToLogin();
-                return false;
-            }
-
-            if (data.user) {
-                try {
-                    var profileRes = await fetch('/api/user/profile', {
-                        credentials: 'include',
-                        headers: {
-                            'Authorization': 'Bearer ' + token,
-                            'Accept': 'application/json'
-                        }
-                    });
-                    if (profileRes.ok) {
-                        var profileData = await profileRes.json();
-                        data.user.name = profileData.name || data.user.name || 'User';
-                        data.user.email = profileData.email || data.user.email;
-                        data.user.role = profileData.role || data.user.role || 'user';
-                    }
-                } catch (profileErr) {
-                    if (!data.user.name) data.user.name = 'User';
-                }
-                if (!data.user.name || data.user.name.trim() === '') {
-                    data.user.name = 'User';
-                }
-                localStorage.setItem('kms_user', JSON.stringify(data.user));
-            }
-
-            if (data.user.role !== 'admin') {
-                var accessDenied = document.getElementById('accessDenied');
-                var loadingContainer = document.getElementById('loadingContainer');
-                if (accessDenied) accessDenied.style.display = 'flex';
-                if (loadingContainer) loadingContainer.style.display = 'none';
-                return false;
-            }
-
-            return true;
-        } catch (error) {
-            console.error('Auth check failed:', error);
+    try {
+        var token = getToken();
+        if (!token) {
             if (!isRedirecting) redirectToLogin();
             return false;
         }
+
+        var response = await fetch('/api/auth/check-session', {
+            credentials: 'include',
+            headers: { 'Accept': 'application/json' }
+        });
+
+        if (!response.ok) {
+            if (!isRedirecting) redirectToLogin();
+            return false;
+        }
+
+        var data = await response.json();
+        if (!data.authenticated) {
+            if (!isRedirecting) redirectToLogin();
+            return false;
+        }
+
+        // FIX: Only fetch profile if user exists, but don't call checkAuth again
+        if (data.user) {
+            try {
+                var profileRes = await fetch('/api/user/profile', {
+                    credentials: 'include',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Accept': 'application/json'
+                    }
+                });
+                if (profileRes.ok) {
+                    var profileData = await profileRes.json();
+                    data.user.name = profileData.name || data.user.name || 'User';
+                    data.user.email = profileData.email || data.user.email;
+                    data.user.role = profileData.role || data.user.role || 'user';
+                }
+                // FIX: Don't call checkAuth() again - this was causing the infinite loop!
+            } catch (profileErr) {
+                // FIX: Just log the error and continue - don't redirect or retry
+                console.warn('Profile fetch error (non-critical):', profileErr.message);
+                if (!data.user.name || data.user.name.trim() === '') {
+                    data.user.name = 'User';
+                }
+            }
+        }
+
+        // Update user in localStorage with whatever we have
+        if (data.user) {
+            if (!data.user.name || data.user.name.trim() === '') {
+                data.user.name = 'User';
+            }
+            localStorage.setItem('kms_user', JSON.stringify(data.user));
+        }
+
+        // Check admin role
+        if (data.user && data.user.role !== 'admin') {
+            var accessDenied = document.getElementById('accessDenied');
+            var loadingContainer = document.getElementById('loadingContainer');
+            if (accessDenied) accessDenied.style.display = 'flex';
+            if (loadingContainer) loadingContainer.style.display = 'none';
+            return false;
+        }
+
+        return true;
+    } catch (error) {
+        console.error('Auth check failed:', error);
+        if (!isRedirecting) redirectToLogin();
+        return false;
     }
+}
 
     // ============================================================
     // EVENT LISTENERS

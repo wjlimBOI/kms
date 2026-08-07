@@ -2,6 +2,7 @@
     'use strict';
 
     let isRedirecting = false;
+    let sessionCheckDone = false; // Prevent multiple session checks
 
     function redirectToLogin() {
         if (isRedirecting) return;
@@ -16,6 +17,10 @@
     }
 
     async function checkSessionAndRedirect() {
+        // FIX: Prevent multiple simultaneous session checks
+        if (sessionCheckDone) return false;
+        sessionCheckDone = true;
+
         try {
             const response = await fetch('/api/auth/check-session', {
                 credentials: 'include',
@@ -23,15 +28,33 @@
             });
             if (!response.ok) return false;
             const data = await response.json();
+            
+            // FIX: Only redirect if authenticated and user data is valid
             if (data.authenticated && data.user) {
+                // Don't redirect if already on the page we're trying to go to
+                const currentPath = window.location.pathname;
+                const targetPath = data.user.role === 'admin' ? '/admin' : '/';
+                
+                // FIX: Prevent redirect loop - check if already on target
+                if (currentPath === targetPath || 
+                    (targetPath === '/admin' && currentPath.startsWith('/admin')) ||
+                    (targetPath === '/' && currentPath === '/')) {
+                    return true;
+                }
+                
                 localStorage.setItem('kms_user', JSON.stringify(data.user));
+                // Also store token if available from session
+                if (data.token) {
+                    localStorage.setItem('kms_token', data.token);
+                }
                 isRedirecting = true;
-                window.location.href = data.user.role === 'admin' ? '/admin' : '/';
+                window.location.href = targetPath;
                 return true;
             }
             return false;
         } catch (error) {
             console.error('Session check error:', error);
+            sessionCheckDone = false; // Allow retry on error
             return false;
         }
     }
@@ -44,11 +67,17 @@
     }
 
     async function init() {
-        await ensureCsrfToken();
-        const isRedirected = await checkSessionAndRedirect();
-        if (!isRedirected && !isRedirecting) {
-            showLoginForm();
-            initializeEventListeners();
+        // FIX: Check if we're already on login page to prevent redirect loop
+        if (window.location.pathname === '/login' || window.location.pathname === '/login/') {
+            await ensureCsrfToken();
+            const isRedirected = await checkSessionAndRedirect();
+            if (!isRedirected && !isRedirecting) {
+                showLoginForm();
+                initializeEventListeners();
+            }
+        } else {
+            // If not on login page, redirect to login
+            redirectToLogin();
         }
     }
 
@@ -539,6 +568,37 @@
                 }
             });
         }
+    }
+
+    // FIX: Ensure CSRF token functions are available
+    // These should be defined in csrf.js but adding a fallback
+    async function ensureCsrfToken() {
+        if (typeof window.ensureCsrfToken === 'function') {
+            return await window.ensureCsrfToken();
+        }
+        // Fallback: try to fetch CSRF token
+        try {
+            const response = await fetch('/api/csrf-token', {
+                credentials: 'include',
+                headers: { 'Accept': 'application/json' }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                window.csrfToken = data.csrfToken;
+                return data.csrfToken;
+            }
+            return null;
+        } catch (err) {
+            console.error('CSRF token fallback error:', err);
+            return null;
+        }
+    }
+
+    async function getCsrfToken() {
+        if (typeof window.getCsrfToken === 'function') {
+            return await window.getCsrfToken();
+        }
+        return window.csrfToken || await ensureCsrfToken();
     }
 
     document.addEventListener('DOMContentLoaded', init);

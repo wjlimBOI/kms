@@ -17,6 +17,10 @@
     let notificationTimeout = null;
     let pendingLostTransaction = null;
 
+    // ============================================================
+    // AUTH & UTILITY FUNCTIONS
+    // ============================================================
+
     function redirectToLogin() {
         if (isRedirecting) return;
         isRedirecting = true;
@@ -128,7 +132,8 @@
         return { text: `Due in ${hours} hour${hours !== 1 ? 's' : ''}`, urgencyClass: 'return-urgent' };
     }
 
-    function showToast(message, type = 'success') {
+    function showToast(message, type) {
+        type = type || 'success';
         let toastRoot = document.getElementById('toastRoot');
         if (!toastRoot) {
             toastRoot = document.createElement('div');
@@ -142,10 +147,11 @@
         else if (type === 'warning') toast.style.background = '#F59E0B';
         else toast.style.background = '#1E293B';
         toastRoot.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
+        setTimeout(function() { toast.remove(); }, 3000);
     }
 
-    function showNotification(title, message, type = 'success') {
+    function showNotification(title, message, type) {
+        type = type || 'success';
         const modal = document.getElementById('notificationModal');
         if (!modal) return;
         const iconDiv = document.getElementById('notificationIcon');
@@ -163,12 +169,12 @@
         } else {
             iconSvg = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />';
         }
-        iconDiv.innerHTML = `<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">${iconSvg}</svg>`;
+        iconDiv.innerHTML = '<svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">' + iconSvg + '</svg>';
         titleSpan.innerText = title;
         messageSpan.innerText = message;
         modal.style.display = 'flex';
         if (notificationTimeout) clearTimeout(notificationTimeout);
-        notificationTimeout = setTimeout(() => closeNotification(), 3000);
+        notificationTimeout = setTimeout(function() { closeNotification(); }, 3000);
     }
 
     function closeNotification() {
@@ -181,7 +187,7 @@
         const info = getReturnStatus(returnDateISO);
         const pop = document.createElement('div');
         pop.className = 'popover';
-        pop.innerHTML = `<div><span class="font-semibold text-slate-800">${escapeHtml(borrower)}</span></div><hr class="my-2"><div class="text-slate-600">Expected return: <span class="${info.urgencyClass}">${info.text}</span></div>`;
+        pop.innerHTML = '<div><span class="font-semibold text-slate-800">' + escapeHtml(borrower) + '</span></div><hr class="my-2"><div class="text-slate-600">Expected return: <span class="' + info.urgencyClass + '">' + info.text + '</span></div>';
         return pop;
     }
 
@@ -190,8 +196,8 @@
         const pop = createPopover(borrower, returnDate);
         document.body.appendChild(pop);
         const rect = target.getBoundingClientRect();
-        pop.style.top = `${rect.bottom + window.scrollY + 6}px`;
-        pop.style.left = `${rect.left + window.scrollX + rect.width / 2 - 100}px`;
+        pop.style.top = (rect.bottom + window.scrollY + 6) + 'px';
+        pop.style.left = (rect.left + window.scrollX + rect.width / 2 - 100) + 'px';
         pop.classList.add('show');
         activePopover = pop;
     }
@@ -203,7 +209,12 @@
         }
     }
 
-    async function authenticatedFetch(url, options = {}) {
+    // ============================================================
+    // AUTHENTICATED FETCH
+    // ============================================================
+
+    async function authenticatedFetch(url, options) {
+        options = options || {};
         const token = getToken();
         if (!token) {
             if (!isRedirecting) redirectToLogin();
@@ -213,7 +224,7 @@
         const csrf = await getCsrfToken();
 
         const headers = {
-            'Authorization': `Bearer ${token}`,
+            'Authorization': 'Bearer ' + token,
             'X-CSRF-Token': csrf || '',
             'X-Requested-With': 'XMLHttpRequest',
             'Accept': 'application/json',
@@ -235,7 +246,7 @@
             let response = await fetch(url, fetchOptions);
 
             if (response.status === 403) {
-                const errorData = await response.json().catch(() => ({}));
+                const errorData = await response.json().catch(function() { return {}; });
                 if (errorData.error === 'Invalid CSRF token' || errorData.code === 'INVALID_CSRF') {
                     const newCsrf = await refreshCsrfToken();
                     if (newCsrf) {
@@ -253,12 +264,16 @@
 
             return response;
         } catch (error) {
-            if (error.name === 'TypeError' && error.message.includes('fetch')) {
+            if (error.name === 'TypeError' && error.message.indexOf('fetch') !== -1) {
                 throw new Error('Network error. Please check your connection.');
             }
             throw error;
         }
     }
+
+    // ============================================================
+    // AUTH CHECK - FIXED: Ensures user data is properly loaded
+    // ============================================================
 
     async function checkAuth() {
         try {
@@ -284,7 +299,31 @@
                 return false;
             }
 
-            localStorage.setItem('kms_user', JSON.stringify(data.user));
+            // FIX: Ensure user has name and email from profile
+            if (data.user) {
+                try {
+                    const profileRes = await fetch('/api/user/profile', {
+                        credentials: 'include',
+                        headers: {
+                            'Authorization': 'Bearer ' + token,
+                            'Accept': 'application/json'
+                        }
+                    });
+                    if (profileRes.ok) {
+                        const profileData = await profileRes.json();
+                        data.user.name = profileData.name || data.user.name || 'User';
+                        data.user.email = profileData.email || data.user.email;
+                        data.user.role = profileData.role || data.user.role || 'user';
+                    }
+                } catch (profileErr) {
+                    if (!data.user.name) data.user.name = 'User';
+                }
+                if (!data.user.name || data.user.name.trim() === '') {
+                    data.user.name = 'User';
+                }
+                localStorage.setItem('kms_user', JSON.stringify(data.user));
+            }
+
             return true;
         } catch (error) {
             console.error('Auth check failed:', error);
@@ -302,12 +341,12 @@
                 await fetch('/api/auth/logout', {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${token}`,
+                        'Authorization': 'Bearer ' + token,
                         'Content-Type': 'application/json',
                         'Cache-Control': 'no-cache, no-store'
                     },
                     credentials: 'include'
-                }).catch(() => {});
+                }).catch(function() {});
             }
         } catch (error) {
             console.error('Logout error:', error);
@@ -315,6 +354,100 @@
             window.location.replace('/force-logout');
         }
     }
+
+    // ============================================================
+    // PROFILE - FIXED: Persists name and email
+    // ============================================================
+
+    function openProfileModal() {
+        const modal = document.getElementById('profileModal');
+        if (modal) {
+            const user = getUser();
+            if (user) {
+                document.getElementById('profileName').value = user.name || '';
+                document.getElementById('profileEmail').value = user.email || '';
+            }
+            document.getElementById('profileCurrentPassword').value = '';
+            document.getElementById('profileNewPassword').value = '';
+            document.getElementById('profileError').style.display = 'none';
+            document.getElementById('profileSuccess').style.display = 'none';
+            modal.style.display = 'flex';
+        }
+    }
+
+    async function saveProfile() {
+        const name = document.getElementById('profileName').value.trim();
+        const email = document.getElementById('profileEmail').value.trim();
+        const currentPassword = document.getElementById('profileCurrentPassword').value;
+        const newPassword = document.getElementById('profileNewPassword').value;
+        const errorDiv = document.getElementById('profileError');
+        const successDiv = document.getElementById('profileSuccess');
+        const btn = document.getElementById('saveProfileBtn');
+
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+
+        if (!name || !email || !email.includes('@') || !email.includes('.')) {
+            errorDiv.textContent = !name || !email ? 'Name and email are required.' : 'Please enter a valid email address.';
+            errorDiv.style.display = 'block';
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+
+        try {
+            const payload = { name: name, email: email };
+            if (newPassword) {
+                if (!currentPassword) {
+                    errorDiv.textContent = 'Current password is required to change password.';
+                    errorDiv.style.display = 'block';
+                    btn.disabled = false;
+                    btn.textContent = 'Save Changes';
+                    return;
+                }
+                payload.current_password = currentPassword;
+                payload.new_password = newPassword;
+            }
+
+            const res = await authenticatedFetch('/api/user/profile', {
+                method: 'PUT',
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            if (res.ok) {
+                const user = getUser();
+                if (user) {
+                    user.name = name;
+                    user.email = email;
+                    localStorage.setItem('kms_user', JSON.stringify(user));
+                }
+                successDiv.textContent = 'Profile updated successfully!';
+                successDiv.style.display = 'block';
+                document.getElementById('profileCurrentPassword').value = '';
+                document.getElementById('profileNewPassword').value = '';
+                // FIX: Refresh page to ensure all components use updated user data
+                setTimeout(function() {
+                    document.getElementById('profileModal').style.display = 'none';
+                    window.location.reload();
+                }, 1500);
+            } else {
+                errorDiv.textContent = data.error || 'Failed to update profile.';
+                errorDiv.style.display = 'block';
+            }
+        } catch (err) {
+            errorDiv.textContent = err.message || 'Network error. Please try again.';
+            errorDiv.style.display = 'block';
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Save Changes';
+        }
+    }
+
+    // ============================================================
+    // BORROW TOGGLE
+    // ============================================================
 
     function initBorrowToggle() {
         const toggleBtns = document.querySelectorAll('.borrow-toggle-btn');
@@ -333,10 +466,10 @@
             plannedReturn.value = returnDate.toISOString().slice(0, 16);
         }
 
-        toggleBtns.forEach(btn => {
+        toggleBtns.forEach(function(btn) {
             btn.addEventListener('click', function(e) {
                 e.preventDefault();
-                toggleBtns.forEach(b => b.classList.remove('active'));
+                toggleBtns.forEach(function(b) { b.classList.remove('active'); });
                 this.classList.add('active');
 
                 const borrowType = this.dataset.borrowType;
@@ -355,7 +488,7 @@
                         const now = new Date();
                         const hours = String(now.getHours()).padStart(2, '0');
                         const minutes = String(now.getMinutes()).padStart(2, '0');
-                        timePicker.value = `${hours}:${minutes}`;
+                        timePicker.value = hours + ':' + minutes;
                         updateBorrowDateTime();
                     }
                 }
@@ -373,8 +506,8 @@
             const plannedReturn = document.getElementById('modalPlannedReturn');
             if (timePicker && borrowDateHidden) {
                 const now = new Date();
-                const [hours, minutes] = timePicker.value.split(':').map(Number);
-                now.setHours(hours || 0, minutes || 0, 0, 0);
+                const parts = timePicker.value.split(':').map(Number);
+                now.setHours(parts[0] || 0, parts[1] || 0, 0, 0);
                 borrowDateHidden.value = now.toISOString();
                 if (plannedReturn) {
                     const returnDate = new Date(now);
@@ -384,6 +517,10 @@
             }
         }
     }
+
+    // ============================================================
+    // EVENT LISTENERS
+    // ============================================================
 
     function initEventListeners() {
         document.getElementById('logoutBtn')?.addEventListener('click', handleLogout);
@@ -411,114 +548,32 @@
 
         document.getElementById('myProfileBtn')?.addEventListener('click', openProfileModal);
 
-        document.getElementById('closeProfileModalBtn')?.addEventListener('click', () => {
+        document.getElementById('closeProfileModalBtn')?.addEventListener('click', function() {
             document.getElementById('profileModal').style.display = 'none';
         });
-        document.getElementById('cancelProfileBtn')?.addEventListener('click', () => {
+        document.getElementById('cancelProfileBtn')?.addEventListener('click', function() {
             document.getElementById('profileModal').style.display = 'none';
         });
-        document.getElementById('profileModal')?.addEventListener('click', (e) => {
+        document.getElementById('profileModal')?.addEventListener('click', function(e) {
             if (e.target === document.getElementById('profileModal')) {
                 document.getElementById('profileModal').style.display = 'none';
             }
         });
 
-        document.getElementById('saveProfileBtn')?.addEventListener('click', async () => {
-            const name = document.getElementById('profileName').value.trim();
-            const email = document.getElementById('profileEmail').value.trim();
-            const currentPassword = document.getElementById('profileCurrentPassword').value;
-            const newPassword = document.getElementById('profileNewPassword').value;
-            const errorDiv = document.getElementById('profileError');
-            const successDiv = document.getElementById('profileSuccess');
-
-            errorDiv.style.display = 'none';
-            successDiv.style.display = 'none';
-
-            if (!name || !email || !email.includes('@') || !email.includes('.')) {
-                errorDiv.textContent = !name || !email ? 'Name and email are required.' : 'Please enter a valid email address.';
-                errorDiv.style.display = 'block';
-                return;
-            }
-
-            const btn = document.getElementById('saveProfileBtn');
-            btn.disabled = true;
-            btn.textContent = 'Saving...';
-
-            try {
-                const payload = { name, email };
-                if (newPassword) {
-                    if (!currentPassword) {
-                        errorDiv.textContent = 'Current password is required to change password.';
-                        errorDiv.style.display = 'block';
-                        btn.disabled = false;
-                        btn.textContent = 'Save Changes';
-                        return;
-                    }
-                    payload.current_password = currentPassword;
-                    payload.new_password = newPassword;
-                }
-
-                const res = await authenticatedFetch('/api/user/profile', {
-                    method: 'PUT',
-                    body: JSON.stringify(payload)
-                });
-                const data = await res.json();
-
-                if (res.ok) {
-                    const user = getUser();
-                    if (user) {
-                        user.name = name;
-                        user.email = email;
-                        localStorage.setItem('kms_user', JSON.stringify(user));
-                    }
-                    successDiv.textContent = 'Profile updated successfully!';
-                    successDiv.style.display = 'block';
-                    document.getElementById('profileCurrentPassword').value = '';
-                    document.getElementById('profileNewPassword').value = '';
-                    setTimeout(() => {
-                        document.getElementById('profileModal').style.display = 'none';
-                    }, 2000);
-                } else {
-                    errorDiv.textContent = data.error || 'Failed to update profile.';
-                    errorDiv.style.display = 'block';
-                }
-            } catch (err) {
-                errorDiv.textContent = err.message || 'Network error. Please try again.';
-                errorDiv.style.display = 'block';
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Save Changes';
-            }
-        });
-
-        function openProfileModal() {
-            const modal = document.getElementById('profileModal');
-            if (modal) {
-                const user = getUser();
-                if (user) {
-                    document.getElementById('profileName').value = user.name || '';
-                    document.getElementById('profileEmail').value = user.email || '';
-                }
-                document.getElementById('profileCurrentPassword').value = '';
-                document.getElementById('profileNewPassword').value = '';
-                document.getElementById('profileError').style.display = 'none';
-                document.getElementById('profileSuccess').style.display = 'none';
-                modal.style.display = 'flex';
-            }
-        }
+        document.getElementById('saveProfileBtn')?.addEventListener('click', saveProfile);
 
         document.getElementById('closeNotificationBtn')?.addEventListener('click', closeNotification);
-        document.getElementById('notificationModal')?.addEventListener('click', (e) => {
+        document.getElementById('notificationModal')?.addEventListener('click', function(e) {
             if (e.target === document.getElementById('notificationModal')) closeNotification();
         });
 
-        document.addEventListener('click', (e) => {
+        document.addEventListener('click', function(e) {
             if (activePopover && !activePopover.contains(e.target) && !e.target.closest('.key-card .badge')) {
                 hidePopover();
             }
         });
 
-        document.getElementById('clearBasketBtn')?.addEventListener('click', () => {
+        document.getElementById('clearBasketBtn')?.addEventListener('click', function() {
             if (basket.length) {
                 basket = [];
                 renderBasket();
@@ -530,7 +585,7 @@
         document.getElementById('closeModalBtn')?.addEventListener('click', closeRequestModal);
         document.getElementById('cancelModalBtn')?.addEventListener('click', closeRequestModal);
         document.getElementById('confirmSubmitBtn')?.addEventListener('click', submitRequest);
-        document.getElementById('consentCheckbox')?.addEventListener('change', () => {
+        document.getElementById('consentCheckbox')?.addEventListener('change', function() {
             const confirmBtn = document.getElementById('confirmSubmitBtn');
             if (confirmBtn) {
                 confirmBtn.disabled = !document.getElementById('consentCheckbox').checked;
@@ -543,13 +598,17 @@
         initBorrowToggle();
     }
 
+    // ============================================================
+    // KEYS
+    // ============================================================
+
     async function fetchKeys() {
         try {
             const res = await authenticatedFetch('/api/keys?_=' + Date.now(), {
                 cache: 'no-store',
                 headers: { 'Cache-Control': 'no-cache' }
             });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            if (!res.ok) throw new Error('HTTP ' + res.status);
             allKeys = await res.json();
             renderFilteredGrid();
             const indicator = document.getElementById('onlineIndicator');
@@ -580,9 +639,9 @@
 
     function renderFilteredGrid() {
         let filtered = [...allKeys];
-        if (currentBrandFilter !== 'all') filtered = filtered.filter(k => k.brand === currentBrandFilter);
-        if (currentLoanFilter === 'available') filtered = filtered.filter(k => k.available === true);
-        else if (currentLoanFilter === 'loaned') filtered = filtered.filter(k => k.available === false);
+        if (currentBrandFilter !== 'all') filtered = filtered.filter(function(k) { return k.brand === currentBrandFilter; });
+        if (currentLoanFilter === 'available') filtered = filtered.filter(function(k) { return k.available === true; });
+        else if (currentLoanFilter === 'loaned') filtered = filtered.filter(function(k) { return k.available === false; });
 
         const container = document.getElementById('keysGrid');
         const emptyState = document.getElementById('emptySearchState');
@@ -596,67 +655,65 @@
         }
 
         let html = '';
-        filtered.forEach(key => {
+        filtered.forEach(function(key) {
             const dotColor = getDotColour(key.colour);
             let statusBadge = '';
             const keyStatus = key.status || (key.is_lost ? 'lost' : 'available');
 
             if (keyStatus === 'lost') {
-                statusBadge = `<span class="key-status" style="background:rgba(220,38,38,0.85);">Lost</span>`;
+                statusBadge = '<span class="key-status" style="background:rgba(220,38,38,0.85);">Lost</span>';
             } else if (keyStatus === 'unavailable') {
-                statusBadge = `<span class="key-status" style="background:rgba(100,116,139,0.85);">Unavailable</span>`;
+                statusBadge = '<span class="key-status" style="background:rgba(100,116,139,0.85);">Unavailable</span>';
             } else if (key.pending) {
-                statusBadge = `<span class="key-status" style="background:rgba(245,158,11,0.85);">Pending</span>`;
+                statusBadge = '<span class="key-status" style="background:rgba(245,158,11,0.85);">Pending</span>';
             } else if (key.pending_return) {
-                statusBadge = `<span class="key-status" style="background:rgba(245,158,11,0.85);">Returning</span>`;
+                statusBadge = '<span class="key-status" style="background:rgba(245,158,11,0.85);">Returning</span>';
             } else if (key.available) {
-                statusBadge = `<span class="key-status" style="background:rgba(16,185,129,0.85);">Available</span>`;
+                statusBadge = '<span class="key-status" style="background:rgba(16,185,129,0.85);">Available</span>';
             } else {
-                statusBadge = `<span class="key-status" style="background:rgba(100,116,139,0.85);">On Loan</span>`;
+                statusBadge = '<span class="key-status" style="background:rgba(100,116,139,0.85);">On Loan</span>';
             }
 
             const isLight = isLightColor(dotColor);
             const textColor = isLight ? '#0f172a' : '#ffffff';
             const shadow = isLight ? '0 1px 4px rgba(0,0,0,0.1)' : '0 1px 4px rgba(0,0,0,0.3)';
 
-            html += `
-                <div class="key-card" style="background-color:${dotColor}; color:${textColor}; text-shadow:${shadow};"
-                     data-id="${key.id}" data-code="${escapeHtml(key.code)}" data-brand="${escapeHtml(key.brand)}"
-                     data-available="${key.available}" data-status="${keyStatus}"
-                     data-borrower-name="${escapeHtml(key.borrower_name || '')}" 
-                     data-borrower-email="${escapeHtml(key.borrower_email || '')}" 
-                     data-return-date="${key.planned_return || ''}">
-                    <div class="key-code">${escapeHtml(key.code)}</div>
-                    <div class="key-brand">${escapeHtml(key.brand)}</div>
-                    ${statusBadge}
-                </div>
-            `;
+            html += '<div class="key-card" style="background-color:' + dotColor + '; color:' + textColor + '; text-shadow:' + shadow + ';"'
+                + ' data-id="' + key.id + '" data-code="' + escapeHtml(key.code) + '" data-brand="' + escapeHtml(key.brand) + '"'
+                + ' data-available="' + key.available + '" data-status="' + keyStatus + '"'
+                + ' data-borrower-name="' + escapeHtml(key.borrower_name || '') + '"'
+                + ' data-borrower-email="' + escapeHtml(key.borrower_email || '') + '"'
+                + ' data-return-date="' + (key.planned_return || '') + '">'
+                + '<div class="key-code">' + escapeHtml(key.code) + '</div>'
+                + '<div class="key-brand">' + escapeHtml(key.brand) + '</div>'
+                + statusBadge
+                + '</div>';
         });
         if (container) {
             container.innerHTML = html;
         }
 
-        document.querySelectorAll('.key-card').forEach(card => {
+        document.querySelectorAll('.key-card').forEach(function(card) {
             card.addEventListener('click', function(e) {
                 if (e.target.closest('.key-status') || e.target.closest('.popover')) return;
                 const keyId = parseInt(this.dataset.id);
-                const key = allKeys.find(k => k.id === keyId);
+                const key = allKeys.find(function(k) { return k.id === keyId; });
                 if (key && key.available && key.status !== 'lost' && key.status !== 'unavailable') {
                     addToBasket(key);
                 } else if (key) {
                     const status = key.status || (key.is_lost ? 'lost' : 'unavailable');
                     if (status === 'lost') {
-                        showToast(`${key.code} is marked as lost`, 'warning');
+                        showToast(key.code + ' is marked as lost', 'warning');
                     } else if (status === 'unavailable') {
-                        showToast(`${key.code} is unavailable`, 'warning');
+                        showToast(key.code + ' is unavailable', 'warning');
                     } else {
-                        showToast(`${key.code} is not available for borrowing`, 'warning');
+                        showToast(key.code + ' is not available for borrowing', 'warning');
                     }
                 }
             });
         });
 
-        document.querySelectorAll('.key-card .key-status').forEach(badge => {
+        document.querySelectorAll('.key-card .key-status').forEach(function(badge) {
             const card = badge.closest('.key-card');
             if (!card) return;
             const isAvailable = card.getAttribute('data-available') === 'true';
@@ -677,13 +734,13 @@
     function filterKeysBySearch() {
         const searchInput = document.getElementById('globalSearch');
         const emptyState = document.getElementById('emptySearchState');
-        const query = searchInput?.value.trim().toLowerCase() || '';
+        const query = (searchInput?.value.trim().toLowerCase()) || '';
         const cards = document.querySelectorAll('#keysGrid .key-card');
         let visibleCount = 0;
-        cards.forEach(card => {
+        cards.forEach(function(card) {
             const keyCode = (card.getAttribute('data-code') || '').toLowerCase();
             const borrowerEmail = (card.getAttribute('data-borrower-email') || '').toLowerCase();
-            const matches = query === '' || keyCode.includes(query) || borrowerEmail.includes(query);
+            const matches = query === '' || keyCode.indexOf(query) !== -1 || borrowerEmail.indexOf(query) !== -1;
             if (matches) {
                 card.classList.remove('filter-hidden');
                 visibleCount++;
@@ -697,31 +754,35 @@
         }
     }
 
+    // ============================================================
+    // BASKET
+    // ============================================================
+
     function addToBasket(key) {
         if (!key.available || key.status === 'lost' || key.status === 'unavailable') {
-            showToast(`${key.code} is not available`, 'warning');
+            showToast(key.code + ' is not available', 'warning');
             return;
         }
-        if (basket.some(k => k.id === key.id)) {
-            showToast(`${key.code} already in basket`, 'warning');
+        if (basket.some(function(k) { return k.id === key.id; })) {
+            showToast(key.code + ' already in basket', 'warning');
             return;
         }
         basket.push({ id: key.id, code: key.code, brand: key.brand });
         renderBasket();
-        const card = document.querySelector(`.key-card[data-id='${key.id}']`);
+        const card = document.querySelector('.key-card[data-id="' + key.id + '"]');
         if (card) {
             card.classList.add('ring-2', 'ring-blue-400', 'ring-offset-1');
-            setTimeout(() => card.classList.remove('ring-2', 'ring-blue-400', 'ring-offset-1'), 400);
+            setTimeout(function() { card.classList.remove('ring-2', 'ring-blue-400', 'ring-offset-1'); }, 400);
         }
-        showToast(`${key.code} added to basket`, 'success');
+        showToast(key.code + ' added to basket', 'success');
     }
 
     function removeFromBasket(keyId) {
-        const removed = basket.find(k => k.id === keyId);
+        const removed = basket.find(function(k) { return k.id === keyId; });
         if (removed) {
-            basket = basket.filter(k => k.id !== keyId);
+            basket = basket.filter(function(k) { return k.id !== keyId; });
             renderBasket();
-            showToast(`${removed.code} removed`, 'info');
+            showToast(removed.code + ' removed', 'info');
         }
     }
 
@@ -737,36 +798,36 @@
 
         if (total === 0) {
             if (container) {
-                container.innerHTML = `<div class="p-6 text-center text-slate-400 text-sm">No keys selected. Click on available keys to add.</div>`;
+                container.innerHTML = '<div class="p-6 text-center text-slate-400 text-sm">No keys selected. Click on available keys to add.</div>';
             }
             if (submitBtn) submitBtn.disabled = true;
             return;
         }
 
         if (submitBtn) submitBtn.disabled = false;
-        let html = `<div class="divide-y divide-gray-100">`;
-        basket.forEach(item => {
-            html += `
-                <div class="flex justify-between items-center p-3 hover:bg-slate-50 transition">
-                    <div>
-                        <span class="font-medium text-slate-800">${escapeHtml(item.code)}</span>
-                        <span class="text-xs text-slate-500 ml-1.5">${escapeHtml(item.brand)}</span>
-                    </div>
-                    <button class="remove-item text-rose-500 hover:text-rose-700 transition text-sm font-medium" data-id="${item.id}">Remove</button>
-                </div>
-            `;
+        let html = '<div class="divide-y divide-gray-100">';
+        basket.forEach(function(item) {
+            html += '<div class="flex justify-between items-center p-3 hover:bg-slate-50 transition">'
+                + '<div><span class="font-medium text-slate-800">' + escapeHtml(item.code) + '</span>'
+                + '<span class="text-xs text-slate-500 ml-1.5">' + escapeHtml(item.brand) + '</span></div>'
+                + '<button class="remove-item text-rose-500 hover:text-rose-700 transition text-sm font-medium" data-id="' + item.id + '">Remove</button>'
+                + '</div>';
         });
-        html += `</div>`;
+        html += '</div>';
         if (container) {
             container.innerHTML = html;
         }
 
-        document.querySelectorAll('.remove-item').forEach(btn => {
-            btn.addEventListener('click', () => {
+        document.querySelectorAll('.remove-item').forEach(function(btn) {
+            btn.addEventListener('click', function() {
                 removeFromBasket(parseInt(btn.dataset.id));
             });
         });
     }
+
+    // ============================================================
+    // REQUEST MODAL
+    // ============================================================
 
     function openRequestModal() {
         if (!basket.length) {
@@ -776,7 +837,7 @@
 
         const listContainer = document.getElementById('modalSelectedKeysList');
         if (listContainer) {
-            listContainer.innerHTML = '<ul class="list-disc list-inside">' + basket.map(i => `<li>${escapeHtml(i.code)} (${escapeHtml(i.brand)})</li>`).join('') + '</ul>';
+            listContainer.innerHTML = '<ul class="list-disc list-inside">' + basket.map(function(i) { return '<li>' + escapeHtml(i.code) + ' (' + escapeHtml(i.brand) + ')</li>'; }).join('') + '</ul>';
         }
 
         const user = getUser();
@@ -840,7 +901,7 @@
                 body: JSON.stringify({
                     requester_name: name,
                     requester_email: email,
-                    items: basket.map(i => ({ key_id: i.id, quantity: 1 })),
+                    items: basket.map(function(i) { return { key_id: i.id, quantity: 1 }; }),
                     reason: reason || null,
                     planned_return: planned
                 })
@@ -869,6 +930,10 @@
         }
     }
 
+    // ============================================================
+    // FILTERS
+    // ============================================================
+
     function initFilters() {
         const basketSidebar = document.getElementById('basketSidebar');
 
@@ -880,21 +945,21 @@
             }
         }
 
-        document.querySelectorAll('[data-filter]').forEach(btn => {
-            btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-filter]').forEach(function(btn) {
+            btn.addEventListener('click', function() {
                 const filterValue = btn.getAttribute('data-filter');
                 currentLoanFilter = filterValue;
-                document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('[data-filter]').forEach(function(b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 renderFilteredGrid();
                 updateBasketVisibility(filterValue);
             });
         });
 
-        document.querySelectorAll('.brand-pill').forEach(btn => {
-            btn.addEventListener('click', () => {
+        document.querySelectorAll('.brand-pill').forEach(function(btn) {
+            btn.addEventListener('click', function() {
                 currentBrandFilter = btn.getAttribute('data-brand');
-                document.querySelectorAll('.brand-pill').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.brand-pill').forEach(function(b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 renderFilteredGrid();
             });
@@ -903,13 +968,17 @@
         updateBasketVisibility(currentLoanFilter);
     }
 
+    // ============================================================
+    // RETURN DROPDOWN
+    // ============================================================
+
     function initReturnDropdown() {
         const returnDropdownBtn = document.getElementById('returnDropdownBtn');
         const returnDropdownMenu = document.getElementById('returnDropdownMenu');
         const returnDropdownChevron = document.getElementById('returnDropdownChevron');
 
         if (returnDropdownBtn) {
-            returnDropdownBtn.addEventListener('click', (e) => {
+            returnDropdownBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 if (returnDropdownMenu) {
                     returnDropdownMenu.classList.toggle('hidden');
@@ -921,7 +990,7 @@
             });
         }
 
-        document.addEventListener('click', (e) => {
+        document.addEventListener('click', function(e) {
             const container = document.getElementById('returnDropdownContainer');
             if (container && !container.contains(e.target)) {
                 if (returnDropdownMenu) {
@@ -933,6 +1002,10 @@
             }
         });
     }
+
+    // ============================================================
+    // RETURN MODAL - FIXED: Loads active loans properly
+    // ============================================================
 
     function initReturnModal() {
         const returnModal = document.getElementById('returnModal');
@@ -953,7 +1026,7 @@
             if (activeLoansContainer) activeLoansContainer.innerHTML = '';
         }
 
-        document.getElementById('returnNowBtn')?.addEventListener('click', () => {
+        document.getElementById('returnNowBtn')?.addEventListener('click', function() {
             const menu = document.getElementById('returnDropdownMenu');
             const chevron = document.getElementById('returnDropdownChevron');
             if (menu) menu.classList.add('hidden');
@@ -969,15 +1042,25 @@
 
         document.getElementById('closeReturnModalBtn')?.addEventListener('click', closeReturnModal);
         document.getElementById('closeReturnSuccessBtn')?.addEventListener('click', closeReturnModal);
-        returnModal?.addEventListener('click', (e) => {
+        returnModal?.addEventListener('click', function(e) {
             if (e.target === returnModal) closeReturnModal();
         });
 
         async function autoLoadUserLoans() {
-            const email = getUserEmail();
+            const user = getUser();
+            const email = user?.email || getUserEmail();
+
             if (!email) {
                 if (activeLoansContainer) {
-                    activeLoansContainer.innerHTML = `<div class="p-6 text-center text-amber-600 bg-amber-50 rounded-xl"><p class="font-medium">No email found in your profile.</p><p class="text-sm mt-1">Please update your profile with a valid email address.</p></div>`;
+                    activeLoansContainer.innerHTML = '<div class="p-6 text-center text-amber-600 bg-amber-50 rounded-xl">'
+                        + '<p class="font-medium">No email found in your profile.</p>'
+                        + '<p class="text-sm mt-1">Please update your profile with a valid email address.</p>'
+                        + '<button id="goToProfileBtn" class="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition">Go to Profile</button>'
+                        + '</div>';
+                    document.getElementById('goToProfileBtn')?.addEventListener('click', function() {
+                        closeReturnModal();
+                        openProfileModal();
+                    });
                 }
                 return;
             }
@@ -987,7 +1070,7 @@
             }
 
             try {
-                const response = await authenticatedFetch(`/api/return/active-loans?borrower_email=${encodeURIComponent(email)}&_=${Date.now()}`, {
+                const response = await authenticatedFetch('/api/return/active-loans?borrower_email=' + encodeURIComponent(email) + '&_=' + Date.now(), {
                     cache: 'no-store',
                     headers: { 'Cache-Control': 'no-cache' }
                 });
@@ -996,7 +1079,11 @@
                     const data = await response.json();
                     if (!data || data.length === 0) {
                         if (activeLoansContainer) {
-                            activeLoansContainer.innerHTML = `<div class="p-6 text-center text-slate-500 bg-gray-50 rounded-xl"><svg class="w-10 h-10 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" /></svg><p class="font-medium">No active key loans found.</p><p class="text-sm mt-1">You don't have any borrowed keys at the moment.</p></div>`;
+                            activeLoansContainer.innerHTML = '<div class="p-6 text-center text-slate-500 bg-gray-50 rounded-xl">'
+                                + '<svg class="w-10 h-10 mx-auto mb-2 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">'
+                                + '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />'
+                                + '</svg><p class="font-medium">No active key loans found.</p>'
+                                + '<p class="text-sm mt-1">You don\'t have any borrowed keys at the moment.</p></div>';
                         }
                         const step2Header = document.querySelector('#returnStep2 .flex.justify-between.items-center');
                         if (step2Header) step2Header.style.display = 'none';
@@ -1005,16 +1092,13 @@
                     }
 
                     let loansHtml = '';
-                    data.forEach(loan => {
-                        loansHtml += `
-                            <label class="flex items-start gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-slate-50 transition">
-                                <input type="checkbox" class="loan-return-checkbox mt-0.5" data-loan-id="${loan.id}" data-key-id="${loan.key_id}" />
-                                <div class="flex-1">
-                                    <div class="font-medium text-slate-800">${escapeHtml(loan.key_code)} (${escapeHtml(loan.brand)})</div>
-                                    <div class="text-xs text-slate-500">Borrowed: ${formatDate(loan.borrowed_at)} · Due: ${formatDate(loan.planned_return)}</div>
-                                </div>
-                            </label>
-                        `;
+                    data.forEach(function(loan) {
+                        loansHtml += '<label class="flex items-start gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-slate-50 transition">'
+                            + '<input type="checkbox" class="loan-return-checkbox mt-0.5" data-loan-id="' + loan.id + '" data-key-id="' + loan.key_id + '" />'
+                            + '<div class="flex-1">'
+                            + '<div class="font-medium text-slate-800">' + escapeHtml(loan.key_code) + ' (' + escapeHtml(loan.brand) + ')</div>'
+                            + '<div class="text-xs text-slate-500">Borrowed: ' + formatDate(loan.borrowed_at) + ' · Due: ' + formatDate(loan.planned_return) + '</div>'
+                            + '</div></label>';
                     });
                     if (activeLoansContainer) {
                         activeLoansContainer.innerHTML = loansHtml;
@@ -1023,42 +1107,46 @@
                     if (step2) step2.style.display = 'block';
                     if (step3) step3.style.display = 'none';
 
-                    const checkboxes = () => document.querySelectorAll('.loan-return-checkbox');
-                    const updateSelectAll = () => {
-                        const all = checkboxes();
-                        const allChecked = all.length > 0 && Array.from(all).every(cb => cb.checked);
+                    var checkboxes = function() { return document.querySelectorAll('.loan-return-checkbox'); };
+                    var updateSelectAll = function() {
+                        var all = checkboxes();
+                        var allChecked = all.length > 0 && Array.from(all).every(function(cb) { return cb.checked; });
                         if (selectAllBtn) {
                             selectAllBtn.innerHTML = allChecked ? 'Deselect all' : 'Select all';
                         }
                     };
-                    checkboxes().forEach(cb => cb.addEventListener('change', updateSelectAll));
+                    checkboxes().forEach(function(cb) { cb.addEventListener('change', updateSelectAll); });
 
                     if (selectAllBtn) {
-                        selectAllBtn.onclick = () => {
-                            const all = checkboxes();
-                            const someUnchecked = Array.from(all).some(cb => !cb.checked);
-                            all.forEach(cb => cb.checked = someUnchecked);
+                        selectAllBtn.onclick = function() {
+                            var all = checkboxes();
+                            var someUnchecked = Array.from(all).some(function(cb) { return !cb.checked; });
+                            all.forEach(function(cb) { cb.checked = someUnchecked; });
                             updateSelectAll();
                         };
                     }
                     updateSelectAll();
 
-                    const step2Header = document.querySelector('#returnStep2 .flex.justify-between.items-center');
+                    var step2Header = document.querySelector('#returnStep2 .flex.justify-between.items-center');
                     if (step2Header) step2Header.style.display = 'flex';
                     if (submitReturnBtn) submitReturnBtn.style.display = 'block';
                 } else {
-                    throw new Error(`Server returned status: ${response.status}`);
+                    throw new Error('Server returned status: ' + response.status);
                 }
             } catch (err) {
                 console.error('Return loans error:', err);
                 showToast('Error fetching your active loans. Please try again.', 'error');
                 if (activeLoansContainer) {
-                    activeLoansContainer.innerHTML = `<div class="p-6 text-center text-rose-600 bg-rose-50 rounded-xl"><p class="font-medium">Unable to load your loans.</p><p class="text-sm mt-1">Please refresh the page or contact support.</p></div>`;
+                    activeLoansContainer.innerHTML = '<div class="p-6 text-center text-rose-600 bg-rose-50 rounded-xl">'
+                        + '<p class="font-medium">Unable to load your loans.</p>'
+                        + '<p class="text-sm mt-1">' + escapeHtml(err.message) + '</p>'
+                        + '<button class="mt-3 px-4 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition" onclick="location.reload()">Retry</button>'
+                        + '</div>';
                 }
             }
         }
 
-        submitReturnBtn?.addEventListener('click', async () => {
+        submitReturnBtn?.addEventListener('click', async function() {
             const selected = Array.from(document.querySelectorAll('.loan-return-checkbox:checked'));
             if (!selected.length) {
                 if (returnSelectionError) {
@@ -1069,15 +1157,16 @@
             }
             if (returnSelectionError) returnSelectionError.classList.add('hidden');
 
-            const loanIds = selected.map(cb => parseInt(cb.dataset.loanId));
-            const selectedKeyIds = selected.map(cb => parseInt(cb.dataset.keyId));
+            const loanIds = selected.map(function(cb) { return parseInt(cb.dataset.loanId); });
+            const selectedKeyIds = selected.map(function(cb) { return parseInt(cb.dataset.keyId); });
 
             if (submitReturnBtn) {
                 submitReturnBtn.disabled = true;
                 submitReturnBtn.innerHTML = '<div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div> Processing...';
             }
 
-            const email = getUserEmail();
+            const user = getUser();
+            const email = user?.email || getUserEmail();
 
             try {
                 const res = await authenticatedFetch('/api/return/request', {
@@ -1087,8 +1176,8 @@
                 const data = await res.json();
 
                 if (res.ok) {
-                    allKeys = allKeys.map(key => {
-                        if (selectedKeyIds.includes(key.id)) {
+                    allKeys = allKeys.map(function(key) {
+                        if (selectedKeyIds.indexOf(key.id) !== -1) {
                             return { ...key, pending_return: true, available: false };
                         }
                         return key;
@@ -1117,6 +1206,10 @@
         });
     }
 
+    // ============================================================
+    // REPORT LOST
+    // ============================================================
+
     function initReportLost() {
         const reportLostModal = document.getElementById('reportLostModal');
         const reportLostKeysContainer = document.getElementById('reportLostKeysListContainer');
@@ -1125,7 +1218,7 @@
             if (reportLostModal) reportLostModal.style.display = 'none';
         }
 
-        document.getElementById('reportLostKeyBtn')?.addEventListener('click', () => {
+        document.getElementById('reportLostKeyBtn')?.addEventListener('click', function() {
             const menu = document.getElementById('returnDropdownMenu');
             const chevron = document.getElementById('returnDropdownChevron');
             if (menu) menu.classList.add('hidden');
@@ -1137,15 +1230,20 @@
         });
 
         document.getElementById('closeReportLostModalBtn')?.addEventListener('click', closeReportLostModal);
-        reportLostModal?.addEventListener('click', (e) => {
+        reportLostModal?.addEventListener('click', function(e) {
             if (e.target === reportLostModal) closeReportLostModal();
         });
 
         window.autoLoadLostKeys = async function() {
-            const email = getUserEmail();
+            const user = getUser();
+            const email = user?.email || getUserEmail();
+
             if (!email) {
                 if (reportLostKeysContainer) {
-                    reportLostKeysContainer.innerHTML = `<div class="text-center py-8 text-amber-600">No email found in your profile. Please update your profile.</div>`;
+                    reportLostKeysContainer.innerHTML = '<div class="text-center py-8 text-amber-600">'
+                        + 'No email found in your profile. Please update your profile.'
+                        + '<button class="block mx-auto mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition" onclick="closeReportLostModal(); openProfileModal();">Go to Profile</button>'
+                        + '</div>';
                 }
                 return;
             }
@@ -1155,8 +1253,8 @@
             }
 
             try {
-                const res = await authenticatedFetch(`/api/user/active-borrows?email=${encodeURIComponent(email)}`);
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const res = await authenticatedFetch('/api/user/active-borrows?email=' + encodeURIComponent(email));
+                if (!res.ok) throw new Error('HTTP ' + res.status);
                 const borrows = await res.json();
 
                 if (!borrows.length) {
@@ -1167,23 +1265,20 @@
                 }
 
                 let html = '';
-                for (const b of borrows) {
-                    html += `
-                        <div class="border border-gray-200 rounded-xl p-3 flex justify-between items-center">
-                            <div>
-                                <div class="font-medium text-slate-800">${escapeHtml(b.key_code)} (${escapeHtml(b.brand)})</div>
-                                <div class="text-xs text-slate-500">Borrowed: ${formatDate(b.borrowed_at)} · Due: ${formatDate(b.planned_return)}</div>
-                            </div>
-                            <button class="reportLostFromListBtn bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1.5 rounded-full transition" data-transaction-id="${b.id}" data-key-code="${escapeHtml(b.key_code)}">Report Lost</button>
-                        </div>
-                    `;
+                for (var i = 0; i < borrows.length; i++) {
+                    var b = borrows[i];
+                    html += '<div class="border border-gray-200 rounded-xl p-3 flex justify-between items-center">'
+                        + '<div><div class="font-medium text-slate-800">' + escapeHtml(b.key_code) + ' (' + escapeHtml(b.brand) + ')</div>'
+                        + '<div class="text-xs text-slate-500">Borrowed: ' + formatDate(b.borrowed_at) + ' · Due: ' + formatDate(b.planned_return) + '</div></div>'
+                        + '<button class="reportLostFromListBtn bg-rose-600 hover:bg-rose-700 text-white text-xs px-3 py-1.5 rounded-full transition" data-transaction-id="' + b.id + '" data-key-code="' + escapeHtml(b.key_code) + '">Report Lost</button>'
+                        + '</div>';
                 }
                 if (reportLostKeysContainer) {
                     reportLostKeysContainer.innerHTML = html;
                 }
 
-                document.querySelectorAll('.reportLostFromListBtn').forEach(btn => {
-                    btn.addEventListener('click', () => {
+                document.querySelectorAll('.reportLostFromListBtn').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
                         pendingLostTransaction = { id: parseInt(btn.dataset.transactionId), code: btn.dataset.keyCode };
                         const modal = document.getElementById('confirmLostModal');
                         if (modal) {
@@ -1195,7 +1290,7 @@
             } catch (err) {
                 console.error('Load borrowed keys for lost report error:', err);
                 if (reportLostKeysContainer) {
-                    reportLostKeysContainer.innerHTML = `<div class="text-center py-8 text-rose-600">Error loading borrowed keys. Please try again.</div>`;
+                    reportLostKeysContainer.innerHTML = '<div class="text-center py-8 text-rose-600">Error loading borrowed keys. Please try again.</div>';
                 }
             }
         };
@@ -1208,10 +1303,11 @@
             pendingLostTransaction = null;
         }
 
-        document.getElementById('confirmLostBtn')?.addEventListener('click', async () => {
+        document.getElementById('confirmLostBtn')?.addEventListener('click', async function() {
             if (!pendingLostTransaction) return;
-            const { id, code } = pendingLostTransaction;
-            const btn = document.querySelector(`.reportLostFromListBtn[data-transaction-id="${id}"]`);
+            const id = pendingLostTransaction.id;
+            const code = pendingLostTransaction.code;
+            const btn = document.querySelector('.reportLostFromListBtn[data-transaction-id="' + id + '"]');
             const originalText = btn?.innerHTML;
             if (btn) {
                 btn.disabled = true;
@@ -1219,11 +1315,11 @@
             }
 
             try {
-                const res = await authenticatedFetch(`/api/user/transactions/${id}/lost`, { method: 'POST' });
+                const res = await authenticatedFetch('/api/user/transactions/' + id + '/lost', { method: 'POST' });
                 const data = await res.json();
 
                 if (res.ok) {
-                    showNotification('Key Reported Lost', `The key ${code} has been marked as lost. A Key Replacement Fee of 50 SGD has been applied.`, 'warning');
+                    showNotification('Key Reported Lost', 'The key ' + code + ' has been marked as lost. A Key Replacement Fee of 50 SGD has been applied.', 'warning');
                     await fetchKeys();
                     closeLostConfirmModal();
                     const reportLostModal = document.getElementById('reportLostModal');
@@ -1231,7 +1327,7 @@
                         const container = document.getElementById('reportLostKeysListContainer');
                         if (container) {
                             container.innerHTML = '<div class="text-center py-8"><div class="spinner"></div> Refreshing...</div>';
-                            setTimeout(() => {
+                            setTimeout(function() {
                                 if (window.autoLoadLostKeys) {
                                     window.autoLoadLostKeys();
                                 }
@@ -1251,13 +1347,17 @@
         });
 
         document.getElementById('cancelLostBtn')?.addEventListener('click', closeLostConfirmModal);
-        document.getElementById('confirmLostModal')?.addEventListener('click', (e) => {
+        document.getElementById('confirmLostModal')?.addEventListener('click', function(e) {
             if (e.target === document.getElementById('confirmLostModal')) closeLostConfirmModal();
         });
     }
 
+    // ============================================================
+    // EXTENSION MODAL
+    // ============================================================
+
     function initExtensionModal() {
-        document.getElementById('extensionRequestBtn')?.addEventListener('click', () => {
+        document.getElementById('extensionRequestBtn')?.addEventListener('click', function() {
             const menu = document.getElementById('returnDropdownMenu');
             const chevron = document.getElementById('returnDropdownChevron');
             if (menu) menu.classList.add('hidden');
@@ -1267,18 +1367,22 @@
             autoLoadExtensionLoans();
         });
 
-        document.getElementById('closeExtensionModalBtn')?.addEventListener('click', () => {
+        document.getElementById('closeExtensionModalBtn')?.addEventListener('click', function() {
             const modal = document.getElementById('extensionModal');
             if (modal) modal.style.display = 'none';
         });
 
         async function autoLoadExtensionLoans() {
-            const email = getUserEmail();
+            const user = getUser();
+            const email = user?.email || getUserEmail();
             const container = document.getElementById('extensionLoansContainer');
 
             if (!email) {
                 if (container) {
-                    container.innerHTML = '<div class="text-center py-8 text-amber-600">No email found in your profile. Please update your profile.</div>';
+                    container.innerHTML = '<div class="text-center py-8 text-amber-600">'
+                        + 'No email found in your profile. Please update your profile.'
+                        + '<button class="block mx-auto mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition" onclick="closeExtensionModal(); openProfileModal();">Go to Profile</button>'
+                        + '</div>';
                 }
                 return;
             }
@@ -1288,7 +1392,7 @@
             }
 
             try {
-                const res = await authenticatedFetch(`/api/user/active-borrows?email=${encodeURIComponent(email)}`);
+                const res = await authenticatedFetch('/api/user/active-borrows?email=' + encodeURIComponent(email));
                 if (!res.ok) throw new Error('Failed to load loans');
                 const loans = await res.json();
 
@@ -1300,27 +1404,22 @@
                 }
 
                 let html = '<div class="space-y-2">';
-                loans.forEach(loan => {
-                    html += `
-                        <div class="extension-item p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-purple-50 transition" data-transaction-id="${loan.id}">
-                            <div class="flex justify-between items-center">
-                                <div>
-                                    <div class="font-medium text-slate-800">${escapeHtml(loan.key_code)}</div>
-                                    <div class="text-xs text-slate-500">${escapeHtml(loan.brand)} · Due: ${formatDate(loan.planned_return)}</div>
-                                </div>
-                                <span class="text-xs text-slate-400">Select</span>
-                            </div>
-                        </div>
-                    `;
+                loans.forEach(function(loan) {
+                    html += '<div class="extension-item p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-purple-50 transition" data-transaction-id="' + loan.id + '">'
+                        + '<div class="flex justify-between items-center">'
+                        + '<div><div class="font-medium text-slate-800">' + escapeHtml(loan.key_code) + '</div>'
+                        + '<div class="text-xs text-slate-500">' + escapeHtml(loan.brand) + ' · Due: ' + formatDate(loan.planned_return) + '</div></div>'
+                        + '<span class="text-xs text-slate-400">Select</span>'
+                        + '</div></div>';
                 });
                 html += '</div>';
                 if (container) {
                     container.innerHTML = html;
                 }
 
-                document.querySelectorAll('.extension-item').forEach(item => {
+                document.querySelectorAll('.extension-item').forEach(function(item) {
                     item.addEventListener('click', function() {
-                        document.querySelectorAll('.extension-item').forEach(el => el.classList.remove('selected', 'border-purple-400', 'bg-purple-50'));
+                        document.querySelectorAll('.extension-item').forEach(function(el) { el.classList.remove('selected', 'border-purple-400', 'bg-purple-50'); });
                         this.classList.add('selected', 'border-purple-400', 'bg-purple-50');
                         const selectionArea = document.getElementById('extensionSelectionArea');
                         if (selectionArea) selectionArea.style.display = 'block';
@@ -1398,10 +1497,25 @@
         });
     }
 
+    // ============================================================
+    // POLLING & INIT
+    // ============================================================
+
     function startPolling() {
         if (pollInterval) clearInterval(pollInterval);
         fetchKeys();
         pollInterval = setInterval(fetchKeys, 5000);
+    }
+
+    // FIX: Admin portal button visibility - only show for admin users
+    function updateAdminMenuVisibility() {
+        const adminMenuItems = document.querySelectorAll('.mobile-menu-item[href="/admin"]');
+        const isUserAdmin = isAdmin();
+        adminMenuItems.forEach(function(item) {
+            if (item) {
+                item.style.display = isUserAdmin ? 'flex' : 'none';
+            }
+        });
     }
 
     async function init() {
@@ -1412,6 +1526,9 @@
 
             if (loadingContainer) loadingContainer.style.display = 'none';
             if (mainContentWrapper) mainContentWrapper.style.display = 'block';
+
+            // FIX: Update admin menu visibility based on role
+            updateAdminMenuVisibility();
 
             await ensureCsrfToken();
             initEventListeners();

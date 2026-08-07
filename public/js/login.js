@@ -2,59 +2,106 @@
     'use strict';
 
     let isRedirecting = false;
-    let sessionCheckDone = false; // Prevent multiple session checks
+    let sessionCheckDone = false;
 
-    function redirectToLogin() {
+    // Force clear all client-side data
+    function forceClearAll() {
+        try {
+            localStorage.clear();
+        } catch(e) {
+            console.warn('localStorage clear failed:', e);
+        }
+        
+        try {
+            sessionStorage.clear();
+        } catch(e) {
+            console.warn('sessionStorage clear failed:', e);
+        }
+        
+        try {
+            document.cookie.split(";").forEach(function(c) {
+                document.cookie = c.replace(/^ +/, "")
+                    .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                document.cookie = c.replace(/^ +/, "")
+                    .replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/;domain=" + window.location.hostname);
+            });
+        } catch(e) {
+            console.warn('Cookie clear failed:', e);
+        }
+    }
+
+    function redirectToLogin(force) {
         if (isRedirecting) return;
         isRedirecting = true;
-        localStorage.removeItem('kms_token');
-        localStorage.removeItem('kms_user');
-        sessionStorage.clear();
-        document.cookie.split(";").forEach(function(c) {
-            document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
-        });
-        window.location.href = '/login?t=' + Date.now();
+        forceClearAll();
+        const url = force ? '/login?force=true&t=' + Date.now() : '/login?t=' + Date.now();
+        window.location.replace(url);
     }
 
     async function checkSessionAndRedirect() {
-        // FIX: Prevent multiple simultaneous session checks
+        // Check if we're on login page and have force parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('force') || urlParams.has('forced') || urlParams.has('logout')) {
+            // Force clear everything and stay on login page
+            forceClearAll();
+            // Clean URL
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+            return false;
+        }
+
+        // Check if token exists - if not, stay on login
+        const token = localStorage.getItem('kms_token');
+        if (!token) {
+            return false;
+        }
+
         if (sessionCheckDone) return false;
         sessionCheckDone = true;
 
         try {
             const response = await fetch('/api/auth/check-session', {
                 credentials: 'include',
-                headers: { 'Accept': 'application/json' }
+                headers: { 
+                    'Accept': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                }
             });
-            if (!response.ok) return false;
+
+            if (!response.ok) {
+                // Session invalid, clear storage
+                forceClearAll();
+                return false;
+            }
+
             const data = await response.json();
             
-            // FIX: Only redirect if authenticated and user data is valid
             if (data.authenticated && data.user) {
-                // Don't redirect if already on the page we're trying to go to
                 const currentPath = window.location.pathname;
                 const targetPath = data.user.role === 'admin' ? '/admin' : '/';
                 
-                // FIX: Prevent redirect loop - check if already on target
+                // Prevent redirect loop - check if already on target
                 if (currentPath === targetPath || 
                     (targetPath === '/admin' && currentPath.startsWith('/admin')) ||
                     (targetPath === '/' && currentPath === '/')) {
                     return true;
                 }
                 
+                // Store user data
                 localStorage.setItem('kms_user', JSON.stringify(data.user));
-                // Also store token if available from session
                 if (data.token) {
                     localStorage.setItem('kms_token', data.token);
                 }
+                
                 isRedirecting = true;
-                window.location.href = targetPath;
+                window.location.replace(targetPath);
                 return true;
             }
             return false;
         } catch (error) {
             console.error('Session check error:', error);
-            sessionCheckDone = false; // Allow retry on error
+            sessionCheckDone = false;
+            // On error, don't redirect - stay on login page
             return false;
         }
     }
@@ -67,8 +114,17 @@
     }
 
     async function init() {
-        // FIX: Check if we're already on login page to prevent redirect loop
+        // Check if we're on login page
         if (window.location.pathname === '/login' || window.location.pathname === '/login/') {
+            // Check for force parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('force') || urlParams.has('forced') || urlParams.has('logout')) {
+                forceClearAll();
+                // Clean URL
+                const newUrl = window.location.pathname;
+                window.history.replaceState({}, document.title, newUrl);
+            }
+
             await ensureCsrfToken();
             const isRedirected = await checkSessionAndRedirect();
             if (!isRedirected && !isRedirecting) {
@@ -76,8 +132,32 @@
                 initializeEventListeners();
             }
         } else {
-            // If not on login page, redirect to login
-            redirectToLogin();
+            // If not on login page, check if we have a valid session
+            const token = localStorage.getItem('kms_token');
+            if (!token) {
+                redirectToLogin(true);
+            } else {
+                // Verify session
+                try {
+                    const response = await fetch('/api/auth/check-session', {
+                        credentials: 'include',
+                        headers: { 
+                            'Accept': 'application/json',
+                            'Authorization': 'Bearer ' + token
+                        }
+                    });
+                    if (!response.ok) {
+                        redirectToLogin(true);
+                    } else {
+                        const data = await response.json();
+                        if (!data.authenticated) {
+                            redirectToLogin(true);
+                        }
+                    }
+                } catch (error) {
+                    redirectToLogin(true);
+                }
+            }
         }
     }
 
@@ -263,10 +343,10 @@
                         const user = data.user || { username, role: data.role || 'user', name: data.name || username };
                         localStorage.setItem('kms_user', JSON.stringify(user));
                         if (data.mustChangePassword) {
-                            window.location.href = '/change-password';
+                            window.location.replace('/change-password');
                             return;
                         }
-                        window.location.href = data.role === 'admin' ? '/admin' : '/';
+                        window.location.replace(data.role === 'admin' ? '/admin' : '/');
                         return;
                     }
 
@@ -570,13 +650,11 @@
         }
     }
 
-    // FIX: Ensure CSRF token functions are available
-    // These should be defined in csrf.js but adding a fallback
+    // CSRF token functions with fallback
     async function ensureCsrfToken() {
         if (typeof window.ensureCsrfToken === 'function') {
             return await window.ensureCsrfToken();
         }
-        // Fallback: try to fetch CSRF token
         try {
             const response = await fetch('/api/csrf-token', {
                 credentials: 'include',
@@ -600,6 +678,12 @@
         }
         return window.csrfToken || await ensureCsrfToken();
     }
+
+    // Expose force logout function globally
+    window.forceLogout = function() {
+        forceClearAll();
+        window.location.replace('/login?force=true&t=' + Date.now());
+    };
 
     document.addEventListener('DOMContentLoaded', init);
 })();
